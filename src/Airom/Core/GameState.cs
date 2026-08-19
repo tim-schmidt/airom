@@ -50,6 +50,18 @@ public sealed class GameState
     /// </summary>
     public int DungeonLevel { get; set; }
 
+    /// <summary>
+    /// Serial number stamped into each pile of missiles, so two otherwise
+    /// identical piles do not merge in the inventory. It wraps rather than
+    /// saturating, which is why it is signed and allowed to go negative.
+    /// </summary>
+    public int MissileCounter { get; set; }
+
+    /// <summary>Turns freshly generated items into specific enchanted ones.</summary>
+    public Enchantment Enchantment => _enchantment ??= new Enchantment(this);
+
+    private Enchantment? _enchantment;
+
     /// <summary>Umoria's MAX_HEIGHT: rows in a dungeon level.</summary>
     public const int DungeonHeight = 66;
 

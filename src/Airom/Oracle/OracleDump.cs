@@ -582,6 +582,73 @@ public static class OracleDump
     }
 
     /// <summary>
+    /// Objects generated and enchanted at a given depth.
+    ///
+    /// magic_treasure is the largest function in Umoria and almost every branch
+    /// ends in a different combination of bonuses, flags, charges and price, so
+    /// the dump reports the whole item rather than a summary. Running it over
+    /// many items at several depths reaches most of the switch: the chance of
+    /// any magic at all, of something special, and of a curse all move with
+    /// depth.
+    /// </summary>
+    public static void DumpEnchanted(TextWriter output, uint seed, int level, int count)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+
+        Header(output, "enchanted", seed);
+        output.Write("level " + level.ToString(CultureInfo.InvariantCulture) + "\n");
+        output.Write("count " + count.ToString(CultureInfo.InvariantCulture) + "\n");
+
+        var game = new GameState();
+        game.InitSeeds(seed);
+        game.MagicInit();
+        game.DungeonLevel = level;
+        game.Objects.Reset();
+
+        var generator = new DungeonGenerator(game);
+
+        // One slot, reused: each item is fully overwritten before enchanting,
+        // and allocating a fresh one per item would exhaust the list.
+        InvenType item = game.Objects[ObjectPool.FirstIndex];
+
+        for (int i = 0; i < count; i++)
+        {
+            int pick = generator.GetObjectNumber(level, mustBeSmall: false);
+            item.CopyFrom(ObjectLevels.Sorted[pick]);
+            game.Enchantment.Apply(item, level);
+
+            output.Write(string.Join(
+                ' ',
+                "item",
+                i.ToString(CultureInfo.InvariantCulture),
+                ObjectLevels.Sorted[pick].ToString(CultureInfo.InvariantCulture),
+                item.TVal.ToString(CultureInfo.InvariantCulture),
+                item.SubVal.ToString(CultureInfo.InvariantCulture),
+                item.P1.ToString(CultureInfo.InvariantCulture),
+                item.Cost.ToString(CultureInfo.InvariantCulture),
+                item.Number.ToString(CultureInfo.InvariantCulture),
+                item.Weight.ToString(CultureInfo.InvariantCulture),
+                item.ToHit.ToString(CultureInfo.InvariantCulture),
+                item.ToDam.ToString(CultureInfo.InvariantCulture),
+                item.Ac.ToString(CultureInfo.InvariantCulture),
+                item.ToAc.ToString(CultureInfo.InvariantCulture),
+                item.Level.ToString(CultureInfo.InvariantCulture),
+                item.Flags.ToString(CultureInfo.InvariantCulture)) + "\n");
+
+            output.Write(string.Join(
+                ' ',
+                "item-extra",
+                i.ToString(CultureInfo.InvariantCulture),
+                item.SpecialName.ToString(CultureInfo.InvariantCulture),
+                item.Identification.ToString(CultureInfo.InvariantCulture)) + "\n");
+        }
+
+        output.Write("missile-counter "
+            + game.MissileCounter.ToString(CultureInfo.InvariantCulture) + "\n");
+        Line(output, "final-state", game.Rng.State);
+    }
+
+    /// <summary>
     /// One character per terrain value, matching feature_char() in the C oracle.
     /// Every distinct value gets a distinct character so the dump stays exact
     /// while still being readable.
@@ -711,6 +778,18 @@ public static class OracleDump
                 DumpPicks(output, pkSeed, pkLevel, pkCount);
                 return 0;
 
+            case "enchanted":
+                if (arguments.Length != 4
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint enSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int enLevel)
+                    || !int.TryParse(arguments[3], CultureInfo.InvariantCulture, out int enCount))
+                {
+                    return Usage(error);
+                }
+
+                DumpEnchanted(output, enSeed, enLevel, enCount);
+                return 0;
+
             case "cave":
                 error.WriteLine(
                     "oracle: 'cave' needs the dungeon generator, which is not ported yet.");
@@ -732,6 +811,7 @@ public static class OracleDump
         error.WriteLine("  airom oracle tunnels <seed> <level>  rooms joined by corridors");
         error.WriteLine("  airom oracle stairs <seed> <level>  the whole terrain half of cave_gen");
         error.WriteLine("  airom oracle picks <seed> <level> <count>  object sort and get_obj_num");
+        error.WriteLine("  airom oracle enchanted <seed> <level> <count>  magic_treasure");
         return 2;
     }
 }

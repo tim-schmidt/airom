@@ -771,6 +771,67 @@ static void dump_picks(unsigned long seed, int level, int count)
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* ------------------------------------------------------------- enchanted */
+
+/* Objects generated and enchanted at a given depth.
+
+   magic_treasure is the largest function in Umoria and almost every branch
+   ends in a different combination of bonuses, flags, charges and price, so the
+   dump reports the whole item rather than a summary. Running it over many
+   items at several depths reaches most of the switch: the chance of any magic
+   at all, of something special, and of a curse all move with depth. */
+static void dump_enchanted(unsigned long seed, int level, int count)
+{
+  int i, cur_pos;
+
+  header("enchanted", seed);
+  printf("level %d\n", level);
+  printf("count %d\n", count);
+
+  probe_init_t_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+  pin_player(level);
+  dun_level = (int16)level;
+
+  probe_tlink();
+
+  for (i = 0; i < count; i++)
+    {
+      inven_type *t;
+      int pick;
+
+      /* popt would run the list out; reuse one slot instead, since each item
+         is fully overwritten by invcopy before being enchanted. */
+      cur_pos = MIN_TRIX;
+      pick = get_obj_num(level, FALSE);
+      invcopy(&t_list[cur_pos], sorted_objects[pick]);
+      magic_treasure(cur_pos, level);
+
+      t = &t_list[cur_pos];
+      printf("item %d %d %d %d %d %ld %d %d %d %d %d %d %d %lu\n",
+             i,
+             (int)sorted_objects[pick],
+             (int)t->tval,
+             (int)t->subval,
+             (int)t->p1,
+             (long)t->cost,
+             (int)t->number,
+             (int)t->weight,
+             (int)t->tohit,
+             (int)t->todam,
+             (int)t->ac,
+             (int)t->toac,
+             (int)t->level,
+             (unsigned long)t->flags);
+      printf("item-extra %d %d %d\n", i, (int)t->name2, (int)t->ident);
+    }
+
+  printf("missile-counter %d\n", (int)missile_ctr);
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ---------------------------------------------------------------- driver */
 
 static int usage(void)
@@ -784,7 +845,8 @@ static int usage(void)
           "  oracle rooms <seed> <level> <type>  one room builder\n"
           "  oracle tunnels <seed> <level>  rooms joined by corridors\n"
           "  oracle stairs <seed> <level>  the whole terrain half of cave_gen\n"
-          "  oracle picks <seed> <level> <count>  object sort and get_obj_num\n");
+          "  oracle picks <seed> <level> <count>  object sort and get_obj_num\n"
+          "  oracle enchanted <seed> <level> <count>  magic_treasure\n");
   return 2;
 }
 
@@ -868,6 +930,18 @@ int main(int argc, char *argv[])
       dump_picks(strtoul(argv[2], NULL, 10),
                  (int)strtol(argv[3], NULL, 10),
                  (int)strtol(argv[4], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "enchanted") == 0)
+    {
+      if (argc != 5)
+        {
+          return usage();
+        }
+      dump_enchanted(strtoul(argv[2], NULL, 10),
+                     (int)strtol(argv[3], NULL, 10),
+                     (int)strtol(argv[4], NULL, 10));
       return 0;
     }
 

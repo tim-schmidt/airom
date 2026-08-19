@@ -861,6 +861,27 @@ public sealed class DungeonGenerator(GameState game)
     }
 
     /// <summary>
+    /// Generates and enchants an object on a square. Mirrors place_object() in
+    /// misc3.c.
+    ///
+    /// Two steps: <see cref="GetObjectNumber"/> decides which item this is, then
+    /// the enchantment decides what it became. Both draw from the generator, in
+    /// that order.
+    /// </summary>
+    /// <param name="mustBeSmall">True when the object has to fit in a chest.</param>
+    public void PlaceObject(int row, int column, bool mustBeSmall)
+    {
+        int slot = _game.Objects.Allocate();
+        Cave[row, column].ObjectIndex = slot;
+
+        int pick = GetObjectNumber(_game.DungeonLevel, mustBeSmall);
+        InvenType item = _game.Objects[slot];
+        item.CopyFrom(ObjectLevels.Sorted[pick]);
+
+        _game.Enchantment.Apply(item, _game.DungeonLevel);
+    }
+
+    /// <summary>
     /// Whether a room built at this depth is lit. Mirrors the test the room
     /// builders open with: shallow levels are almost always lit, and by depth 25
     /// a lit room is impossible.
