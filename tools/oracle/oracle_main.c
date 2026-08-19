@@ -47,6 +47,8 @@ extern void probe_place_boundary(void);
 extern void probe_place_streamer(int fval, int treas_chance);
 extern void probe_tlink(void);
 extern void probe_mlink(void);
+extern void probe_build_room(int yval, int xval);
+extern void probe_build_type1(int yval, int xval);
 
 /* Windows stdio opens stdout in text mode and rewrites every "\n" as "\r\n",
    which would make all output differ from the C# side on line endings alone.
@@ -359,6 +361,107 @@ static void dump_streamers(unsigned long seed, int level)
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* ----------------------------------------------------------------- rooms */
+
+/* One room builder, exercised over the whole grid of room slots cave_gen
+   would use.
+
+   Rooms are placed at the same coordinates the real generator picks - the room
+   grid is spaced half a screen apart - so the builders see the same kind of
+   positions they will in a finished level, while the choice of which builder
+   runs stays fixed instead of being drawn. That keeps the comparison pointed at
+   one function at a time.
+
+   Type 0 is build_room, the plain rectangle. Type 1 is build_type1, two or
+   three overlapping rectangles. */
+static void dump_rooms(unsigned long seed, int level, int type)
+{
+  int i, j, k;
+  char *row;
+
+  header("rooms", seed);
+  printf("level %d\n", level);
+  printf("type %d\n", type);
+
+  init_seeds((int32u)seed);
+  magic_init();
+  pin_player(level);
+  dun_level = (int16)level;
+
+  probe_tlink();
+  probe_mlink();
+  probe_blank_cave();
+
+  cur_height = MAX_HEIGHT;
+  cur_width = MAX_WIDTH;
+
+  for (i = 0; i < 2 * (cur_height / SCREEN_HEIGHT); i++)
+    {
+      for (j = 0; j < 2 * (cur_width / SCREEN_WIDTH); j++)
+        {
+          int yloc = i * (SCREEN_HEIGHT >> 1) + QUART_HEIGHT;
+          int xloc = j * (SCREEN_WIDTH >> 1) + QUART_WIDTH;
+
+          if (type == 0)
+            {
+              probe_build_room(yloc, xloc);
+            }
+          else
+            {
+              probe_build_type1(yloc, xloc);
+            }
+        }
+    }
+
+  probe_fill_cave(GRANITE_WALL);
+  probe_place_boundary();
+
+  printf("height %d\n", (int)cur_height);
+  printf("width %d\n", (int)cur_width);
+
+  row = (char *)malloc((size_t)cur_width + 1);
+  if (row == NULL)
+    {
+      fprintf(stderr, "oracle: out of memory\n");
+      exit(2);
+    }
+
+  for (i = 0; i < cur_height; i++)
+    {
+      for (j = 0; j < cur_width; j++)
+        {
+          row[j] = feature_char((int)cave[i][j].fval);
+        }
+      row[cur_width] = '\0';
+      printf("row %d %s\n", i, row);
+    }
+
+  /* lr marks a square as part of a room, which the builders set alongside the
+     terrain. Getting the shape right while getting this wrong would leave rooms
+     that never light up. */
+  for (i = 0; i < cur_height; i++)
+    {
+      k = 0;
+      for (j = 0; j < cur_width; j++)
+        {
+          row[j] = cave[i][j].lr ? 'L' : '.';
+          if (cave[i][j].lr)
+            {
+              k++;
+            }
+        }
+      row[cur_width] = '\0';
+      if (k > 0)
+        {
+          printf("lit %d %s\n", i, row);
+        }
+    }
+
+  free(row);
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ---------------------------------------------------------------- driver */
 
 static int usage(void)
@@ -368,7 +471,8 @@ static int usage(void)
           "  oracle rng   <seed> <count>   raw generator values\n"
           "  oracle seeds <seed>           seeding chain and magic_init\n"
           "  oracle cave  <seed> <level>   a generated dungeon level\n"
-          "  oracle streamers <seed> <level>  terrain primitives only\n");
+          "  oracle streamers <seed> <level>  terrain primitives only\n"
+          "  oracle rooms <seed> <level> <type>  one room builder\n");
   return 2;
 }
 
@@ -408,6 +512,18 @@ int main(int argc, char *argv[])
           return usage();
         }
       dump_streamers(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "rooms") == 0)
+    {
+      if (argc != 5)
+        {
+          return usage();
+        }
+      dump_rooms(strtoul(argv[2], NULL, 10),
+                 (int)strtol(argv[3], NULL, 10),
+                 (int)strtol(argv[4], NULL, 10));
       return 0;
     }
 

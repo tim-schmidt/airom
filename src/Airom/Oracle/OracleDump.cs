@@ -185,6 +185,104 @@ public static class OracleDump
     }
 
     /// <summary>
+    /// One room builder, exercised over the whole grid of room slots the real
+    /// generator would use.
+    ///
+    /// Rooms are placed at the coordinates cave_gen picks - the room grid is
+    /// spaced half a screen apart - so the builders see realistic positions,
+    /// while which builder runs stays fixed rather than being drawn. That keeps
+    /// the comparison pointed at one function at a time.
+    /// </summary>
+    /// <param name="type">0 for the plain rectangle, 1 for overlapping ones.</param>
+    public static void DumpRooms(TextWriter output, uint seed, int level, int type)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+
+        Header(output, "rooms", seed);
+        output.Write("level " + level.ToString(CultureInfo.InvariantCulture) + "\n");
+        output.Write("type " + type.ToString(CultureInfo.InvariantCulture) + "\n");
+
+        var game = new GameState();
+        game.InitSeeds(seed);
+        game.MagicInit();
+        game.DungeonLevel = level;
+
+        game.Objects.Reset();
+        game.Cave.Resize(GameState.DungeonHeight, GameState.DungeonWidth);
+        game.Cave.Blank();
+
+        var generator = new DungeonGenerator(game);
+        Cave cave = game.Cave;
+
+        // The room grid: half a screen apart, offset a quarter screen in.
+        // SCREEN_HEIGHT and SCREEN_WIDTH are the viewport, which is also what
+        // Umoria spaces rooms by.
+        const int ScreenHeight = 22;
+        const int ScreenWidth = 66;
+
+        for (int i = 0; i < 2 * (cave.Height / ScreenHeight); i++)
+        {
+            for (int j = 0; j < 2 * (cave.Width / ScreenWidth); j++)
+            {
+                int row = (i * (ScreenHeight >> 1)) + (ScreenHeight / 4);
+                int column = (j * (ScreenWidth >> 1)) + (ScreenWidth / 4);
+
+                if (type == 0)
+                {
+                    generator.BuildRoom(row, column);
+                }
+                else
+                {
+                    generator.BuildOverlappingRoom(row, column);
+                }
+            }
+        }
+
+        generator.FillCave(CaveFeature.GraniteWall);
+        generator.PlaceBoundary();
+
+        output.Write("height " + cave.Height.ToString(CultureInfo.InvariantCulture) + "\n");
+        output.Write("width " + cave.Width.ToString(CultureInfo.InvariantCulture) + "\n");
+
+        var line = new char[cave.Width];
+        for (int y = 0; y < cave.Height; y++)
+        {
+            for (int x = 0; x < cave.Width; x++)
+            {
+                line[x] = FeatureChar(cave[y, x].Feature);
+            }
+
+            output.Write(
+                "row " + y.ToString(CultureInfo.InvariantCulture) + " " + new string(line) + "\n");
+        }
+
+        // LitRoom marks a square as part of a room. Getting the shape right
+        // while getting this wrong would leave rooms that never light up.
+        for (int y = 0; y < cave.Height; y++)
+        {
+            int lit = 0;
+            for (int x = 0; x < cave.Width; x++)
+            {
+                bool isLit = cave[y, x].LitRoom;
+                line[x] = isLit ? 'L' : '.';
+                if (isLit)
+                {
+                    lit++;
+                }
+            }
+
+            if (lit > 0)
+            {
+                output.Write(
+                    "lit " + y.ToString(CultureInfo.InvariantCulture)
+                    + " " + new string(line) + "\n");
+            }
+        }
+
+        Line(output, "final-state", game.Rng.State);
+    }
+
+    /// <summary>
     /// One character per terrain value, matching feature_char() in the C oracle.
     /// Every distinct value gets a distinct character so the dump stays exact
     /// while still being readable.
@@ -268,6 +366,18 @@ public static class OracleDump
                 DumpStreamers(output, streamSeed, streamLevel);
                 return 0;
 
+            case "rooms":
+                if (arguments.Length != 4
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint roomSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int roomLevel)
+                    || !int.TryParse(arguments[3], CultureInfo.InvariantCulture, out int roomType))
+                {
+                    return Usage(error);
+                }
+
+                DumpRooms(output, roomSeed, roomLevel, roomType);
+                return 0;
+
             case "cave":
                 error.WriteLine(
                     "oracle: 'cave' needs the dungeon generator, which is not ported yet.");
@@ -285,6 +395,7 @@ public static class OracleDump
         error.WriteLine("  airom oracle seeds <seed>           seeding chain and magic_init");
         error.WriteLine("  airom oracle cave  <seed> <level>   a generated dungeon level");
         error.WriteLine("  airom oracle streamers <seed> <level>  terrain primitives only");
+        error.WriteLine("  airom oracle rooms <seed> <level> <type>  one room builder");
         return 2;
     }
 }

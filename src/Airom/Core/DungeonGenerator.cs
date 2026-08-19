@@ -165,6 +165,119 @@ public sealed class DungeonGenerator(GameState game)
     }
 
     /// <summary>
+    /// Whether a room built at this depth is lit. Mirrors the test the room
+    /// builders open with: shallow levels are almost always lit, and by depth 25
+    /// a lit room is impossible.
+    /// </summary>
+    private byte RoomFloor() =>
+        _game.DungeonLevel <= Rng.RandInt(25)
+            ? CaveFeature.LightFloor
+            : CaveFeature.DarkFloor;
+
+    /// <summary>
+    /// Carves one rectangular room with a granite wall around it. Mirrors
+    /// build_room().
+    ///
+    /// The room is drawn around the given centre, extending further left and
+    /// right than up and down - the original notes the x dimension "tends to be
+    /// much larger than the y dim". The four draws happen in a fixed order and
+    /// each shifts the generator, so they cannot be rearranged.
+    /// </summary>
+    public void BuildRoom(int centreRow, int centreColumn)
+    {
+        byte floor = RoomFloor();
+
+        int top = centreRow - Rng.RandInt(4);
+        int bottom = centreRow + Rng.RandInt(3);
+        int left = centreColumn - Rng.RandInt(11);
+        int right = centreColumn + Rng.RandInt(11);
+
+        for (int row = top; row <= bottom; row++)
+        {
+            for (int column = left; column <= right; column++)
+            {
+                Lay(row, column, floor);
+            }
+        }
+
+        // Walls down each side, one row taller than the floor at both ends so
+        // the corners are covered.
+        for (int row = top - 1; row <= bottom + 1; row++)
+        {
+            Lay(row, left - 1, CaveFeature.GraniteWall);
+            Lay(row, right + 1, CaveFeature.GraniteWall);
+        }
+
+        for (int column = left; column <= right; column++)
+        {
+            Lay(top - 1, column, CaveFeature.GraniteWall);
+            Lay(bottom + 1, column, CaveFeature.GraniteWall);
+        }
+    }
+
+    /// <summary>
+    /// Carves two or three overlapping rectangles into one irregular room.
+    /// Mirrors build_type1().
+    ///
+    /// The difference from <see cref="BuildRoom"/> is that walls are only laid
+    /// where there is not already floor, so a later rectangle does not brick up
+    /// the middle of an earlier one. That check is what turns overlapping boxes
+    /// into a single connected space.
+    /// </summary>
+    public void BuildOverlappingRoom(int centreRow, int centreColumn)
+    {
+        byte floor = RoomFloor();
+        int rectangles = 1 + Rng.RandInt(2);
+
+        for (int i = 0; i < rectangles; i++)
+        {
+            int top = centreRow - Rng.RandInt(4);
+            int bottom = centreRow + Rng.RandInt(3);
+            int left = centreColumn - Rng.RandInt(11);
+            int right = centreColumn + Rng.RandInt(11);
+
+            for (int row = top; row <= bottom; row++)
+            {
+                for (int column = left; column <= right; column++)
+                {
+                    Lay(row, column, floor);
+                }
+            }
+
+            for (int row = top - 1; row <= bottom + 1; row++)
+            {
+                LayWallUnlessFloor(row, left - 1, floor);
+                LayWallUnlessFloor(row, right + 1, floor);
+            }
+
+            for (int column = left; column <= right; column++)
+            {
+                LayWallUnlessFloor(top - 1, column, floor);
+                LayWallUnlessFloor(bottom + 1, column, floor);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Sets a square and marks it as belonging to a room, so it lights up as one
+    /// piece when the player walks in.
+    /// </summary>
+    private void Lay(int row, int column, byte feature)
+    {
+        CaveSquare square = Cave[row, column];
+        square.Feature = feature;
+        square.LitRoom = true;
+    }
+
+    private void LayWallUnlessFloor(int row, int column, byte floor)
+    {
+        if (Cave[row, column].Feature != floor)
+        {
+            Lay(row, column, CaveFeature.GraniteWall);
+        }
+    }
+
+    /// <summary>
     /// The mineral veins for a level: magma first, then quartz. Mirrors the
     /// streamer loop in cave_gen(). The order matters, since each streamer
     /// consumes draws that shift everything after it.

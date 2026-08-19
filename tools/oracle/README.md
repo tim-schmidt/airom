@@ -78,6 +78,7 @@ divergence.
 |---|---|---|
 | `rng` | Raw generator draws from a seed | **Verified matching** |
 | `streamers` | Terrain primitives: fill, mineral veins, vein gold, boundary | **Verified matching** |
+| `rooms` | One room builder over the whole room grid, terrain and lit-room marks | **Verified matching** |
 | `seeds` | `init_seeds` chain, `magic_init`, the shuffled appearance tables | **Verified matching** |
 | `cave` | A generated level: terrain, lighting flags, monsters, objects | C side written; C# side waiting on the generator |
 

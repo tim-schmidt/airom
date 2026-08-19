@@ -46,3 +46,13 @@ void probe_mlink(void)
 {
   mlink();
 }
+
+void probe_build_room(int yval, int xval)
+{
+  build_room(yval, xval);
+}
+
+void probe_build_type1(int yval, int xval)
+{
+  build_type1(yval, xval);
+}
