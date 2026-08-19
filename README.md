@@ -20,7 +20,7 @@ Early. The foundations are in place; the game is not yet playable.
 | Area | State |
 |---|---|
 | Random number generator | Done, conformance-tested |
-| Data tables | Not started |
+| Data tables | Objects and monsters done; misc tables pending |
 | Game logic | Not started |
 | Terminal I/O | Not started |
 | Save files | Not started |
@@ -55,12 +55,30 @@ are marked `FAITHFUL QUIRK` in the source.
 
 The C sources are kept outside this repository and used strictly as reference.
 
+## Generated data
+
+The object and monster tables are ~700 rows of C struct initialisers. They are
+generated rather than transcribed, by `tools/gen_tables.py`, so the field
+mapping is written down once and the result is reproducible:
+
+```
+python tools/gen_tables.py            # regenerate
+python tools/gen_tables.py --check    # fail if the committed files are stale
+```
+
+The generator resolves `#ifdef` branches the way a compiler would, picking the
+portable build, and skips character literals when matching braces — the object
+table draws bows as `'}'` and arrows as `'{'`, which naive brace counting reads
+as structure.
+
 ## Layout
 
 ```
 src/Airom/          the game
   Core/             engine primitives (RNG, ...)
+  Data/             game tables and the types they populate
 tests/Airom.Tests/  test suite
+tools/              code generators run against the reference sources
 ```
 
 ## License
