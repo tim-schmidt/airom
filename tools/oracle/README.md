@@ -77,6 +77,7 @@ divergence.
 | Mode | Compares | Status |
 |---|---|---|
 | `rng` | Raw generator draws from a seed | **Verified matching** |
+| `streamers` | Terrain primitives: fill, mineral veins, vein gold, boundary | **Verified matching** |
 | `seeds` | `init_seeds` chain, `magic_init`, the shuffled appearance tables | **Verified matching** |
 | `cave` | A generated level: terrain, lighting flags, monsters, objects | C side written; C# side waiting on the generator |
 
@@ -84,6 +85,17 @@ divergence.
 rather than by inference: `magic_init` shuffles appearances inside a
 `set_seed`/`reset_seed` bracket, and the restore deliberately does not land
 where it started.
+
+## Reaching inside generate.c
+
+Everything in `generate.c` is `static` except `generate_cave()`, so linking
+against it allows comparing whole finished levels and nothing smaller. That is
+no use while the port is being built a layer at a time.
+
+`oracle_probe.c` solves it by `#include`-ing the source rather than linking it,
+which reaches the file's statics while leaving the reference tree untouched —
+no patched copy to reconcile later. `generate.c` is excluded from the build's
+file list precisely because it arrives through the probe instead.
 
 ## Format
 

@@ -36,6 +36,27 @@ public sealed class GameState
     public Appearances Appearances { get; } = new();
 
     /// <summary>
+    /// The level currently being played. Sized for a dungeon level to begin
+    /// with; the town is smaller and resizes it.
+    /// </summary>
+    public Cave Cave { get; } = new(DungeonHeight, DungeonWidth);
+
+    /// <summary>Objects lying on the current level.</summary>
+    public ObjectPool Objects { get; } = new();
+
+    /// <summary>
+    /// Depth in the dungeon; 0 is the town. Feeds the difficulty of everything
+    /// generated, so it must be set before a level is carved.
+    /// </summary>
+    public int DungeonLevel { get; set; }
+
+    /// <summary>Umoria's MAX_HEIGHT: rows in a dungeon level.</summary>
+    public const int DungeonHeight = 66;
+
+    /// <summary>Umoria's MAX_WIDTH: columns in a dungeon level.</summary>
+    public const int DungeonWidth = 198;
+
+    /// <summary>
     /// Derives the appearance seed, the town seed and the main generator state
     /// from one value. Mirrors init_seeds().
     ///

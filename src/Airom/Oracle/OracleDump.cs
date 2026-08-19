@@ -106,6 +106,105 @@ public static class OracleDump
         Line(output, "final-state", game.Rng.State);
     }
 
+    /// <summary>
+    /// The terrain primitives on their own: blank the cave, fill it with
+    /// granite, drive the mineral veins through it, then wall the edges.
+    ///
+    /// Not a playable level - no rooms, no tunnels - but it exercises the layer
+    /// of the generator that exists so far against a known generator state.
+    /// </summary>
+    public static void DumpStreamers(TextWriter output, uint seed, int level)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+
+        Header(output, "streamers", seed);
+        output.Write("level " + level.ToString(CultureInfo.InvariantCulture) + "\n");
+
+        var game = new GameState();
+        game.InitSeeds(seed);
+        game.MagicInit();
+        game.DungeonLevel = level;
+
+        game.Objects.Reset();
+        game.Cave.Resize(GameState.DungeonHeight, GameState.DungeonWidth);
+        game.Cave.Blank();
+
+        var generator = new DungeonGenerator(game);
+        generator.FillCave(CaveFeature.GraniteWall);
+        generator.PlaceStreamers();
+        generator.PlaceBoundary();
+
+        Cave cave = game.Cave;
+        output.Write("height " + cave.Height.ToString(CultureInfo.InvariantCulture) + "\n");
+        output.Write("width " + cave.Width.ToString(CultureInfo.InvariantCulture) + "\n");
+
+        var row = new char[cave.Width];
+        for (int y = 0; y < cave.Height; y++)
+        {
+            for (int x = 0; x < cave.Width; x++)
+            {
+                row[x] = FeatureChar(cave[y, x].Feature);
+            }
+
+            output.Write(
+                "row " + y.ToString(CultureInfo.InvariantCulture) + " " + new string(row) + "\n");
+        }
+
+        int objectCount = game.Objects.Count - ObjectPool.FirstIndex;
+        output.Write("objects " + objectCount.ToString(CultureInfo.InvariantCulture) + "\n");
+        for (int i = ObjectPool.FirstIndex; i < game.Objects.Count; i++)
+        {
+            InvenType item = game.Objects[i];
+            output.Write(string.Join(
+                ' ',
+                "object",
+                i.ToString(CultureInfo.InvariantCulture),
+                item.Index.ToString(CultureInfo.InvariantCulture),
+                item.TVal.ToString(CultureInfo.InvariantCulture),
+                item.SubVal.ToString(CultureInfo.InvariantCulture),
+                item.Cost.ToString(CultureInfo.InvariantCulture)) + "\n");
+        }
+
+        for (int y = 0; y < cave.Height; y++)
+        {
+            for (int x = 0; x < cave.Width; x++)
+            {
+                if (cave[y, x].ObjectIndex != 0)
+                {
+                    output.Write(string.Join(
+                        ' ',
+                        "at",
+                        y.ToString(CultureInfo.InvariantCulture),
+                        x.ToString(CultureInfo.InvariantCulture),
+                        cave[y, x].ObjectIndex.ToString(CultureInfo.InvariantCulture)) + "\n");
+                }
+            }
+        }
+
+        Line(output, "final-state", game.Rng.State);
+    }
+
+    /// <summary>
+    /// One character per terrain value, matching feature_char() in the C oracle.
+    /// Every distinct value gets a distinct character so the dump stays exact
+    /// while still being readable.
+    /// </summary>
+    private static char FeatureChar(byte feature) => feature switch
+    {
+        CaveFeature.NullWall => ' ',
+        CaveFeature.DarkFloor => '.',
+        CaveFeature.LightFloor => ',',
+        CaveFeature.CorridorFloor => '#',
+        CaveFeature.BlockedFloor => '%',
+        CaveFeature.Temp1Wall => '1',
+        CaveFeature.Temp2Wall => '2',
+        CaveFeature.GraniteWall => 'G',
+        CaveFeature.MagmaWall => 'M',
+        CaveFeature.QuartzWall => 'Q',
+        CaveFeature.BoundaryWall => 'B',
+        _ => '?',
+    };
+
     private static void Line(TextWriter output, string key, uint value) =>
         output.Write(key + " " + value.ToString(CultureInfo.InvariantCulture) + "\n");
 
@@ -158,6 +257,17 @@ public static class OracleDump
                 DumpSeeds(output, seedsSeed);
                 return 0;
 
+            case "streamers":
+                if (arguments.Length != 3
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint streamSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int streamLevel))
+                {
+                    return Usage(error);
+                }
+
+                DumpStreamers(output, streamSeed, streamLevel);
+                return 0;
+
             case "cave":
                 error.WriteLine(
                     "oracle: 'cave' needs the dungeon generator, which is not ported yet.");
@@ -174,6 +284,7 @@ public static class OracleDump
         error.WriteLine("  airom oracle rng   <seed> <count>   raw generator values");
         error.WriteLine("  airom oracle seeds <seed>           seeding chain and magic_init");
         error.WriteLine("  airom oracle cave  <seed> <level>   a generated dungeon level");
+        error.WriteLine("  airom oracle streamers <seed> <level>  terrain primitives only");
         return 2;
     }
 }

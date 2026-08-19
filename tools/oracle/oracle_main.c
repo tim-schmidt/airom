@@ -39,6 +39,15 @@
    name it itself. The width matches the definition in desc.c. */
 extern char titles[MAX_TITLES][10];
 
+/* Implemented in oracle_probe.c, which #includes generate.c to reach its
+   statics. See that file for why. */
+extern void probe_blank_cave(void);
+extern void probe_fill_cave(int fval);
+extern void probe_place_boundary(void);
+extern void probe_place_streamer(int fval, int treas_chance);
+extern void probe_tlink(void);
+extern void probe_mlink(void);
+
 /* Windows stdio opens stdout in text mode and rewrites every "\n" as "\r\n",
    which would make all output differ from the C# side on line endings alone.
    The dump is defined as bare LF, so put the stream in binary mode.
@@ -265,6 +274,91 @@ static void dump_cave(unsigned long seed, int level)
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* ------------------------------------------------------------- streamers */
+
+/* The terrain primitives on their own: blank the cave, fill it with granite,
+   drive the mineral veins through it, then wall the edges.
+
+   This is not a playable level - no rooms, no tunnels - but it exercises
+   fill_cave, place_streamer, place_gold and place_boundary against a known
+   generator state, which is exactly the layer of the port being built. Rooms
+   and tunnels get their own mode once they exist. */
+static void dump_streamers(unsigned long seed, int level)
+{
+  int i, j;
+  char *row;
+
+  header("streamers", seed);
+  printf("level %d\n", level);
+
+  init_seeds((int32u)seed);
+  magic_init();
+  pin_player(level);
+  dun_level = (int16)level;
+
+  probe_tlink();
+  probe_mlink();
+  probe_blank_cave();
+
+  cur_height = MAX_HEIGHT;
+  cur_width = MAX_WIDTH;
+
+  probe_fill_cave(GRANITE_WALL);
+  for (i = 0; i < DUN_STR_MAG; i++)
+    {
+      probe_place_streamer(MAGMA_WALL, DUN_STR_MC);
+    }
+  for (i = 0; i < DUN_STR_QUA; i++)
+    {
+      probe_place_streamer(QUARTZ_WALL, DUN_STR_QC);
+    }
+  probe_place_boundary();
+
+  printf("height %d\n", (int)cur_height);
+  printf("width %d\n", (int)cur_width);
+
+  row = (char *)malloc((size_t)cur_width + 1);
+  if (row == NULL)
+    {
+      fprintf(stderr, "oracle: out of memory\n");
+      exit(2);
+    }
+
+  for (i = 0; i < cur_height; i++)
+    {
+      for (j = 0; j < cur_width; j++)
+        {
+          row[j] = feature_char((int)cave[i][j].fval);
+        }
+      row[cur_width] = '\0';
+      printf("row %d %s\n", i, row);
+    }
+
+  free(row);
+
+  /* The gold dropped along the veins, in list order, then where each landed. */
+  printf("objects %d\n", (int)(tcptr - MIN_TRIX));
+  for (i = MIN_TRIX; i < tcptr; i++)
+    {
+      inven_type *t = &t_list[i];
+      printf("object %d %d %d %d %ld\n",
+             i, (int)t->index, (int)t->tval, (int)t->subval, (long)t->cost);
+    }
+
+  for (i = 0; i < cur_height; i++)
+    {
+      for (j = 0; j < cur_width; j++)
+        {
+          if (cave[i][j].tptr != 0)
+            {
+              printf("at %d %d %d\n", i, j, (int)cave[i][j].tptr);
+            }
+        }
+    }
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ---------------------------------------------------------------- driver */
 
 static int usage(void)
@@ -273,7 +367,8 @@ static int usage(void)
           "usage:\n"
           "  oracle rng   <seed> <count>   raw generator values\n"
           "  oracle seeds <seed>           seeding chain and magic_init\n"
-          "  oracle cave  <seed> <level>   a generated dungeon level\n");
+          "  oracle cave  <seed> <level>   a generated dungeon level\n"
+          "  oracle streamers <seed> <level>  terrain primitives only\n");
   return 2;
 }
 
@@ -303,6 +398,16 @@ int main(int argc, char *argv[])
           return usage();
         }
       dump_seeds(strtoul(argv[2], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "streamers") == 0)
+    {
+      if (argc != 4)
+        {
+          return usage();
+        }
+      dump_streamers(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
       return 0;
     }
 
