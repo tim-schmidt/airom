@@ -965,6 +965,144 @@ public sealed class DungeonGenerator(GameState game)
     private const int TreasureAnywhere = 2; // TREAS_ANY_ALLOC
     private const int GoldAnywhere = 2;     // TREAS_GOLD_ALLOC
 
+    private const int NastyMonsterChance = 50; // MON_NASTY
+    private const int SummonLevelAdjust = 2;   // MON_SUMMON_ADJ
+
+    /// <summary>
+    /// Chooses a monster suitable for a given depth, as an index into the
+    /// creature table. Mirrors get_mons_num().
+    ///
+    /// Like the object draw this leans deeper than uniform, by the original's
+    /// own account making a level-n monster appear roughly 2/n of the time on
+    /// level n. One draw in fifty ignores that and reaches deeper still, by a
+    /// normal deviate - which is where the occasional monster far out of its
+    /// depth comes from.
+    ///
+    /// The final line always redraws within the chosen level, so the result is
+    /// a monster of exactly that depth rather than anything shallower.
+    /// </summary>
+    public int GetMonsterNumber(int level)
+    {
+        ReadOnlySpan<int> totals = MonsterLevels.LevelTotals;
+
+        if (level == 0)
+        {
+            return Rng.RandInt(totals[0]) - 1;
+        }
+
+        if (level > MonsterLevels.MaxMonsterLevel)
+        {
+            level = MonsterLevels.MaxMonsterLevel;
+        }
+
+        if (Rng.RandInt(NastyMonsterChance) == 1)
+        {
+            level += Math.Abs(Rng.RandNor(0, 4)) + 1;
+            if (level > MonsterLevels.MaxMonsterLevel)
+            {
+                level = MonsterLevels.MaxMonsterLevel;
+            }
+        }
+        else
+        {
+            // Best of two, over everything below this depth but above level
+            // zero - the town monsters are excluded from the draw.
+            int span = totals[level] - totals[0];
+            int pick = Rng.RandInt(span) - 1;
+            int other = Rng.RandInt(span) - 1;
+            if (other > pick)
+            {
+                pick = other;
+            }
+
+            level = GameTables.CreatureList[pick + totals[0]].Level;
+        }
+
+        return Rng.RandInt(totals[level] - totals[level - 1]) - 1 + totals[level - 1];
+    }
+
+    /// <summary>
+    /// Spawns one monster at a position. Mirrors place_monster().
+    /// </summary>
+    /// <param name="asleep">
+    /// Whether it starts asleep. Even then a monster with no sleep value in the
+    /// table wakes immediately - that column is what makes some creatures
+    /// permanently alert.
+    /// </param>
+    /// <returns>False if the monster list is full.</returns>
+    public bool PlaceMonster(int row, int column, int creatureIndex, bool asleep)
+    {
+        int slot = _game.Monsters.Allocate();
+        if (slot < 0)
+        {
+            return false;
+        }
+
+        CreatureType kind = GameTables.CreatureList[creatureIndex];
+        Monster monster = _game.Monsters[slot];
+
+        monster.Row = row;
+        monster.Column = column;
+        monster.CreatureIndex = creatureIndex;
+
+        // Some creatures always roll maximum hit points instead of dice.
+        monster.HitPoints = kind.HasDefense(CreatureDefense.MaxHitPoints)
+            ? kind.HitDiceCount * kind.HitDiceSides
+            : Rng.DamRoll(kind.HitDiceCount, kind.HitDiceSides);
+
+        // The table stores speed offset by ten so it fits a byte.
+        monster.Speed = kind.Speed - 10 + _game.PlayerSpeed;
+        monster.Stunned = 0;
+        monster.DistanceToPlayer =
+            Cave.Distance(_game.CharacterRow, _game.CharacterColumn, row, column);
+        monster.Visible = false;
+
+        Cave[row, column].MonsterIndex = slot;
+
+        monster.Sleep = asleep && kind.Sleep != 0
+            ? (kind.Sleep * 2) + Rng.RandInt(kind.Sleep * 10)
+            : 0;
+
+        return true;
+    }
+
+    /// <summary>
+    /// Scatters monsters across the level. Mirrors alloc_monster().
+    ///
+    /// Positions are drawn until one is open, empty, and at least
+    /// <paramref name="minimumDistance"/> from the player - which is what stops
+    /// a new level opening with something already breathing down your neck.
+    /// </summary>
+    /// <param name="count">How many to place.</param>
+    /// <param name="minimumDistance">How far from the player they must start.</param>
+    /// <param name="asleep">Whether they start asleep.</param>
+    public void AllocMonster(int count, int minimumDistance, bool asleep)
+    {
+        for (int placed = 0; placed < count; placed++)
+        {
+            int row;
+            int column;
+            do
+            {
+                row = Rng.RandInt(Cave.Height - 2);
+                column = Rng.RandInt(Cave.Width - 2);
+            }
+            while (Cave[row, column].Feature >= CaveFeature.MinClosedSpace
+                || Cave[row, column].MonsterIndex != 0
+                || Cave.Distance(row, column, _game.CharacterRow, _game.CharacterColumn)
+                    <= minimumDistance);
+
+            int kind = GetMonsterNumber(_game.DungeonLevel);
+
+            // Dragons always start asleep, which the original notes is to give
+            // the player a sporting chance.
+            bool sleeping = asleep
+                || GameTables.CreatureList[kind].DisplayChar is 'd' or 'D';
+
+            PlaceMonster(row, column, kind, sleeping);
+        }
+    }
+
     /// <summary>
     /// Whether a room built at this depth is lit. Mirrors the test the room
     /// builders open with: shallow levels are almost always lit, and by depth 25

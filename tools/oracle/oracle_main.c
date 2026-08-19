@@ -57,9 +57,11 @@ extern void probe_try_door(int y, int x);
 extern void probe_place_stairs(int typ, int num, int walls);
 extern void probe_new_spot(int *y, int *x);
 extern void probe_alloc_object(int which_set, int typ, int num);
+extern void probe_alloc_monster(int num, int dis, int slp);
 
 /* From oracle_probe_main.c, which reaches the object sort inside main.c. */
 extern void probe_init_t_level(void);
+extern void probe_init_m_level(void);
 
 /* Windows stdio opens stdout in text mode and rewrites every "\n" as "\r\n",
    which would make all output differ from the C# side on line endings alone.
@@ -350,6 +352,15 @@ static void dump_streamers(unsigned long seed, int level)
   free(row);
 
   /* The gold dropped along the veins, in list order, then where each landed. */
+  printf("monsters %d\n", (int)(mfptr - MIN_MONIX));
+  for (i = MIN_MONIX; i < mfptr; i++)
+    {
+      monster_type *m = &m_list[i];
+      printf("monster %d %d %d %d %d %d %d\n",
+             i, (int)m->fy, (int)m->fx, (int)m->mptr,
+             (int)m->hp, (int)m->cspeed, (int)m->csleep);
+    }
+
   printf("objects %d\n", (int)(tcptr - MIN_TRIX));
   for (i = MIN_TRIX; i < tcptr; i++)
     {
@@ -568,6 +579,15 @@ static void dump_tunnels(unsigned long seed, int level)
 
   /* Every door the tunneller left, with the p1 that separates locked from
      stuck from broken. */
+  printf("monsters %d\n", (int)(mfptr - MIN_MONIX));
+  for (i = MIN_MONIX; i < mfptr; i++)
+    {
+      monster_type *m = &m_list[i];
+      printf("monster %d %d %d %d %d %d %d\n",
+             i, (int)m->fy, (int)m->fx, (int)m->mptr,
+             (int)m->hp, (int)m->cspeed, (int)m->csleep);
+    }
+
   printf("objects %d\n", (int)(tcptr - MIN_TRIX));
   for (i = MIN_TRIX; i < tcptr; i++)
     {
@@ -700,6 +720,15 @@ static void dump_stairs(unsigned long seed, int level)
     }
 
   free(row);
+
+  printf("monsters %d\n", (int)(mfptr - MIN_MONIX));
+  for (i = MIN_MONIX; i < mfptr; i++)
+    {
+      monster_type *m = &m_list[i];
+      printf("monster %d %d %d %d %d %d %d\n",
+             i, (int)m->fy, (int)m->fx, (int)m->mptr,
+             (int)m->hp, (int)m->cspeed, (int)m->csleep);
+    }
 
   printf("objects %d\n", (int)(tcptr - MIN_TRIX));
   for (i = MIN_TRIX; i < tcptr; i++)
@@ -852,6 +881,7 @@ static void dump_populate(unsigned long seed, int level)
   printf("level %d\n", level);
 
   probe_init_t_level();
+  probe_init_m_level();
 
   init_seeds((int32u)seed);
   magic_init();
@@ -921,8 +951,7 @@ static void dump_populate(unsigned long seed, int level)
   printf("char-row %d\n", cy);
   printf("char-col %d\n", cx);
 
-  /* alloc_monster would run here; it is not ported yet and is skipped on both
-     sides so the streams stay aligned. */
+  probe_alloc_monster(randint(8) + MIN_MALLOC_LEVEL + alloc_level, 0, TRUE);
 
   probe_alloc_object(0, 3, randint(alloc_level));
   probe_alloc_object(1, 5, randnor(TREAS_ROOM_ALLOC, 3));
@@ -949,6 +978,15 @@ static void dump_populate(unsigned long seed, int level)
     }
 
   free(row);
+
+  printf("monsters %d\n", (int)(mfptr - MIN_MONIX));
+  for (i = MIN_MONIX; i < mfptr; i++)
+    {
+      monster_type *m = &m_list[i];
+      printf("monster %d %d %d %d %d %d %d\n",
+             i, (int)m->fy, (int)m->fx, (int)m->mptr,
+             (int)m->hp, (int)m->cspeed, (int)m->csleep);
+    }
 
   printf("objects %d\n", (int)(tcptr - MIN_TRIX));
   for (i = MIN_TRIX; i < tcptr; i++)

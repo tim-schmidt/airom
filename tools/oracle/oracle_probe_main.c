@@ -22,3 +22,10 @@ void probe_init_t_level(void)
 {
   init_t_level();
 }
+
+/* The same for the creature table. get_mons_num divides by entries in
+   m_level, so leaving it zeroed is not a wrong answer but a crash. */
+void probe_init_m_level(void)
+{
+  init_m_level();
+}

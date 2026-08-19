@@ -32,7 +32,7 @@ Early. The foundations are in place; the game is not yet playable.
 | Staircases and start square | Done, verified against the original |
 | Object index, traps, rubble | Done, verified against the original |
 | Item enchantment (magic_treasure) | Done, verified against the original |
-| Level population (objects) | Done, verified against the original |
+| Level population (objects and monsters) | Done, verified against the original |
 | Rooms — vaults; level population | Not started |
 | Terminal surface | Done — System.Console, no third-party library |
 | Terminal I/O (io.c port) | Not started |

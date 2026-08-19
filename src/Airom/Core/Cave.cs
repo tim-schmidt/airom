@@ -131,6 +131,21 @@ public sealed class Cave
         row > 0 && row < Height - 1 && column > 0 && column < Width - 1;
 
     /// <summary>
+    /// Distance between two squares. Mirrors distance() in misc1.c.
+    ///
+    /// Not Euclidean: it is the larger axis plus half the smaller, which
+    /// approximates a circle on a character grid closely enough that monster
+    /// detection radii feel round without any square roots.
+    /// </summary>
+    public static int Distance(int row1, int column1, int row2, int column2)
+    {
+        int dy = Math.Abs(row1 - row2);
+        int dx = Math.Abs(column1 - column2);
+
+        return ((((dy + dx) << 1) - Math.Min(dy, dx)) >> 1);
+    }
+
+    /// <summary>
     /// Steps one square in a numeric-keypad direction, 1 to 9. Mirrors mmove().
     /// </summary>
     /// <returns>

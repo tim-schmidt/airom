@@ -669,6 +669,7 @@ public static class OracleDump
         game.MagicInit();
         game.DungeonLevel = level;
         game.Objects.Reset();
+        game.Monsters.Reset();
         game.Cave.Resize(GameState.DungeonHeight, GameState.DungeonWidth);
         game.Cave.Blank();
 
@@ -714,7 +715,12 @@ public static class OracleDump
         output.Write("char-row " + charRow.ToString(CultureInfo.InvariantCulture) + "\n");
         output.Write("char-col " + charColumn.ToString(CultureInfo.InvariantCulture) + "\n");
 
-        // alloc_monster would run here; skipped on both sides until it exists.
+        // MIN_MALLOC_LEVEL: the floor on how many monsters a level carries.
+        const int MinimumMonsters = 14;
+        generator.AllocMonster(
+            game.Rng.RandInt(8) + MinimumMonsters + allocLevel,
+            minimumDistance: 0,
+            asleep: true);
         generator.PopulateLevel(allocLevel);
 
         output.Write("height " + cave.Height.ToString(CultureInfo.InvariantCulture) + "\n");
@@ -730,6 +736,23 @@ public static class OracleDump
 
             output.Write(
                 "row " + y.ToString(CultureInfo.InvariantCulture) + " " + new string(line) + "\n");
+        }
+
+        int monsterCount = game.Monsters.Count - MonsterPool.FirstIndex;
+        output.Write("monsters " + monsterCount.ToString(CultureInfo.InvariantCulture) + "\n");
+        for (int i = MonsterPool.FirstIndex; i < game.Monsters.Count; i++)
+        {
+            Monster monster = game.Monsters[i];
+            output.Write(string.Join(
+                ' ',
+                "monster",
+                i.ToString(CultureInfo.InvariantCulture),
+                monster.Row.ToString(CultureInfo.InvariantCulture),
+                monster.Column.ToString(CultureInfo.InvariantCulture),
+                monster.CreatureIndex.ToString(CultureInfo.InvariantCulture),
+                monster.HitPoints.ToString(CultureInfo.InvariantCulture),
+                monster.Speed.ToString(CultureInfo.InvariantCulture),
+                monster.Sleep.ToString(CultureInfo.InvariantCulture)) + "\n");
         }
 
         int objectCount = game.Objects.Count - ObjectPool.FirstIndex;

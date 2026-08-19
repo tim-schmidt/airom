@@ -44,6 +44,15 @@ public sealed class GameState
     /// <summary>Objects lying on the current level.</summary>
     public ObjectPool Objects { get; } = new();
 
+    /// <summary>Monsters on the current level.</summary>
+    public MonsterPool Monsters { get; } = new();
+
+    /// <summary>
+    /// The player's own speed modifier, which every monster's speed is measured
+    /// against. Zero for a fresh character.
+    /// </summary>
+    public int PlayerSpeed { get; set; }
+
     /// <summary>
     /// Depth in the dungeon; 0 is the town. Feeds the difficulty of everything
     /// generated, so it must be set before a level is carved.

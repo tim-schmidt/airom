@@ -110,3 +110,8 @@ void probe_alloc_object(int which_set, int typ, int num)
     default: alloc_object(set_floor, typ, num); break;
     }
 }
+
+void probe_alloc_monster(int num, int dis, int slp)
+{
+  alloc_monster(num, dis, slp);
+}
