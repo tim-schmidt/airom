@@ -9,20 +9,63 @@
 // version. See LICENSE.
 
 using Airom.Core;
+using Airom.Data;
+using Airom.Terminal;
 
-Console.WriteLine("AIrom - Umoria 5.6, ported to C#");
-Console.WriteLine();
+// The game is not playable yet. Until it is, the entry point exercises the
+// pieces that exist: it paints a frame through the real terminal layer and
+// reports whether the generator still matches the sequence Umoria produced.
 
-// Umoria's rnd.c carried a self-check under #ifdef TEST_RNG. Keeping it visible
-// here is a cheap smoke test that the generator driving every dungeon still
-// matches the original.
-var rng = new Rng(0);
-int value = 0;
-for (int i = 0; i < 10_000; i++)
+ConsoleScreen screen;
+try
 {
-    value = rng.Next();
+    screen = ConsoleScreen.Create();
+}
+catch (InvalidOperationException error)
+{
+    Console.Error.WriteLine(error.Message);
+    return 1;
 }
 
-Console.WriteLine(value == 1043618065
-    ? $"RNG conformance: ok (z[10001] = {value})"
-    : $"RNG conformance: FAILED (z[10001] = {value}, expected 1043618065)");
+try
+{
+    screen.Put(1, 2, "AIrom");
+    screen.Put(2, 2, "Umoria 5.6, ported to C#");
+
+    screen.Put(4, 2, $"Objects loaded   : {GameTables.ObjectList.Length}");
+    screen.Put(5, 2, $"Creatures loaded : {GameTables.CreatureList.Length}");
+    screen.Put(6, 2, $"Store owners     : {GameTables.Owners.Length}");
+
+    // Umoria's rnd.c carried this self-check under #ifdef TEST_RNG. Every
+    // dungeon the game will ever generate comes off this sequence, so it is
+    // worth reporting on sight.
+    var rng = new Rng(0);
+    int value = 0;
+    for (int i = 0; i < 10_000; i++)
+    {
+        value = rng.Next();
+    }
+
+    const int Expected = 1043618065;
+    screen.Put(
+        8,
+        2,
+        value == Expected
+            ? $"RNG conformance  : ok (z[10001] = {value})"
+            : $"RNG conformance  : FAILED (got {value}, expected {Expected})");
+
+    screen.Put(10, 2, "Nothing to play yet. Press any key to exit.");
+    screen.MoveCursor(10, 45);
+    screen.Refresh();
+
+    if (!Console.IsInputRedirected)
+    {
+        screen.ReadKey();
+    }
+
+    return value == Expected ? 0 : 1;
+}
+finally
+{
+    ConsoleScreen.Restore();
+}

@@ -25,7 +25,8 @@ Early. The foundations are in place; the game is not yet playable.
 | Constants | Item, cave and creature vocabularies done; player, dungeon and inventory pending |
 | Core types | 4 of 16 structs; the rest are runtime state |
 | Game logic | Not started |
-| Terminal I/O | Not started |
+| Terminal surface | Done — System.Console, no third-party library |
+| Terminal I/O (io.c port) | Not started |
 | Save files | Not started |
 
 ## Building
@@ -81,6 +82,7 @@ as structure.
 src/Airom/          the game
   Core/             engine primitives (RNG, ...)
   Data/             game tables and the types they populate
+  Terminal/         the screen surface that replaces curses
 tests/Airom.Tests/  test suite
 tools/              code generators run against the reference sources
 ```
