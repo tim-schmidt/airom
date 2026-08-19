@@ -223,6 +223,9 @@ static void dump_cave(unsigned long seed, int level)
   header("cave", seed);
   printf("level %d\n", level);
 
+  probe_init_t_level();
+  probe_init_m_level();
+
   init_seeds((int32u)seed);
   magic_init();
   pin_player(level);

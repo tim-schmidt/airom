@@ -17,7 +17,7 @@ namespace Airom.Core;
 /// rooms, tunnels and finally population. Each layer is verified against the C
 /// oracle as it lands.
 /// </summary>
-public sealed class DungeonGenerator(GameState game)
+public sealed partial class DungeonGenerator(GameState game)
 {
     // Tuning constants from constant.h. They shape every level, so they are
     // frozen until the port is verified end to end.

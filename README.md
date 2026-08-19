@@ -33,7 +33,9 @@ Early. The foundations are in place; the game is not yet playable.
 | Object index, traps, rubble | Done, verified against the original |
 | Item enchantment (magic_treasure) | Done, verified against the original |
 | Level population (objects and monsters) | Done, verified against the original |
-| Rooms — vaults; level population | Not started |
+| Vault and cross rooms, summoning | Done, verified against the original |
+| **Complete dungeon levels (cave_gen)** | **Done, verified against the original** |
+
 | Terminal surface | Done — System.Console, no third-party library |
 | Terminal I/O (io.c port) | Not started |
 | Save files | Not started |

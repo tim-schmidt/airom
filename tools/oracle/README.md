@@ -85,7 +85,7 @@ divergence.
 | `enchanted` | magic_treasure: generated items with every bonus, flag, charge and price | **Verified matching** |
 | `populate` | A complete level: terrain, every object on it, and every monster | **Verified matching** |
 | `seeds` | `init_seeds` chain, `magic_init`, the shuffled appearance tables | **Verified matching** |
-| `cave` | A generated level: terrain, lighting flags, monsters, objects | C side written; C# side waiting on the generator |
+| `cave` | **A complete dungeon level**: every room type, terrain, lighting, monsters, objects | **Verified matching** |
 
 `seeds` is the one that will confirm the `reset_seed` quirk against the original
 rather than by inference: `magic_init` shuffles appearances inside a

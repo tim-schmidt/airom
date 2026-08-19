@@ -22,7 +22,7 @@ namespace Airom.Oracle;
 /// The format is deliberately dull: line-oriented, ASCII, one fact per line,
 /// so a diff points at the first divergence instead of a wall of noise.
 /// </summary>
-public static class OracleDump
+public static partial class OracleDump
 {
     /// <summary>
     /// Format version. Must match ORACLE_FORMAT in tools/oracle/oracle_main.c;
@@ -30,7 +30,7 @@ public static class OracleDump
     /// </summary>
     public const int FormatVersion = 1;
 
-    private static void Header(TextWriter output, string mode, uint seed)
+    internal static void Header(TextWriter output, string mode, uint seed)
     {
         output.Write($"# airom-oracle {FormatVersion}\n");
         output.Write($"mode {mode}\n");
@@ -800,7 +800,7 @@ public static class OracleDump
     /// Every distinct value gets a distinct character so the dump stays exact
     /// while still being readable.
     /// </summary>
-    private static char FeatureChar(byte feature) => feature switch
+    internal static char FeatureChar(byte feature) => feature switch
     {
         CaveFeature.NullWall => ' ',
         CaveFeature.DarkFloor => '.',
@@ -816,7 +816,7 @@ public static class OracleDump
         _ => '?',
     };
 
-    private static void Line(TextWriter output, string key, uint value) =>
+    internal static void Line(TextWriter output, string key, uint value) =>
         output.Write(key + " " + value.ToString(CultureInfo.InvariantCulture) + "\n");
 
     private static void WriteNames(TextWriter output, string key, string[] names)
@@ -949,9 +949,15 @@ public static class OracleDump
                 return 0;
 
             case "cave":
-                error.WriteLine(
-                    "oracle: 'cave' needs the dungeon generator, which is not ported yet.");
-                return 3;
+                if (arguments.Length != 3
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint cvSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int cvLevel))
+                {
+                    return Usage(error);
+                }
+
+                DumpCave(output, cvSeed, cvLevel);
+                return 0;
 
             default:
                 return Usage(error);
