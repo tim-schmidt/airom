@@ -283,6 +283,130 @@ public static class OracleDump
     }
 
     /// <summary>
+    /// Rooms, then corridors joining them, then the junction doors.
+    ///
+    /// This is cave_gen's own order minus the streamers and stairs, which keeps
+    /// the comparison on the tunneller. Rooms are built at fixed coordinates in
+    /// fixed order - no shuffle - so which rooms get joined is not itself drawn
+    /// from the generator, and a divergence points at the tunnel code rather
+    /// than at the order it ran in.
+    /// </summary>
+    public static void DumpTunnels(TextWriter output, uint seed, int level)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+
+        Header(output, "tunnels", seed);
+        output.Write("level " + level.ToString(CultureInfo.InvariantCulture) + "\n");
+
+        var game = new GameState();
+        game.InitSeeds(seed);
+        game.MagicInit();
+        game.DungeonLevel = level;
+
+        game.Objects.Reset();
+        game.Cave.Resize(GameState.DungeonHeight, GameState.DungeonWidth);
+        game.Cave.Blank();
+
+        var generator = new DungeonGenerator(game);
+        Cave cave = game.Cave;
+
+        const int ScreenHeight = 22;
+        const int ScreenWidth = 66;
+
+        List<(int Row, int Column)> centres = [];
+        for (int i = 0; i < 2 * (cave.Height / ScreenHeight); i++)
+        {
+            for (int j = 0; j < 2 * (cave.Width / ScreenWidth); j++)
+            {
+                int row = (i * (ScreenHeight >> 1)) + (ScreenHeight / 4);
+                int column = (j * (ScreenWidth >> 1)) + (ScreenWidth / 4);
+                centres.Add((row, column));
+                generator.BuildRoom(row, column);
+            }
+        }
+
+        generator.ResetDoorCandidates();
+
+        // Join each room to the next, wrapping back to the first.
+        for (int i = 0; i < centres.Count; i++)
+        {
+            (int fromRow, int fromColumn) = centres[(i + 1) % centres.Count];
+            (int toRow, int toColumn) = centres[i];
+            generator.BuildTunnel(fromRow, fromColumn, toRow, toColumn);
+        }
+
+        generator.FillCave(CaveFeature.GraniteWall);
+        generator.PlaceBoundary();
+
+        IReadOnlyList<(int Row, int Column)> junctions = generator.DoorCandidates;
+        output.Write("junctions " + junctions.Count.ToString(CultureInfo.InvariantCulture) + "\n");
+        for (int i = 0; i < junctions.Count; i++)
+        {
+            (int row, int column) = junctions[i];
+            output.Write(string.Join(
+                ' ',
+                "junction",
+                i.ToString(CultureInfo.InvariantCulture),
+                row.ToString(CultureInfo.InvariantCulture),
+                column.ToString(CultureInfo.InvariantCulture)) + "\n");
+
+            generator.TryDoor(row, column - 1);
+            generator.TryDoor(row, column + 1);
+            generator.TryDoor(row - 1, column);
+            generator.TryDoor(row + 1, column);
+        }
+
+        output.Write("height " + cave.Height.ToString(CultureInfo.InvariantCulture) + "\n");
+        output.Write("width " + cave.Width.ToString(CultureInfo.InvariantCulture) + "\n");
+
+        var line = new char[cave.Width];
+        for (int y = 0; y < cave.Height; y++)
+        {
+            for (int x = 0; x < cave.Width; x++)
+            {
+                line[x] = FeatureChar(cave[y, x].Feature);
+            }
+
+            output.Write(
+                "row " + y.ToString(CultureInfo.InvariantCulture) + " " + new string(line) + "\n");
+        }
+
+        // Every door the tunneller left, with the p1 that separates locked from
+        // stuck from broken.
+        int objectCount = game.Objects.Count - ObjectPool.FirstIndex;
+        output.Write("objects " + objectCount.ToString(CultureInfo.InvariantCulture) + "\n");
+        for (int i = ObjectPool.FirstIndex; i < game.Objects.Count; i++)
+        {
+            InvenType item = game.Objects[i];
+            output.Write(string.Join(
+                ' ',
+                "object",
+                i.ToString(CultureInfo.InvariantCulture),
+                item.Index.ToString(CultureInfo.InvariantCulture),
+                item.TVal.ToString(CultureInfo.InvariantCulture),
+                item.P1.ToString(CultureInfo.InvariantCulture)) + "\n");
+        }
+
+        for (int y = 0; y < cave.Height; y++)
+        {
+            for (int x = 0; x < cave.Width; x++)
+            {
+                if (cave[y, x].ObjectIndex != 0)
+                {
+                    output.Write(string.Join(
+                        ' ',
+                        "at",
+                        y.ToString(CultureInfo.InvariantCulture),
+                        x.ToString(CultureInfo.InvariantCulture),
+                        cave[y, x].ObjectIndex.ToString(CultureInfo.InvariantCulture)) + "\n");
+                }
+            }
+        }
+
+        Line(output, "final-state", game.Rng.State);
+    }
+
+    /// <summary>
     /// One character per terrain value, matching feature_char() in the C oracle.
     /// Every distinct value gets a distinct character so the dump stays exact
     /// while still being readable.
@@ -378,6 +502,17 @@ public static class OracleDump
                 DumpRooms(output, roomSeed, roomLevel, roomType);
                 return 0;
 
+            case "tunnels":
+                if (arguments.Length != 3
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint tunSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int tunLevel))
+                {
+                    return Usage(error);
+                }
+
+                DumpTunnels(output, tunSeed, tunLevel);
+                return 0;
+
             case "cave":
                 error.WriteLine(
                     "oracle: 'cave' needs the dungeon generator, which is not ported yet.");
@@ -396,6 +531,7 @@ public static class OracleDump
         error.WriteLine("  airom oracle cave  <seed> <level>   a generated dungeon level");
         error.WriteLine("  airom oracle streamers <seed> <level>  terrain primitives only");
         error.WriteLine("  airom oracle rooms <seed> <level> <type>  one room builder");
+        error.WriteLine("  airom oracle tunnels <seed> <level>  rooms joined by corridors");
         return 2;
     }
 }

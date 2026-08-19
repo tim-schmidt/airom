@@ -49,6 +49,11 @@ extern void probe_tlink(void);
 extern void probe_mlink(void);
 extern void probe_build_room(int yval, int xval);
 extern void probe_build_type1(int yval, int xval);
+extern void probe_build_tunnel(int row1, int col1, int row2, int col2);
+extern void probe_reset_doors(void);
+extern int probe_door_count(void);
+extern void probe_door_at(int i, int *y, int *x);
+extern void probe_try_door(int y, int x);
 
 /* Windows stdio opens stdout in text mode and rewrites every "\n" as "\r\n",
    which would make all output differ from the C# side on line endings alone.
@@ -462,6 +467,122 @@ static void dump_rooms(unsigned long seed, int level, int type)
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* --------------------------------------------------------------- tunnels */
+
+/* Rooms, then corridors joining them, then the junction doors.
+
+   This is cave_gen's own order minus the streamers and stairs, which keeps the
+   comparison on the tunneller. Rooms are built with build_room at fixed
+   coordinates and in fixed order - no shuffle - so which rooms get joined is
+   not itself drawn from the generator, and a divergence points at the tunnel
+   code rather than at the order it ran in. */
+static void dump_tunnels(unsigned long seed, int level)
+{
+  int i, j, k, rows, cols, count;
+  int yloc[64], xloc[64];
+  char *row;
+
+  header("tunnels", seed);
+  printf("level %d\n", level);
+
+  init_seeds((int32u)seed);
+  magic_init();
+  pin_player(level);
+  dun_level = (int16)level;
+
+  probe_tlink();
+  probe_mlink();
+  probe_blank_cave();
+
+  cur_height = MAX_HEIGHT;
+  cur_width = MAX_WIDTH;
+
+  rows = 2 * (cur_height / SCREEN_HEIGHT);
+  cols = 2 * (cur_width / SCREEN_WIDTH);
+
+  count = 0;
+  for (i = 0; i < rows; i++)
+    {
+      for (j = 0; j < cols; j++)
+        {
+          yloc[count] = i * (SCREEN_HEIGHT >> 1) + QUART_HEIGHT;
+          xloc[count] = j * (SCREEN_WIDTH >> 1) + QUART_WIDTH;
+          probe_build_room(yloc[count], xloc[count]);
+          count++;
+        }
+    }
+
+  probe_reset_doors();
+
+  /* Join each room to the next, wrapping back to the first, as cave_gen does. */
+  yloc[count] = yloc[0];
+  xloc[count] = xloc[0];
+  for (i = 0; i < count; i++)
+    {
+      probe_build_tunnel(yloc[i + 1], xloc[i + 1], yloc[i], xloc[i]);
+    }
+
+  probe_fill_cave(GRANITE_WALL);
+  probe_place_boundary();
+
+  printf("junctions %d\n", probe_door_count());
+  k = probe_door_count();
+  for (i = 0; i < k; i++)
+    {
+      int dy, dx;
+      probe_door_at(i, &dy, &dx);
+      printf("junction %d %d %d\n", i, dy, dx);
+      probe_try_door(dy, dx - 1);
+      probe_try_door(dy, dx + 1);
+      probe_try_door(dy - 1, dx);
+      probe_try_door(dy + 1, dx);
+    }
+
+  printf("height %d\n", (int)cur_height);
+  printf("width %d\n", (int)cur_width);
+
+  row = (char *)malloc((size_t)cur_width + 1);
+  if (row == NULL)
+    {
+      fprintf(stderr, "oracle: out of memory\n");
+      exit(2);
+    }
+
+  for (i = 0; i < cur_height; i++)
+    {
+      for (j = 0; j < cur_width; j++)
+        {
+          row[j] = feature_char((int)cave[i][j].fval);
+        }
+      row[cur_width] = '\0';
+      printf("row %d %s\n", i, row);
+    }
+
+  free(row);
+
+  /* Every door the tunneller left, with the p1 that separates locked from
+     stuck from broken. */
+  printf("objects %d\n", (int)(tcptr - MIN_TRIX));
+  for (i = MIN_TRIX; i < tcptr; i++)
+    {
+      inven_type *t = &t_list[i];
+      printf("object %d %d %d %d\n", i, (int)t->index, (int)t->tval, (int)t->p1);
+    }
+
+  for (i = 0; i < cur_height; i++)
+    {
+      for (j = 0; j < cur_width; j++)
+        {
+          if (cave[i][j].tptr != 0)
+            {
+              printf("at %d %d %d\n", i, j, (int)cave[i][j].tptr);
+            }
+        }
+    }
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ---------------------------------------------------------------- driver */
 
 static int usage(void)
@@ -472,7 +593,8 @@ static int usage(void)
           "  oracle seeds <seed>           seeding chain and magic_init\n"
           "  oracle cave  <seed> <level>   a generated dungeon level\n"
           "  oracle streamers <seed> <level>  terrain primitives only\n"
-          "  oracle rooms <seed> <level> <type>  one room builder\n");
+          "  oracle rooms <seed> <level> <type>  one room builder\n"
+          "  oracle tunnels <seed> <level>  rooms joined by corridors\n");
   return 2;
 }
 
@@ -524,6 +646,16 @@ int main(int argc, char *argv[])
       dump_rooms(strtoul(argv[2], NULL, 10),
                  (int)strtol(argv[3], NULL, 10),
                  (int)strtol(argv[4], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "tunnels") == 0)
+    {
+      if (argc != 4)
+        {
+          return usage();
+        }
+      dump_tunnels(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
       return 0;
     }
 

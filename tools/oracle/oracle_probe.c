@@ -56,3 +56,31 @@ void probe_build_type1(int yval, int xval)
 {
   build_type1(yval, xval);
 }
+
+void probe_build_tunnel(int row1, int col1, int row2, int col2)
+{
+  build_tunnel(row1, col1, row2, col2);
+}
+
+void probe_reset_doors(void)
+{
+  doorindex = 0;
+}
+
+/* cave_gen revisits every junction a tunnel recorded and decides which become
+   doors. Replaying that loop needs the stack itself, not just its size. */
+int probe_door_count(void)
+{
+  return doorindex;
+}
+
+void probe_door_at(int i, int *y, int *x)
+{
+  *y = doorstk[i].y;
+  *x = doorstk[i].x;
+}
+
+void probe_try_door(int y, int x)
+{
+  try_door(y, x);
+}

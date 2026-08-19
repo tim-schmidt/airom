@@ -28,7 +28,8 @@ Early. The foundations are in place; the game is not yet playable.
 | Game logic | Not started |
 | Dungeon terrain primitives | Done, verified against the original |
 | Rooms — plain and overlapping | Done, verified against the original |
-| Rooms — vaults, tunnels, population | Not started |
+| Tunnels and doors | Done, verified against the original |
+| Rooms — vaults; level population | Not started |
 | Terminal surface | Done — System.Console, no third-party library |
 | Terminal I/O (io.c port) | Not started |
 | Save files | Not started |

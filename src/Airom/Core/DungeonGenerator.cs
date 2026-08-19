@@ -164,6 +164,414 @@ public sealed class DungeonGenerator(GameState game)
         gold.Cost += (8 * Rng.RandInt(gold.Cost)) + Rng.RandInt(8);
     }
 
+    // Tunnelling constants from constant.h.
+    private const int TunnelRandomDirection = 9;  // DUN_TUN_RND
+    private const int TunnelDirectionChange = 70; // DUN_TUN_CHG
+    private const int TunnelContinueChance = 15;  // DUN_TUN_CON
+    private const int TunnelRoomDoorChance = 25;  // DUN_TUN_PEN
+    private const int TunnelJunctionDoor = 15;    // DUN_TUN_JCT
+
+    private const int OpenDoorObject = 367;   // OBJ_OPEN_DOOR
+    private const int ClosedDoorObject = 368; // OBJ_CLOSED_DOOR
+    private const int SecretDoorObject = 369; // OBJ_SECRET_DOOR
+
+    /// <summary>
+    /// Junctions where a tunnel met an existing corridor. cave_gen revisits
+    /// these afterwards to decide which become doors, so the list outlives the
+    /// tunnel that recorded it. Umoria caps it at 100 and silently drops the
+    /// rest; that cap is reproduced because reaching it changes the level.
+    /// </summary>
+    private readonly List<(int Row, int Column)> _doorCandidates = [];
+
+    /// <summary>Clears the junction list. Mirrors setting doorindex to zero.</summary>
+    public void ResetDoorCandidates() => _doorCandidates.Clear();
+
+    /// <summary>Junctions recorded by the tunnels built so far.</summary>
+    public IReadOnlyList<(int Row, int Column)> DoorCandidates => _doorCandidates;
+
+    /// <summary>
+    /// Points the step towards the target, then throws away one axis so the
+    /// tunnel moves in a straight line rather than diagonally. Mirrors
+    /// correct_dir().
+    /// </summary>
+    private void CorrectDirection(
+        ref int rowStep, ref int columnStep, int row1, int column1, int row2, int column2)
+    {
+        rowStep = row1 < row2 ? 1 : row1 == row2 ? 0 : -1;
+        columnStep = column1 < column2 ? 1 : column1 == column2 ? 0 : -1;
+
+        if (rowStep != 0 && columnStep != 0)
+        {
+            if (Rng.RandInt(2) == 1)
+            {
+                rowStep = 0;
+            }
+            else
+            {
+                columnStep = 0;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Picks one of the four compass directions at random, which is what makes
+    /// corridors wander instead of running straight. Mirrors rand_dir().
+    /// </summary>
+    private void RandomDirection(ref int rowStep, ref int columnStep)
+    {
+        int roll = Rng.RandInt(4);
+        if (roll < 3)
+        {
+            columnStep = 0;
+            rowStep = -3 + (roll << 1); // 1 gives -1, 2 gives 1
+        }
+        else
+        {
+            rowStep = 0;
+            columnStep = -7 + (roll << 1); // 3 gives -1, 4 gives 1
+        }
+    }
+
+    private void PlaceDoorObject(int row, int column, int objectIndex, byte feature)
+    {
+        int slot = _game.Objects.Allocate();
+        Cave[row, column].ObjectIndex = slot;
+        _game.Objects[slot].CopyFrom(objectIndex);
+        Cave[row, column].Feature = feature;
+    }
+
+    /// <summary>An open doorway; walkable, so it counts as corridor.</summary>
+    public void PlaceOpenDoor(int row, int column) =>
+        PlaceDoorObject(row, column, OpenDoorObject, CaveFeature.CorridorFloor);
+
+    /// <summary>A door already broken off its hinges. p1 marks it as broken.</summary>
+    public void PlaceBrokenDoor(int row, int column)
+    {
+        PlaceDoorObject(row, column, OpenDoorObject, CaveFeature.CorridorFloor);
+        _game.Objects[Cave[row, column].ObjectIndex].P1 = 1;
+    }
+
+    /// <summary>A shut door; blocks movement until opened.</summary>
+    public void PlaceClosedDoor(int row, int column) =>
+        PlaceDoorObject(row, column, ClosedDoorObject, CaveFeature.BlockedFloor);
+
+    /// <summary>
+    /// A locked door. p1 holds the lock strength as a positive number, which is
+    /// how the game tells locked from stuck.
+    /// </summary>
+    public void PlaceLockedDoor(int row, int column)
+    {
+        PlaceDoorObject(row, column, ClosedDoorObject, CaveFeature.BlockedFloor);
+        _game.Objects[Cave[row, column].ObjectIndex].P1 = (short)(Rng.RandInt(10) + 10);
+    }
+
+    /// <summary>
+    /// A jammed door. The same p1 field, negated - a negative value means stuck
+    /// rather than locked, so one field carries both states.
+    /// </summary>
+    public void PlaceStuckDoor(int row, int column)
+    {
+        PlaceDoorObject(row, column, ClosedDoorObject, CaveFeature.BlockedFloor);
+        _game.Objects[Cave[row, column].ObjectIndex].P1 = (short)(-Rng.RandInt(10) - 10);
+    }
+
+    /// <summary>A door disguised as wall until the player searches it out.</summary>
+    public void PlaceSecretDoor(int row, int column) =>
+        PlaceDoorObject(row, column, SecretDoorObject, CaveFeature.BlockedFloor);
+
+    /// <summary>
+    /// Chooses what kind of door to put here. Mirrors place_door().
+    ///
+    /// Roughly a third open, a third closed in some form, a third secret. Within
+    /// the closed third, most are simply shut - locked and stuck are the
+    /// uncommon cases.
+    /// </summary>
+    public void PlaceDoor(int row, int column)
+    {
+        int kind = Rng.RandInt(3);
+        if (kind == 1)
+        {
+            if (Rng.RandInt(4) == 1)
+            {
+                PlaceBrokenDoor(row, column);
+            }
+            else
+            {
+                PlaceOpenDoor(row, column);
+            }
+        }
+        else if (kind == 2)
+        {
+            int shut = Rng.RandInt(12);
+            if (shut > 3)
+            {
+                PlaceClosedDoor(row, column);
+            }
+            else if (shut == 3)
+            {
+                PlaceStuckDoor(row, column);
+            }
+            else
+            {
+                PlaceLockedDoor(row, column);
+            }
+        }
+        else
+        {
+            PlaceSecretDoor(row, column);
+        }
+    }
+
+    /// <summary>
+    /// Counts the corridor squares touching this one, itself included. Mirrors
+    /// next_to_corr() in misc1.c.
+    ///
+    /// A square already holding a door does not count, which is what stops the
+    /// junction logic stacking two doors beside each other.
+    /// </summary>
+    private int CountAdjacentCorridor(int row, int column)
+    {
+        int found = 0;
+        for (int y = row - 1; y <= row + 1; y++)
+        {
+            for (int x = column - 1; x <= column + 1; x++)
+            {
+                CaveSquare square = Cave[y, x];
+                if (square.Feature != CaveFeature.CorridorFloor)
+                {
+                    continue;
+                }
+
+                if (square.ObjectIndex == 0
+                    || _game.Objects[square.ObjectIndex].TVal < ItemCategory.MinDoors)
+                {
+                    found++;
+                }
+            }
+        }
+
+        return found;
+    }
+
+    /// <summary>
+    /// Whether this square is a corridor junction worth putting a door on:
+    /// several corridors meeting, with walls squeezing it from opposite sides.
+    /// Mirrors next_to().
+    /// </summary>
+    private bool IsDoorwayJunction(int row, int column)
+    {
+        if (CountAdjacentCorridor(row, column) <= 2)
+        {
+            return false;
+        }
+
+        bool wallsAbove = Cave[row - 1, column].Feature >= CaveFeature.MinCaveWall
+            && Cave[row + 1, column].Feature >= CaveFeature.MinCaveWall;
+
+        bool wallsBeside = Cave[row, column - 1].Feature >= CaveFeature.MinCaveWall
+            && Cave[row, column + 1].Feature >= CaveFeature.MinCaveWall;
+
+        return wallsAbove || wallsBeside;
+    }
+
+    /// <summary>
+    /// Puts a door on a junction, sometimes. Mirrors try_door().
+    /// </summary>
+    public void TryDoor(int row, int column)
+    {
+        if (Cave[row, column].Feature == CaveFeature.CorridorFloor
+            && Rng.RandInt(100) > TunnelJunctionDoor
+            && IsDoorwayJunction(row, column))
+        {
+            PlaceDoor(row, column);
+        }
+    }
+
+    /// <summary>
+    /// Digs a corridor from one room towards another. Mirrors build_tunnel().
+    ///
+    /// The digger walks towards the target, wandering off course now and then,
+    /// and reacts to what it runs into: untouched rock is carved, granite is
+    /// remembered as a possible doorway, and meeting an existing corridor may
+    /// end the run. Nothing is written to the cave during the walk - the carved
+    /// squares and candidate walls are collected and applied at the end, which
+    /// is what lets the walk read the terrain as it was before it started.
+    /// </summary>
+    public void BuildTunnel(int row1, int column1, int row2, int column2)
+    {
+        // Umoria's fixed stacks. The caps are reproduced rather than replaced by
+        // growable lists: reaching one truncates the corridor, which is part of
+        // the generated level.
+        const int StackLimit = 1000;
+        const int DoorLimit = 100;
+
+        List<(int Row, int Column)> carved = [];
+        List<(int Row, int Column)> walls = [];
+
+        bool stop = false;
+        bool recordedDoor = false;
+        int loops = 0;
+        int startRow = row1;
+        int startColumn = column1;
+
+        int rowStep = 0;
+        int columnStep = 0;
+        CorrectDirection(ref rowStep, ref columnStep, row1, column1, row2, column2);
+
+        do
+        {
+            // The original guards against a walk that never arrives.
+            loops++;
+            if (loops > 2000)
+            {
+                stop = true;
+            }
+
+            if (Rng.RandInt(100) > TunnelDirectionChange)
+            {
+                if (Rng.RandInt(TunnelRandomDirection) == 1)
+                {
+                    RandomDirection(ref rowStep, ref columnStep);
+                }
+                else
+                {
+                    CorrectDirection(ref rowStep, ref columnStep, row1, column1, row2, column2);
+                }
+            }
+
+            int nextRow = row1 + rowStep;
+            int nextColumn = column1 + columnStep;
+            while (!Cave.InBounds(nextRow, nextColumn))
+            {
+                if (Rng.RandInt(TunnelRandomDirection) == 1)
+                {
+                    RandomDirection(ref rowStep, ref columnStep);
+                }
+                else
+                {
+                    CorrectDirection(ref rowStep, ref columnStep, row1, column1, row2, column2);
+                }
+
+                nextRow = row1 + rowStep;
+                nextColumn = column1 + columnStep;
+            }
+
+            byte feature = Cave[nextRow, nextColumn].Feature;
+
+            if (feature == CaveFeature.NullWall)
+            {
+                row1 = nextRow;
+                column1 = nextColumn;
+                if (carved.Count < StackLimit)
+                {
+                    carved.Add((row1, column1));
+                }
+
+                recordedDoor = false;
+            }
+            else if (feature == CaveFeature.Temp2Wall)
+            {
+                // Already marked as the surround of a wall this tunnel broke
+                // through. Stepping onto it would double back.
+            }
+            else if (feature == CaveFeature.GraniteWall)
+            {
+                row1 = nextRow;
+                column1 = nextColumn;
+                if (walls.Count < StackLimit)
+                {
+                    walls.Add((row1, column1));
+                }
+
+                // Mark the granite around the breach so the tunnel does not
+                // chew sideways through the room wall it just pierced.
+                for (int y = row1 - 1; y <= row1 + 1; y++)
+                {
+                    for (int x = column1 - 1; x <= column1 + 1; x++)
+                    {
+                        if (Cave.InBounds(y, x)
+                            && Cave[y, x].Feature == CaveFeature.GraniteWall)
+                        {
+                            Cave[y, x].Feature = CaveFeature.Temp2Wall;
+                        }
+                    }
+                }
+            }
+            else if (feature is CaveFeature.CorridorFloor or CaveFeature.BlockedFloor)
+            {
+                row1 = nextRow;
+                column1 = nextColumn;
+
+                if (!recordedDoor)
+                {
+                    if (_doorCandidates.Count < DoorLimit)
+                    {
+                        _doorCandidates.Add((row1, column1));
+                    }
+
+                    recordedDoor = true;
+                }
+
+                if (Rng.RandInt(100) > TunnelContinueChance)
+                {
+                    // Only stop once the corridor has covered some ground,
+                    // which is what stops rooms being left unreachable.
+                    int travelledRows = Math.Abs(row1 - startRow);
+                    int travelledColumns = Math.Abs(column1 - startColumn);
+                    if (travelledRows > 10 || travelledColumns > 10)
+                    {
+                        stop = true;
+                    }
+                }
+            }
+            else
+            {
+                // Room floor and everything else: walk over it.
+                row1 = nextRow;
+                column1 = nextColumn;
+            }
+        }
+        while ((row1 != row2 || column1 != column2) && !stop);
+
+        foreach ((int row, int column) in carved)
+        {
+            Cave[row, column].Feature = CaveFeature.CorridorFloor;
+        }
+
+        foreach ((int row, int column) in walls)
+        {
+            if (Cave[row, column].Feature != CaveFeature.Temp2Wall)
+            {
+                continue;
+            }
+
+            if (Rng.RandInt(100) < TunnelRoomDoorChance)
+            {
+                PlaceDoor(row, column);
+            }
+            else
+            {
+                // The rest become plain openings into the room.
+                Cave[row, column].Feature = CaveFeature.CorridorFloor;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Considers a door on each side of every junction the tunnels recorded.
+    /// Mirrors the loop cave_gen runs after tunnelling.
+    /// </summary>
+    public void PlaceJunctionDoors()
+    {
+        foreach ((int row, int column) in _doorCandidates)
+        {
+            TryDoor(row, column - 1);
+            TryDoor(row, column + 1);
+            TryDoor(row - 1, column);
+            TryDoor(row + 1, column);
+        }
+    }
+
     /// <summary>
     /// Whether a room built at this depth is lit. Mirrors the test the room
     /// builders open with: shallow levels are almost always lit, and by depth 25
