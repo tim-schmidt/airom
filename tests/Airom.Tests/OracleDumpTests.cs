@@ -143,7 +143,6 @@ public class OracleDumpTests
     /// emitting a dump that would compare nothing while looking successful.
     /// </summary>
     [Theory]
-    [InlineData("seeds", "1")]
     [InlineData("cave", "1", "5")]
     public void Run_ReportsUnportedModesDistinctly(string mode, params string[] rest)
     {
@@ -155,6 +154,17 @@ public class OracleDumpTests
         Assert.Equal(3, code);
         Assert.Equal(string.Empty, output.ToString());
         Assert.Contains("not ported yet", error.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Run_SeedsProducesADump()
+    {
+        var output = new StringWriter();
+        var error = new StringWriter();
+
+        Assert.Equal(0, OracleDump.Run(output, error, ["seeds", "12345"]));
+        Assert.Contains("mode seeds", output.ToString(), StringComparison.Ordinal);
+        Assert.Equal(string.Empty, error.ToString());
     }
 
     [Fact]

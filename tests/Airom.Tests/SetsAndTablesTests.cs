@@ -1,3 +1,4 @@
+using Airom.Core;
 using Airom.Data;
 
 namespace Airom.Tests;
@@ -44,22 +45,23 @@ public class SetsAndTablesTests
     }
 
     /// <summary>
-    /// The appearance tables are shuffled in place at game start, so they must
-    /// not be frozen into something that cannot be reordered.
+    /// These tables are the pristine data. Umoria shuffled the equivalent
+    /// globals in place at game start; AIrom copies them into an Appearances
+    /// instance per game instead, so a game must never disturb what is here -
+    /// otherwise a second game would start from the first one's shuffle.
     /// </summary>
     [Fact]
-    public void NameTables_AreMutableInPlace()
+    public void NameTables_AreNotDisturbedByStartingAGame()
     {
-        string original = GameTables.Woods[0];
-        try
-        {
-            GameTables.Woods[0] = "Testwood";
-            Assert.Equal("Testwood", GameTables.Woods[0]);
-        }
-        finally
-        {
-            GameTables.Woods[0] = original;
-        }
+        string[] woodsBefore = [.. GameTables.Woods];
+        string[] colorsBefore = [.. GameTables.Colors];
+
+        var game = new GameState();
+        game.InitSeeds(4242);
+        game.MagicInit();
+
+        Assert.Equal(woodsBefore, GameTables.Woods);
+        Assert.Equal(colorsBefore, GameTables.Colors);
     }
 
     // ------------------------------------------------------------ misc tables

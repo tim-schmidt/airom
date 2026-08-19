@@ -19,7 +19,8 @@ Early. The foundations are in place; the game is not yet playable.
 
 | Area | State |
 |---|---|
-| Random number generator | Done, conformance-tested |
+| Random number generator | Done, verified against the original |
+| Seeding and item appearances | Done, verified against the original |
 | Data tables | Done |
 | Item / cave / store predicates | Done |
 | Constants | Item, cave and creature vocabularies done; player, dungeon and inventory pending |

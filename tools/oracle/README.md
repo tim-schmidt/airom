@@ -77,8 +77,8 @@ divergence.
 | Mode | Compares | Status |
 |---|---|---|
 | `rng` | Raw generator draws from a seed | **Verified matching** |
-| `seeds` | `init_seeds` chain, `magic_init`, the shuffled appearance tables | C side works; C# side waiting on the port |
-| `cave` | A generated level: terrain, lighting flags, monsters, objects | C side written; C# side waiting on the port |
+| `seeds` | `init_seeds` chain, `magic_init`, the shuffled appearance tables | **Verified matching** |
+| `cave` | A generated level: terrain, lighting flags, monsters, objects | C side written; C# side waiting on the generator |
 
 `seeds` is the one that will confirm the `reset_seed` quirk against the original
 rather than by inference: `magic_init` shuffles appearances inside a
@@ -112,8 +112,9 @@ exactly: **20,000 draws across seven seeds — 140,000 values** — including th
 boundaries 0, 1, `M-1` and `UINT_MAX`, and the folded start state and final
 state in each.
 
-The `seeds` mode already runs on the C side and confirms the `reset_seed` quirk
-empirically rather than by inference:
+`seeds` matches too — **64 seeds, 217 lines each**, covering the seeding chain,
+all six appearance shuffles and all 45 generated scroll titles. It confirms the
+`reset_seed` quirk by measurement rather than inference:
 
 ```
 state-after-init-seeds  1737948946

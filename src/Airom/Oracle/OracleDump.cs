@@ -5,6 +5,7 @@
 
 using System.Globalization;
 using Airom.Core;
+using Airom.Data;
 
 namespace Airom.Oracle;
 
@@ -67,6 +68,57 @@ public static class OracleDump
     }
 
     /// <summary>
+    /// The seeding chain the game actually uses: init_seeds() derives the
+    /// appearance and town seeds and burns a random number of draws, then
+    /// magic_init() shuffles appearances inside a push/pop of the generator.
+    ///
+    /// The two state lines around magic_init are the interesting pair. The
+    /// restore is deliberately inexact, so they should differ by exactly one -
+    /// which is the quirk measured against the original rather than assumed.
+    /// </summary>
+    public static void DumpSeeds(TextWriter output, uint seed)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+
+        Header(output, "seeds", seed);
+
+        var game = new GameState();
+        game.InitSeeds(seed);
+
+        Line(output, "randes-seed", game.RandesSeed);
+        Line(output, "town-seed", game.TownSeed);
+        Line(output, "state-after-init-seeds", game.Rng.State);
+
+        game.MagicInit();
+        Line(output, "state-after-magic-init", game.Rng.State);
+
+        // The shuffled tables are derived state in their own right, so dumping
+        // them catches a divergence inside magic_init rather than only after it.
+        Appearances appearances = game.Appearances;
+        WriteNames(output, "color", appearances.Colors);
+        WriteNames(output, "wood", appearances.Woods);
+        WriteNames(output, "metal", appearances.Metals);
+        WriteNames(output, "rock", appearances.Rocks);
+        WriteNames(output, "amulet", appearances.Amulets);
+        WriteNames(output, "mushroom", appearances.Mushrooms);
+        WriteNames(output, "title", appearances.Titles);
+
+        Line(output, "final-state", game.Rng.State);
+    }
+
+    private static void Line(TextWriter output, string key, uint value) =>
+        output.Write(key + " " + value.ToString(CultureInfo.InvariantCulture) + "\n");
+
+    private static void WriteNames(TextWriter output, string key, string[] names)
+    {
+        for (int i = 0; i < names.Length; i++)
+        {
+            output.Write(
+                key + " " + i.ToString(CultureInfo.InvariantCulture) + " " + names[i] + "\n");
+        }
+    }
+
+    /// <summary>
     /// Runs one of the dump modes by name, matching the C oracle's command line.
     /// </summary>
     /// <returns>A process exit code: 0 on success, 2 on misuse.</returns>
@@ -97,9 +149,14 @@ public static class OracleDump
             // These wait on the code they exist to check. Reporting that plainly
             // beats emitting a dump that would silently compare nothing.
             case "seeds":
-                error.WriteLine(
-                    "oracle: 'seeds' needs init_seeds and magic_init, which are not ported yet.");
-                return 3;
+                if (arguments.Length != 2
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint seedsSeed))
+                {
+                    return Usage(error);
+                }
+
+                DumpSeeds(output, seedsSeed);
+                return 0;
 
             case "cave":
                 error.WriteLine(
