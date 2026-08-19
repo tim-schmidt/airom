@@ -175,6 +175,27 @@ int microsec;
   return 0;
 }
 
+/* ------------------------------------------------------- unix privileges */
+
+/* Umoria was installed setuid so its shared scoreboard could be written by
+   any player, and drops those privileges as soon as it starts. Windows has no
+   equivalent and the oracle has no scoreboard, so these report an unprivileged
+   process and accept every change. */
+int getuid() { return 0; }
+int getgid() { return 0; }
+
+int setuid(id)
+int id;
+{
+  return 0;
+}
+
+int setgid(id)
+int id;
+{
+  return 0;
+}
+
 /* ---------------------------------------------------------- unix/unix.c */
 
 /* Fills in the player's name from the login account. A fixed name keeps runs

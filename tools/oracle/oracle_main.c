@@ -57,6 +57,9 @@ extern void probe_try_door(int y, int x);
 extern void probe_place_stairs(int typ, int num, int walls);
 extern void probe_new_spot(int *y, int *x);
 
+/* From oracle_probe_main.c, which reaches the object sort inside main.c. */
+extern void probe_init_t_level(void);
+
 /* Windows stdio opens stdout in text mode and rewrites every "\n" as "\r\n",
    which would make all output differ from the C# side on line endings alone.
    The dump is defined as bare LF, so put the stream in binary mode.
@@ -718,6 +721,56 @@ static void dump_stairs(unsigned long seed, int level)
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* ----------------------------------------------------------------- picks */
+
+/* The object index and the draws that read it.
+
+   get_obj_num picks items out of a table sorted by depth, so this dumps the
+   sort itself and then a run of picks at the given level - both with and
+   without the "must fit in a chest" restriction, since that path rejects and
+   redraws.
+
+   No enchantment happens here: magic_treasure is a separate layer. What is
+   compared is which object was chosen, not what it was turned into. */
+static void dump_picks(unsigned long seed, int level, int count)
+{
+  int i;
+
+  header("picks", seed);
+  printf("level %d\n", level);
+  printf("count %d\n", count);
+
+  probe_init_t_level();
+
+  printf("max-obj-level %d\n", MAX_OBJ_LEVEL);
+  printf("dungeon-objects %d\n", MAX_DUNGEON_OBJ);
+
+  for (i = 0; i <= MAX_OBJ_LEVEL; i++)
+    {
+      printf("t-level %d %d\n", i, (int)t_level[i]);
+    }
+
+  for (i = 0; i < MAX_DUNGEON_OBJ; i++)
+    {
+      printf("sorted %d %d\n", i, (int)sorted_objects[i]);
+    }
+
+  init_seeds((int32u)seed);
+  magic_init();
+  pin_player(level);
+  dun_level = (int16)level;
+
+  for (i = 0; i < count; i++)
+    {
+      int any = get_obj_num(level, FALSE);
+      int small = get_obj_num(level, TRUE);
+      printf("pick %d %d %d %d %d\n",
+             i, any, (int)sorted_objects[any], small, (int)sorted_objects[small]);
+    }
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ---------------------------------------------------------------- driver */
 
 static int usage(void)
@@ -730,7 +783,8 @@ static int usage(void)
           "  oracle streamers <seed> <level>  terrain primitives only\n"
           "  oracle rooms <seed> <level> <type>  one room builder\n"
           "  oracle tunnels <seed> <level>  rooms joined by corridors\n"
-          "  oracle stairs <seed> <level>  the whole terrain half of cave_gen\n");
+          "  oracle stairs <seed> <level>  the whole terrain half of cave_gen\n"
+          "  oracle picks <seed> <level> <count>  object sort and get_obj_num\n");
   return 2;
 }
 
@@ -802,6 +856,18 @@ int main(int argc, char *argv[])
           return usage();
         }
       dump_stairs(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "picks") == 0)
+    {
+      if (argc != 5)
+        {
+          return usage();
+        }
+      dump_picks(strtoul(argv[2], NULL, 10),
+                 (int)strtol(argv[3], NULL, 10),
+                 (int)strtol(argv[4], NULL, 10));
       return 0;
     }
 

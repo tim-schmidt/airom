@@ -63,7 +63,7 @@ for file in "$SRC"/*.c; do
 done
 
 here="$(cd "$(dirname "$0")" && pwd)"
-sources+=("$here/oracle_stubs.c" "$here/oracle_probe.c" "$here/oracle_main.c")
+sources+=("$here/oracle_stubs.c" "$here/oracle_probe.c" "$here/oracle_probe_main.c" "$here/oracle_main.c")
 
 echo "compiling ${#sources[@]} files with $CC"
 

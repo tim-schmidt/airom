@@ -574,6 +574,117 @@ public sealed class DungeonGenerator(GameState game)
 
     private const int UpStairObject = 370;   // OBJ_UP_STAIR
     private const int DownStairObject = 371; // OBJ_DOWN_STAIR
+    private const int TrapListBase = 378;    // OBJ_TRAP_LIST
+    private const int RubbleObject = 396;    // OBJ_RUBBLE
+    private const int TrapKinds = 18;        // MAX_TRAP
+
+    /// <summary>
+    /// Puts a particular trap on a square. Mirrors place_trap() in misc3.c.
+    /// </summary>
+    /// <param name="kind">Offset into the trap rows, 0 to <c>MAX_TRAP - 1</c>.</param>
+    public void PlaceTrap(int row, int column, int kind)
+    {
+        int slot = _game.Objects.Allocate();
+        Cave[row, column].ObjectIndex = slot;
+        _game.Objects[slot].CopyFrom(TrapListBase + kind);
+    }
+
+    /// <summary>Picks a trap at random. Mirrors the typ == 1 case of alloc_object().</summary>
+    public void PlaceRandomTrap(int row, int column) =>
+        PlaceTrap(row, column, Rng.RandInt(TrapKinds) - 1);
+
+    /// <summary>
+    /// Drops a pile of rubble. Mirrors place_rubble() in misc3.c.
+    ///
+    /// Unlike a trap, rubble also blocks the square - it is the one scattered
+    /// object that changes the terrain under it.
+    /// </summary>
+    public void PlaceRubble(int row, int column)
+    {
+        int slot = _game.Objects.Allocate();
+        CaveSquare square = Cave[row, column];
+        square.ObjectIndex = slot;
+        square.Feature = CaveFeature.BlockedFloor;
+        _game.Objects[slot].CopyFrom(RubbleObject);
+    }
+
+    /// <summary>
+    /// Chooses which object to generate at a given depth, as an index into
+    /// <see cref="ObjectLevels.Sorted"/>. Mirrors get_obj_num() in misc3.c.
+    ///
+    /// The distribution is deliberately not uniform. Half the time it draws once
+    /// from everything available at this depth; the other half it draws three
+    /// times, keeps the deepest, and then redraws within that level. The
+    /// original's comment explains the intent: a level-n object turns up roughly
+    /// 2/n of the time on level n, so deep items stay rare without being
+    /// unreachable. One draw in twelve also lifts the effective depth first,
+    /// which is what lets a shallow level occasionally cough up something far
+    /// better than it should.
+    /// </summary>
+    /// <param name="level">Dungeon depth to generate for.</param>
+    /// <param name="mustBeSmall">
+    /// True when the object has to fit in a chest, which rejects and redraws
+    /// anything bulky.
+    /// </param>
+    public int GetObjectNumber(int level, bool mustBeSmall)
+    {
+        ReadOnlySpan<int> totals = ObjectLevels.LevelTotals;
+        ReadOnlySpan<int> sorted = ObjectLevels.Sorted;
+
+        if (level == 0)
+        {
+            return Rng.RandInt(totals[0]) - 1;
+        }
+
+        if (level >= ObjectLevels.MaxObjectLevel)
+        {
+            level = ObjectLevels.MaxObjectLevel;
+        }
+        else if (Rng.RandInt(GreatItemChance) == 1)
+        {
+            level = (level * ObjectLevels.MaxObjectLevel
+                / Rng.RandInt(ObjectLevels.MaxObjectLevel)) + 1;
+            if (level > ObjectLevels.MaxObjectLevel)
+            {
+                level = ObjectLevels.MaxObjectLevel;
+            }
+        }
+
+        int index;
+        do
+        {
+            if (Rng.RandInt(2) == 1)
+            {
+                index = Rng.RandInt(totals[level]) - 1;
+            }
+            else
+            {
+                // Best of three, then redraw within whatever level that landed
+                // on - which is what biases the result deeper.
+                index = Rng.RandInt(totals[level]) - 1;
+                int other = Rng.RandInt(totals[level]) - 1;
+                if (index < other)
+                {
+                    index = other;
+                }
+
+                other = Rng.RandInt(totals[level]) - 1;
+                if (index < other)
+                {
+                    index = other;
+                }
+
+                int chosenLevel = GameTables.ObjectList[sorted[index]].Level;
+                index = chosenLevel == 0
+                    ? Rng.RandInt(totals[0]) - 1
+                    : Rng.RandInt(totals[chosenLevel] - totals[chosenLevel - 1])
+                        - 1 + totals[chosenLevel - 1];
+            }
+        }
+        while (mustBeSmall && ItemSets.IsTooLargeForChest(GameTables.ObjectList[sorted[index]]));
+
+        return index;
+    }
 
     /// <summary>
     /// Counts how many of the four orthogonal neighbours are wall. Mirrors

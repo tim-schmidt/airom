@@ -523,6 +523,65 @@ public static class OracleDump
     }
 
     /// <summary>
+    /// The object index and the draws that read it.
+    ///
+    /// get_obj_num picks items out of a table sorted by depth, so this dumps
+    /// the sort itself and then a run of picks at the given level - both with
+    /// and without the "must fit in a chest" restriction, since that path
+    /// rejects and redraws.
+    ///
+    /// No enchantment happens here: magic_treasure is a separate layer. What is
+    /// compared is which object was chosen, not what it was turned into.
+    /// </summary>
+    public static void DumpPicks(TextWriter output, uint seed, int level, int count)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+
+        Header(output, "picks", seed);
+        output.Write("level " + level.ToString(CultureInfo.InvariantCulture) + "\n");
+        output.Write("count " + count.ToString(CultureInfo.InvariantCulture) + "\n");
+
+        output.Write("max-obj-level "
+            + ObjectLevels.MaxObjectLevel.ToString(CultureInfo.InvariantCulture) + "\n");
+        output.Write("dungeon-objects "
+            + ObjectLevels.DungeonObjectCount.ToString(CultureInfo.InvariantCulture) + "\n");
+
+        for (int i = 0; i <= ObjectLevels.MaxObjectLevel; i++)
+        {
+            output.Write("t-level " + i.ToString(CultureInfo.InvariantCulture)
+                + " " + ObjectLevels.LevelTotals[i].ToString(CultureInfo.InvariantCulture) + "\n");
+        }
+
+        for (int i = 0; i < ObjectLevels.DungeonObjectCount; i++)
+        {
+            output.Write("sorted " + i.ToString(CultureInfo.InvariantCulture)
+                + " " + ObjectLevels.Sorted[i].ToString(CultureInfo.InvariantCulture) + "\n");
+        }
+
+        var game = new GameState();
+        game.InitSeeds(seed);
+        game.MagicInit();
+        game.DungeonLevel = level;
+
+        var generator = new DungeonGenerator(game);
+        for (int i = 0; i < count; i++)
+        {
+            int any = generator.GetObjectNumber(level, mustBeSmall: false);
+            int small = generator.GetObjectNumber(level, mustBeSmall: true);
+            output.Write(string.Join(
+                ' ',
+                "pick",
+                i.ToString(CultureInfo.InvariantCulture),
+                any.ToString(CultureInfo.InvariantCulture),
+                ObjectLevels.Sorted[any].ToString(CultureInfo.InvariantCulture),
+                small.ToString(CultureInfo.InvariantCulture),
+                ObjectLevels.Sorted[small].ToString(CultureInfo.InvariantCulture)) + "\n");
+        }
+
+        Line(output, "final-state", game.Rng.State);
+    }
+
+    /// <summary>
     /// One character per terrain value, matching feature_char() in the C oracle.
     /// Every distinct value gets a distinct character so the dump stays exact
     /// while still being readable.
@@ -640,6 +699,18 @@ public static class OracleDump
                 DumpStairs(output, stSeed, stLevel);
                 return 0;
 
+            case "picks":
+                if (arguments.Length != 4
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint pkSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int pkLevel)
+                    || !int.TryParse(arguments[3], CultureInfo.InvariantCulture, out int pkCount))
+                {
+                    return Usage(error);
+                }
+
+                DumpPicks(output, pkSeed, pkLevel, pkCount);
+                return 0;
+
             case "cave":
                 error.WriteLine(
                     "oracle: 'cave' needs the dungeon generator, which is not ported yet.");
@@ -660,6 +731,7 @@ public static class OracleDump
         error.WriteLine("  airom oracle rooms <seed> <level> <type>  one room builder");
         error.WriteLine("  airom oracle tunnels <seed> <level>  rooms joined by corridors");
         error.WriteLine("  airom oracle stairs <seed> <level>  the whole terrain half of cave_gen");
+        error.WriteLine("  airom oracle picks <seed> <level> <count>  object sort and get_obj_num");
         return 2;
     }
 }

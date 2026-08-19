@@ -81,6 +81,7 @@ divergence.
 | `rooms` | One room builder over the whole room grid, terrain and lit-room marks | **Verified matching** |
 | `tunnels` | Rooms joined by corridors, plus every door left behind | **Verified matching** |
 | `stairs` | The whole terrain half of cave_gen, through to the player's start square | **Verified matching** |
+| `picks` | The depth-sorted object index and the draws that read it | **Verified matching** |
 | `seeds` | `init_seeds` chain, `magic_init`, the shuffled appearance tables | **Verified matching** |
 | `cave` | A generated level: terrain, lighting flags, monsters, objects | C side written; C# side waiting on the generator |
 
@@ -89,7 +90,7 @@ rather than by inference: `magic_init` shuffles appearances inside a
 `set_seed`/`reset_seed` bracket, and the restore deliberately does not land
 where it started.
 
-## Reaching inside generate.c
+## Reaching inside generate.c and main.c
 
 Everything in `generate.c` is `static` except `generate_cave()`, so linking
 against it allows comparing whole finished levels and nothing smaller. That is
@@ -99,6 +100,12 @@ no use while the port is being built a layer at a time.
 which reaches the file's statics while leaving the reference tree untouched —
 no patched copy to reconcile later. `generate.c` is excluded from the build's
 file list precisely because it arrives through the probe instead.
+
+`oracle_probe_main.c` does the same for `main.c`, whose static `init_t_level()`
+builds the depth-sorted object index. That file also defines the game's own
+`main()`, so the probe renames it before including. Reimplementing the sort in
+the harness instead would only have proved that two copies written for this
+project agreed — not that either matched Umoria.
 
 ## Format
 
