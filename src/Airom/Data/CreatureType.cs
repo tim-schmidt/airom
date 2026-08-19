@@ -86,5 +86,40 @@ public sealed class CreatureType(
 
     public byte Level { get; } = level;
 
+    /// <summary>Tests a <see cref="CreatureMove"/> bit.</summary>
+    public bool HasMove(uint flag) => (MoveFlags & flag) != 0;
+
+    /// <summary>Tests a <see cref="CreatureSpell"/> bit.</summary>
+    public bool HasSpell(uint flag) => (SpellFlags & flag) != 0;
+
+    /// <summary>Tests a <see cref="CreatureDefense"/> bit.</summary>
+    public bool HasDefense(ushort flag) => (DefenseFlags & flag) != 0;
+
+    /// <summary>
+    /// How often the monster attempts a spell, as a 1-in-N chance per turn.
+    /// Zero means it never casts.
+    /// </summary>
+    public int SpellFrequency => (int)(SpellFlags & CreatureSpell.Frequency);
+
+    /// <summary>Whether the monster casts anything at all.</summary>
+    public bool CastsSpells => SpellFrequency != 0;
+
+    /// <summary>
+    /// Whether the breath bits mean a real breath attack. A monster with breath
+    /// bits but no spell frequency does not breathe - those bits are read as
+    /// resistances instead. See <see cref="CreatureSpell.Breathe"/>.
+    /// </summary>
+    public bool Breathes => CastsSpells && (SpellFlags & CreatureSpell.Breathe) != 0;
+
+    /// <summary>
+    /// The five treasure bits read as one number, the form the monster-memory
+    /// code stores so it can remember the best haul seen from this monster.
+    /// </summary>
+    public int TreasureRating =>
+        (int)((MoveFlags & CreatureMove.Treasure) >> CreatureMove.TreasureShift);
+
+    /// <summary>Killing this monster wins the game.</summary>
+    public bool WinsGameWhenKilled => (MoveFlags & CreatureMove.Win) != 0;
+
     public override string ToString() => Name;
 }

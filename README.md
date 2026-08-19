@@ -22,6 +22,8 @@ Early. The foundations are in place; the game is not yet playable.
 | Random number generator | Done, conformance-tested |
 | Data tables | Done |
 | Item / cave / store predicates | Done |
+| Constants | Item, cave and creature vocabularies done; player, dungeon and inventory pending |
+| Core types | 4 of 16 structs; the rest are runtime state |
 | Game logic | Not started |
 | Terminal I/O | Not started |
 | Save files | Not started |
