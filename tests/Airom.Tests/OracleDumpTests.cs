@@ -139,21 +139,32 @@ public class OracleDumpTests
     }
 
     /// <summary>
-    /// Modes whose subject is not ported yet report that distinctly, rather than
-    /// emitting a dump that would compare nothing while looking successful.
+    /// Every mode now has a working implementation on this side. Exit code 3
+    /// once meant "that part of the port does not exist yet"; nothing reports it
+    /// any more, and this asserts that rather than leaving the claim implicit.
     /// </summary>
     [Theory]
+    [InlineData("rng", "1", "5")]
+    [InlineData("seeds", "1")]
+    [InlineData("streamers", "1", "5")]
+    [InlineData("rooms", "1", "5", "0")]
+    [InlineData("tunnels", "1", "5")]
+    [InlineData("stairs", "1", "5")]
+    [InlineData("picks", "1", "5", "3")]
+    [InlineData("enchanted", "1", "5", "3")]
+    [InlineData("populate", "1", "5")]
     [InlineData("cave", "1", "5")]
-    public void Run_ReportsUnportedModesDistinctly(string mode, params string[] rest)
+    public void Run_EveryModeProducesADump(string mode, params string[] rest)
     {
         var output = new StringWriter();
         var error = new StringWriter();
 
         int code = OracleDump.Run(output, error, [mode, .. rest]);
 
-        Assert.Equal(3, code);
-        Assert.Equal(string.Empty, output.ToString());
-        Assert.Contains("not ported yet", error.ToString(), StringComparison.Ordinal);
+        Assert.Equal(0, code);
+        Assert.Equal(string.Empty, error.ToString());
+        Assert.Contains($"mode {mode}", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("final-state ", output.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
