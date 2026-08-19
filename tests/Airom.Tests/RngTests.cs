@@ -98,14 +98,17 @@ public class RngTests
     }
 
     /// <summary>
-    /// Pins Umoria's off-by-one restore. reset_seed() feeds the saved raw state
+    /// Pins Umoria's inexact restore. reset_seed() feeds the saved raw state
     /// back through set_rnd_seed(), which applies (x % (M-1)) + 1 to a value
-    /// already in range, so the state returns one higher than it was. This is a
-    /// 1989 quirk that the port reproduces on purpose: an exact restore would
-    /// change the sequence the game sees after every town regeneration.
+    /// already in range, so the state returns one higher than it was.
+    ///
+    /// n+1 is adjacent numerically but not in the sequence - the generator is
+    /// multiplicative, so the restored stream is an unrelated part of the cycle.
+    /// The port reproduces this on purpose; an exact restore would change the
+    /// sequence the game sees after every town regeneration.
     /// </summary>
     [Fact]
-    public void PopSeed_RestoresOneStepOff_MatchingUmoria()
+    public void PopSeed_RestoresToNumericallyAdjacentSeed_MatchingUmoria()
     {
         var rng = new Rng(9876);
         for (int i = 0; i < 50; i++)

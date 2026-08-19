@@ -70,11 +70,19 @@ public sealed class Rng
     ///
     /// FAITHFUL QUIRK - do not "fix" this. The original restores by calling
     /// set_rnd_seed(old_seed), which applies (x % (M-1)) + 1 to a value that is
-    /// already in range. The state therefore comes back one step off: a saved
-    /// state of n restores as n+1, and M-1 restores as 1. Every town or item
-    /// description regeneration perturbs the main sequence this way. The game
-    /// stays deterministic, but restoring exactly would diverge from Umoria and
-    /// change the dungeons a given save file produces.
+    /// already in range. A saved state of n therefore restores as n+1, and M-1
+    /// restores as 1.
+    ///
+    /// Note n+1 is only numerically adjacent, not adjacent in the sequence.
+    /// Because the generator is multiplicative, n and n+1 are unrelated points
+    /// on the cycle: the restored stream shares nothing with the one that was
+    /// saved. The restore is a full displacement, not a one-draw slip.
+    ///
+    /// That is harmless in play - n+1 is as good a seed as n, so distributions
+    /// and balance are untouched - but it means the sequence after every town
+    /// generation is a deliberate part of Umoria's behaviour. Restoring exactly
+    /// would change which dungeons a given seed produces and would forfeit
+    /// differential testing against the original C.
     /// </summary>
     public void PopSeed() => SetSeed(_savedSeed);
 

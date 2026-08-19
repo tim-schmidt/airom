@@ -47,9 +47,11 @@ verified against the original's own published check value — seeded at 1, the
 10,001st draw must be `1043618065`. That test runs on every build.
 
 Where the 1989 code has quirks, the port keeps them and documents why. The
-clearest example is `reset_seed()`, which restores a saved generator state one
-step off from where it was; "fixing" it would change which dungeons a given seed
-produces. Such places are marked `FAITHFUL QUIRK` in the source.
+clearest example is `reset_seed()`, which restores a saved generator state to
+the *next* seed value rather than the saved one — and since the generator is
+multiplicative, that lands on an unrelated part of the cycle. Harmless in play,
+but "fixing" it would change which dungeons a given seed produces. Such places
+are marked `FAITHFUL QUIRK` in the source.
 
 The C sources are kept outside this repository and used strictly as reference.
 
