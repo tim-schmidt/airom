@@ -20,7 +20,8 @@ Early. The foundations are in place; the game is not yet playable.
 | Area | State |
 |---|---|
 | Random number generator | Done, conformance-tested |
-| Data tables | Objects and monsters done; misc tables pending |
+| Data tables | Done |
+| Item / cave / store predicates | Done |
 | Game logic | Not started |
 | Terminal I/O | Not started |
 | Save files | Not started |
@@ -57,9 +58,10 @@ The C sources are kept outside this repository and used strictly as reference.
 
 ## Generated data
 
-The object and monster tables are ~700 rows of C struct initialisers. They are
-generated rather than transcribed, by `tools/gen_tables.py`, so the field
-mapping is written down once and the result is reproducible:
+The object, monster, owner and appearance tables are ~800 rows of C struct
+initialisers. They are generated rather than transcribed, by
+`tools/gen_tables.py`, so the field mapping is written down once and the result
+is reproducible:
 
 ```
 python tools/gen_tables.py            # regenerate

@@ -53,7 +53,7 @@ public sealed class TreasureType(
     short toAc,
     byte damageDice,
     byte damageSides,
-    byte level)
+    byte level) : IItemAttributes
 {
     public string Name { get; } = name;
 

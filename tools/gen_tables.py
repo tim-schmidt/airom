@@ -466,11 +466,218 @@ def gen_monsters(moria: Path) -> str:
     return "\n".join(lines)
 
 
+def _tables_source(moria: Path) -> tuple[str, dict[str, int]]:
+    defines = parse_defines(
+        (moria / "source" / "constant.h").read_text(encoding="latin-1")
+    )
+    text = (moria / "source" / "tables.c").read_text(encoding="latin-1")
+    return strip_comments(select_branches(text)), defines
+
+
+def _string_array(body: str) -> list[str]:
+    """Parse a flat array of C string literals."""
+    return [c_string(f) for f in split_fields(body) if f]
+
+
+def _matrix(body: str, defines: dict[str, int], rows: int, cols: int) -> list[list[int]]:
+    parsed = split_rows(body)
+    if len(parsed) != rows:
+        raise SystemExit("expected {0} rows, got {1}".format(rows, len(parsed)))
+    out = []
+    for row in parsed:
+        values = [c_number(f, defines) for f in split_fields(row) if f]
+        if len(values) != cols:
+            raise SystemExit("expected {0} columns, got {1}".format(cols, len(values)))
+        out.append(values)
+    return out
+
+
+def _emit_matrix(lines: list[str], name: str, kind: str, doc: list[str], data) -> None:
+    lines.extend(doc)
+    lines.append("    public static readonly {0}[][] {1} =".format(kind, name))
+    lines.append("    [")
+    for row in data:
+        lines.append("        [" + ", ".join(str(v) for v in row) + "],")
+    lines.append("    ];")
+    lines.append("")
+
+
+def _emit_strings(lines: list[str], name: str, doc: list[str], values: list[str]) -> None:
+    lines.extend(doc)
+    lines.append("    public static readonly string[] {0} =".format(name))
+    lines.append("    [")
+    line = "        "
+    for value in values:
+        piece = value + ", "
+        if len(line) + len(piece) > 96:
+            lines.append(line.rstrip())
+            line = "        "
+        line += piece
+    if line.strip():
+        lines.append(line.rstrip().rstrip(","))
+    lines.append("    ];")
+    lines.append("")
+
+
+NAME_ARRAYS = [
+    ("colors", "Colors", "MAX_COLORS", [
+        "    /// <summary>",
+        "    /// Potion appearances. magic_init() shuffles these at game start, so the",
+        "    /// array is mutable and the first three entries must stay put - slime",
+        "    /// mould juice, apple juice and water are fixed.",
+        "    /// </summary>",
+    ]),
+    ("mushrooms", "Mushrooms", "MAX_MUSH", [
+        "    /// <summary>Mushroom appearances; shuffled by magic_init().</summary>",
+    ]),
+    ("woods", "Woods", "MAX_WOODS", [
+        "    /// <summary>Staff appearances; shuffled by magic_init().</summary>",
+    ]),
+    ("metals", "Metals", "MAX_METALS", [
+        "    /// <summary>Wand appearances; shuffled by magic_init().</summary>",
+    ]),
+    ("rocks", "Rocks", "MAX_ROCKS", [
+        "    /// <summary>Ring appearances; shuffled by magic_init().</summary>",
+    ]),
+    ("amulets", "Amulets", "MAX_AMULETS", [
+        "    /// <summary>Amulet appearances; shuffled by magic_init().</summary>",
+    ]),
+    ("syllables", "Syllables", "MAX_SYLLABLES", [
+        "    /// <summary>",
+        "    /// Fragments assembled into the nonsense titles printed on unidentified",
+        "    /// scrolls. magic_init() builds MAX_TITLES names from these.",
+        "    /// </summary>",
+    ]),
+]
+
+
+def gen_names(moria: Path) -> str:
+    text, defines = _tables_source(moria)
+    lines = [
+        HEADER.format(source="moria/source/tables.c"),
+        "namespace Airom.Data;",
+        "",
+        "public static partial class GameTables",
+        "{",
+    ]
+
+    for c_name, cs_name, size_macro, doc in NAME_ARRAYS:
+        body = extract_initialiser(text, "{0}[{1}]".format(c_name, size_macro))
+        values = _string_array(body)
+        expected = defines[size_macro]
+        if len(values) != expected:
+            raise SystemExit(
+                "{0}: parsed {1} entries, {2} is {3}".format(
+                    c_name, len(values), size_macro, expected
+                )
+            )
+        _emit_strings(lines, cs_name, doc, values)
+
+    lines[-1:] = ["}", ""]
+    return "\n".join(lines)
+
+
+def gen_misc_tables(moria: Path) -> str:
+    text, defines = _tables_source(moria)
+
+    owners_body = extract_initialiser(text, "owners[MAX_OWNERS]")
+    owner_rows = split_rows(owners_body)
+    if len(owner_rows) != defines["MAX_OWNERS"]:
+        raise SystemExit(
+            "owners: parsed {0} rows, MAX_OWNERS is {1}".format(
+                len(owner_rows), defines["MAX_OWNERS"]
+            )
+        )
+
+    lines = [
+        HEADER.format(source="moria/source/tables.c"),
+        "namespace Airom.Data;",
+        "",
+        "public static partial class GameTables",
+        "{",
+        "    /// <summary>",
+        "    /// Store owners. Umoria notes that owners must be added in groups, one",
+        "    /// per store, because a store picks its owner by indexing this table in",
+        "    /// strides of MAX_STORES.",
+        "    /// </summary>",
+        "    public static readonly OwnerType[] Owners = new OwnerType[{0}]".format(
+            defines["MAX_OWNERS"]
+        ),
+        "    {",
+    ]
+    for index, row in enumerate(owner_rows):
+        f = split_fields(row)
+        if len(f) != 7:
+            raise SystemExit(
+                "owners row {0}: expected 7 fields, got {1}".format(index, len(f))
+            )
+        values = [c_number(x, defines) for x in f[1:]]
+        lines.append(
+            "        new({0}, {1}),".format(
+                c_string(f[0]), ", ".join(str(v) for v in values)
+            )
+        )
+    lines += ["    };", ""]
+
+    _emit_matrix(
+        lines,
+        "RaceGoldAdjust",
+        "byte",
+        [
+            "    /// <summary>",
+            "    /// Price multiplier as a percentage, indexed [ownerRace][playerRace].",
+            "    /// Dwarves charge half-trolls 135% and their own kind 95%.",
+            "    /// </summary>",
+        ],
+        _matrix(
+            extract_initialiser(text, "rgold_adj[MAX_RACES][MAX_RACES]"),
+            defines,
+            defines["MAX_RACES"],
+            defines["MAX_RACES"],
+        ),
+    )
+
+    _emit_matrix(
+        lines,
+        "StoreChoice",
+        "ushort",
+        [
+            "    /// <summary>",
+            "    /// ObjectList indices each store restocks from, indexed [store][slot].",
+            "    /// Repeated entries are deliberate - they weight the random draw.",
+            "    /// </summary>",
+        ],
+        _matrix(
+            extract_initialiser(text, "store_choice[MAX_STORES][STORE_CHOICES]"),
+            defines,
+            defines["MAX_STORES"],
+            defines["STORE_CHOICES"],
+        ),
+    )
+
+    _emit_matrix(
+        lines,
+        "BlowsTable",
+        "byte",
+        [
+            "    /// <summary>",
+            "    /// Melee blows per round, indexed [strengthBand][dexterityBand].",
+            "    /// </summary>",
+        ],
+        _matrix(extract_initialiser(text, "blows_table[7][6]"), defines, 7, 6),
+    )
+
+    lines[-1:] = ["}", ""]
+    return "\n".join(lines)
+
+
 # ---------------------------------------------------------------- driver
 
 TARGETS = {
     "src/Airom/Data/GameTables.Objects.g.cs": gen_objects,
     "src/Airom/Data/GameTables.Monsters.g.cs": gen_monsters,
+    "src/Airom/Data/GameTables.Names.g.cs": gen_names,
+    "src/Airom/Data/GameTables.Misc.g.cs": gen_misc_tables,
 }
 
 
