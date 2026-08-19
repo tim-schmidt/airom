@@ -22,6 +22,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
+#endif
+
 #include "config.h"
 #include "constant.h"
 #include "types.h"
@@ -29,6 +34,24 @@
 
 /* Bump when the dump format changes in a way the C# side must match. */
 #define ORACLE_FORMAT 1
+
+/* desc.c defines this but externs.h never declares it, so the harness has to
+   name it itself. The width matches the definition in desc.c. */
+extern char titles[MAX_TITLES][10];
+
+/* Windows stdio opens stdout in text mode and rewrites every "\n" as "\r\n",
+   which would make all output differ from the C# side on line endings alone.
+   The dump is defined as bare LF, so put the stream in binary mode.
+
+   This is the harness, not the game, so a platform guard is fine here - it
+   keeps the oracle buildable on a Unix box without pulling in Windows headers
+   that do not exist there. */
+static void use_unix_line_endings(void)
+{
+#ifdef _WIN32
+  _setmode(_fileno(stdout), _O_BINARY);
+#endif
+}
 
 static void header(const char *mode, unsigned long seed)
 {
@@ -256,6 +279,8 @@ static int usage(void)
 
 int main(int argc, char *argv[])
 {
+  use_unix_line_endings();
+
   if (argc < 3)
     {
       return usage();

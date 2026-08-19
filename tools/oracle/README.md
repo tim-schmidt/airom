@@ -76,9 +76,9 @@ divergence.
 
 | Mode | Compares | Status |
 |---|---|---|
-| `rng` | Raw generator draws from a seed | **Working** |
-| `seeds` | `init_seeds` chain, `magic_init`, the shuffled appearance tables | Waiting on the port |
-| `cave` | A generated level: terrain, lighting flags, monsters, objects | Waiting on the port |
+| `rng` | Raw generator draws from a seed | **Verified matching** |
+| `seeds` | `init_seeds` chain, `magic_init`, the shuffled appearance tables | C side works; C# side waiting on the port |
+| `cave` | A generated level: terrain, lighting flags, monsters, objects | C side written; C# side waiting on the port |
 
 `seeds` is the one that will confirm the `reset_seed` quirk against the original
 rather than by inference: `magic_init` shuffles appearances inside a
@@ -107,8 +107,20 @@ The version on the first line is `ORACLE_FORMAT` in `oracle_main.c` and
 
 ## Current verification
 
-The C oracle has not been built yet — no compiler is installed on this machine.
-In the meantime the C# `rng` dump has been checked against an independent
-Park–Miller implementation for 2,000 consecutive draws, including the folded
-start state and the final state, and matches exactly. That is real but narrower
-evidence than the C itself will give.
+The C oracle builds with gcc 16.1.0 (MSYS2 UCRT64) and `rng` matches AIrom
+exactly: **20,000 draws across seven seeds — 140,000 values** — including the
+boundaries 0, 1, `M-1` and `UINT_MAX`, and the folded start state and final
+state in each.
+
+The `seeds` mode already runs on the C side and confirms the `reset_seed` quirk
+empirically rather than by inference:
+
+```
+state-after-init-seeds  1737948946
+state-after-magic-init  1737948947
+```
+
+Exactly one higher, because `magic_init` brackets its shuffle in
+`set_seed`/`reset_seed` and the restore folds an already-in-range value through
+`set_rnd_seed` again. AIrom reproduces that on purpose; this is the measurement
+that says so.

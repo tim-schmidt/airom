@@ -22,6 +22,15 @@ if [[ ! -f "$SRC/generate.c" ]]; then
 fi
 
 CC="${CC:-gcc}"
+
+# An MSYS2 gcc invoked by absolute path from another shell - Git Bash, say -
+# launches but cannot find its own runtime DLLs, and dies with no diagnostic at
+# all. Putting the compiler's own directory on PATH is what makes that work.
+if [[ "$CC" == */* && -x "$CC" ]]; then
+    PATH="$(cd "$(dirname "$CC")" && pwd):$PATH"
+    export PATH
+fi
+
 if ! command -v "$CC" >/dev/null 2>&1; then
     cat >&2 <<'EOF'
 error: no C compiler found.
@@ -59,7 +68,11 @@ echo "compiling ${#sources[@]} files with $CC"
 # -std=gnu89 because this is K&R-era C: implicit declarations and old-style
 # definitions are the norm here, not mistakes. Warnings are off for the same
 # reason - the goal is a faithful build of 1989 code, not a clean one.
+# oracle_shim.h is forced ahead of every file to work around the 1989
+# "long time();" declarations colliding with a 64-bit time_t. See the comment
+# in that header for why -D on its own cannot do it.
 "$CC" -std=gnu89 -w -O1 \
+    -include "$here/oracle_shim.h" \
     -I"$SRC" \
     -o "$OUT" \
     "${sources[@]}"

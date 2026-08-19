@@ -9,6 +9,14 @@
    makes the oracle build cheap; this file supplies the symbols they would have
    provided.
 
+   These are written in K&R style on purpose. externs.h only emits ANSI
+   prototypes when LINT_ARGS is defined, which happens solely for the Atari TC
+   compiler; the portable build - the one AIrom is derived from - sees
+   declarations like "void print();" with an empty parameter list. An ANSI
+   definition taking a char cannot match that, because the argument undergoes
+   default promotion. Old-style definitions match, and match what the original
+   actually compiled.
+
    Output stubs are silent. Input stubs abort loudly: nothing in dungeon
    generation should ever ask for a keypress, so if one does, the run is not
    measuring what it claims to and should fail rather than hang.
@@ -19,80 +27,185 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "config.h"
 #include "constant.h"
 #include "types.h"
 #include "externs.h"
 
-static void oracle_unexpected(const char *what)
+static void oracle_unexpected(what)
+char *what;
 {
   fflush(stdout);
   fprintf(stderr, "oracle: unexpected call to %s during a headless run\n", what);
   exit(2);
 }
 
+/* ---------------------------------------------------------------- clock */
+
+/* misc1.c and save.c both declare "long time();", which collides with the
+   64-bit time_t in modern Windows headers. oracle_shim.h renames the calls to
+   this rather than editing the reference sources.
+
+   It returns a constant. The oracle is always given an explicit seed, so the
+   clock never feeds the generator; pinning it means anything that does reach
+   for the time stays reproducible instead of quietly varying per run. */
+long moria_time(where)
+long *where;
+{
+  if (where != (long *)0)
+    {
+      *where = 0L;
+    }
+  return 0L;
+}
+
 /* ------------------------------------------------------------------ io.c */
 
-void init_curses(void) { }
-void moriaterm(void) { }
-void restore_term(void) { }
-void put_qio(void) { }
-void flush(void) { }
-void clear_screen(void) { }
-void bell(void) { }
-void save_screen(void) { }
-void restore_screen(void) { }
-void screen_map(void) { }
-void shell_out(void) { }
+void init_curses() { }
+void moriaterm() { }
+void restore_term() { }
+void put_qio() { }
+void flush() { }
+void clear_screen() { }
+void bell() { }
+void save_screen() { }
+void restore_screen() { }
+void screen_map() { }
+void shell_out() { }
 
-void put_buffer(char *out_str, int row, int col) { (void)out_str; (void)row; (void)col; }
-void erase_line(int row, int col) { (void)row; (void)col; }
-void clear_from(int row) { (void)row; }
-void print(char ch, int row, int col) { (void)ch; (void)row; (void)col; }
-void move_cursor_relative(int row, int col) { (void)row; (void)col; }
-void count_msg_print(char *p) { (void)p; }
-void prt(char *str_buff, int row, int col) { (void)str_buff; (void)row; (void)col; }
-void move_cursor(int row, int col) { (void)row; (void)col; }
-void msg_print(char *str_buff) { (void)str_buff; }
-void pause_line(int prt_line) { (void)prt_line; }
-void pause_exit(int prt_line, int delay) { (void)prt_line; (void)delay; }
+int suspend() { return 0; }
 
-int suspend(void) { return 0; }
+void put_buffer(out_str, row, col)
+char *out_str;
+int row, col;
+{ }
 
-char inkey(void) { oracle_unexpected("inkey"); return 0; }
-char inkeydir(void) { oracle_unexpected("inkeydir"); return 0; }
+void erase_line(row, col)
+int row, col;
+{ }
 
-int get_check(char *prompt) { (void)prompt; oracle_unexpected("get_check"); return 0; }
+void clear_from(row)
+int row;
+{ }
 
-int get_com(char *prompt, char *command)
+void print(ch, row, col)
+char ch;
+int row, col;
+{ }
+
+void move_cursor_relative(row, col)
+int row, col;
+{ }
+
+void count_msg_print(p)
+char *p;
+{ }
+
+void prt(str_buff, row, col)
+char *str_buff;
+int row, col;
+{ }
+
+void move_cursor(row, col)
+int row, col;
+{ }
+
+void msg_print(str_buff)
+char *str_buff;
+{ }
+
+void pause_line(prt_line)
+int prt_line;
+{ }
+
+void pause_exit(prt_line, delay)
+int prt_line, delay;
+{ }
+
+char inkey()
 {
-  (void)prompt; (void)command;
+  oracle_unexpected("inkey");
+  return 0;
+}
+
+char inkeydir()
+{
+  oracle_unexpected("inkeydir");
+  return 0;
+}
+
+int get_check(prompt)
+char *prompt;
+{
+  oracle_unexpected("get_check");
+  return 0;
+}
+
+int get_com(prompt, command)
+char *prompt;
+char *command;
+{
   oracle_unexpected("get_com");
   return 0;
 }
 
-int get_comdir(char *prompt, char *command)
+int get_comdir(prompt, command)
+char *prompt;
+char *command;
 {
-  (void)prompt; (void)command;
   oracle_unexpected("get_comdir");
   return 0;
 }
 
-int get_string(char *in_str, int row, int column, int slen)
+int get_string(in_str, row, column, slen)
+char *in_str;
+int row, column, slen;
 {
-  (void)in_str; (void)row; (void)column; (void)slen;
   oracle_unexpected("get_string");
   return 0;
 }
 
+/* Polls for type-ahead. Headless, there never is any, and returning false also
+   stops dungeon.c's rest loop from spinning. */
+int check_input(microsec)
+int microsec;
+{
+  return 0;
+}
+
+/* ---------------------------------------------------------- unix/unix.c */
+
+/* Fills in the player's name from the login account. A fixed name keeps runs
+   reproducible, which is the whole point of the harness, and Windows has no
+   equivalent of the getpwuid lookup the original did. */
+void user_name(buf)
+char *buf;
+{
+  (void)strcpy(buf, "Oracle");
+}
+
+/* index() is the BSD spelling of strchr, which misc3.c still uses and which
+   Windows does not provide. */
+char *index(s, c)
+char *s;
+int c;
+{
+  return strchr(s, c);
+}
+
 /* --------------------------------------------------------------- death.c */
 
-void display_scores(int show_player) { (void)show_player; }
-int duplicate_character(void) { return 0; }
-int32 total_points(void) { return 0; }
+void display_scores(show_player)
+int show_player;
+{ }
 
-void exit_game(void)
+int duplicate_character() { return 0; }
+
+int32 total_points() { return 0; }
+
+void exit_game()
 {
   fflush(stdout);
   exit(0);
@@ -100,21 +213,29 @@ void exit_game(void)
 
 /* ------------------------------------------------------------- signals.c */
 
-void nosignals(void) { }
-void signals(void) { }
-void init_signals(void) { }
-void ignore_signals(void) { }
-void default_signals(void) { }
-void restore_signals(void) { }
+void nosignals() { }
+void signals() { }
+void init_signals() { }
+void ignore_signals() { }
+void default_signals() { }
+void restore_signals() { }
 
 /* --------------------------------------------------------------- files.c */
 
-void init_scorefile(void) { }
-void read_times(void) { }
-void helpfile(char *filename) { (void)filename; }
-void print_objects(void) { }
-int file_character(char *filename1) { (void)filename1; return 0; }
+void init_scorefile() { }
+void read_times() { }
+void print_objects() { }
+
+void helpfile(filename)
+char *filename;
+{ }
+
+int file_character(filename1)
+char *filename1;
+{
+  return 0;
+}
 
 /* ---------------------------------------------------------------- help.c */
 
-void ident_char(void) { }
+void ident_char() { }
