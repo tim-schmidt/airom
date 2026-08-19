@@ -649,6 +649,130 @@ public static class OracleDump
     }
 
     /// <summary>
+    /// A finished level, less the monsters.
+    ///
+    /// This is cave_gen from end to end apart from alloc_monster and
+    /// place_win_monster, which are not ported yet. Skipping them on both sides
+    /// keeps the generator streams aligned, so what is compared is every object
+    /// scattered across a real level: rubble in the corridors, treasure in the
+    /// rooms, gold and traps anywhere.
+    /// </summary>
+    public static void DumpPopulate(TextWriter output, uint seed, int level)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+
+        Header(output, "populate", seed);
+        output.Write("level " + level.ToString(CultureInfo.InvariantCulture) + "\n");
+
+        var game = new GameState();
+        game.InitSeeds(seed);
+        game.MagicInit();
+        game.DungeonLevel = level;
+        game.Objects.Reset();
+        game.Cave.Resize(GameState.DungeonHeight, GameState.DungeonWidth);
+        game.Cave.Blank();
+
+        var generator = new DungeonGenerator(game);
+        Cave cave = game.Cave;
+
+        const int ScreenHeight = 22;
+        const int ScreenWidth = 66;
+
+        List<(int Row, int Column)> centres = [];
+        for (int i = 0; i < 2 * (cave.Height / ScreenHeight); i++)
+        {
+            for (int j = 0; j < 2 * (cave.Width / ScreenWidth); j++)
+            {
+                int row = (i * (ScreenHeight >> 1)) + (ScreenHeight / 4);
+                int column = (j * (ScreenWidth >> 1)) + (ScreenWidth / 4);
+                centres.Add((row, column));
+                generator.BuildRoom(row, column);
+            }
+        }
+
+        generator.ResetDoorCandidates();
+        for (int i = 0; i < centres.Count; i++)
+        {
+            (int fromRow, int fromColumn) = centres[(i + 1) % centres.Count];
+            (int toRow, int toColumn) = centres[i];
+            generator.BuildTunnel(fromRow, fromColumn, toRow, toColumn);
+        }
+
+        generator.FillCave(CaveFeature.GraniteWall);
+        generator.PlaceStreamers();
+        generator.PlaceBoundary();
+        generator.PlaceJunctionDoors();
+
+        int allocLevel = Math.Clamp(level / 3, 2, 10);
+
+        generator.PlaceStairs(2, game.Rng.RandInt(2) + 2, 3);
+        generator.PlaceStairs(1, game.Rng.RandInt(2), 3);
+
+        (int charRow, int charColumn) = generator.NewSpot();
+        game.CharacterRow = charRow;
+        game.CharacterColumn = charColumn;
+        output.Write("char-row " + charRow.ToString(CultureInfo.InvariantCulture) + "\n");
+        output.Write("char-col " + charColumn.ToString(CultureInfo.InvariantCulture) + "\n");
+
+        // alloc_monster would run here; skipped on both sides until it exists.
+        generator.PopulateLevel(allocLevel);
+
+        output.Write("height " + cave.Height.ToString(CultureInfo.InvariantCulture) + "\n");
+        output.Write("width " + cave.Width.ToString(CultureInfo.InvariantCulture) + "\n");
+
+        var line = new char[cave.Width];
+        for (int y = 0; y < cave.Height; y++)
+        {
+            for (int x = 0; x < cave.Width; x++)
+            {
+                line[x] = FeatureChar(cave[y, x].Feature);
+            }
+
+            output.Write(
+                "row " + y.ToString(CultureInfo.InvariantCulture) + " " + new string(line) + "\n");
+        }
+
+        int objectCount = game.Objects.Count - ObjectPool.FirstIndex;
+        output.Write("objects " + objectCount.ToString(CultureInfo.InvariantCulture) + "\n");
+        for (int i = ObjectPool.FirstIndex; i < game.Objects.Count; i++)
+        {
+            InvenType item = game.Objects[i];
+            output.Write(string.Join(
+                ' ',
+                "object",
+                i.ToString(CultureInfo.InvariantCulture),
+                item.Index.ToString(CultureInfo.InvariantCulture),
+                item.TVal.ToString(CultureInfo.InvariantCulture),
+                item.SubVal.ToString(CultureInfo.InvariantCulture),
+                item.P1.ToString(CultureInfo.InvariantCulture),
+                item.Cost.ToString(CultureInfo.InvariantCulture),
+                item.Number.ToString(CultureInfo.InvariantCulture),
+                item.ToHit.ToString(CultureInfo.InvariantCulture),
+                item.ToDam.ToString(CultureInfo.InvariantCulture),
+                item.Flags.ToString(CultureInfo.InvariantCulture),
+                item.SpecialName.ToString(CultureInfo.InvariantCulture)) + "\n");
+        }
+
+        for (int y = 0; y < cave.Height; y++)
+        {
+            for (int x = 0; x < cave.Width; x++)
+            {
+                if (cave[y, x].ObjectIndex != 0)
+                {
+                    output.Write(string.Join(
+                        ' ',
+                        "at",
+                        y.ToString(CultureInfo.InvariantCulture),
+                        x.ToString(CultureInfo.InvariantCulture),
+                        cave[y, x].ObjectIndex.ToString(CultureInfo.InvariantCulture)) + "\n");
+                }
+            }
+        }
+
+        Line(output, "final-state", game.Rng.State);
+    }
+
+    /// <summary>
     /// One character per terrain value, matching feature_char() in the C oracle.
     /// Every distinct value gets a distinct character so the dump stays exact
     /// while still being readable.
@@ -790,6 +914,17 @@ public static class OracleDump
                 DumpEnchanted(output, enSeed, enLevel, enCount);
                 return 0;
 
+            case "populate":
+                if (arguments.Length != 3
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint poSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int poLevel))
+                {
+                    return Usage(error);
+                }
+
+                DumpPopulate(output, poSeed, poLevel);
+                return 0;
+
             case "cave":
                 error.WriteLine(
                     "oracle: 'cave' needs the dungeon generator, which is not ported yet.");
@@ -812,6 +947,7 @@ public static class OracleDump
         error.WriteLine("  airom oracle stairs <seed> <level>  the whole terrain half of cave_gen");
         error.WriteLine("  airom oracle picks <seed> <level> <count>  object sort and get_obj_num");
         error.WriteLine("  airom oracle enchanted <seed> <level> <count>  magic_treasure");
+        error.WriteLine("  airom oracle populate <seed> <level>  a finished level, less monsters");
         return 2;
     }
 }

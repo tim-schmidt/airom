@@ -56,6 +56,7 @@ extern void probe_door_at(int i, int *y, int *x);
 extern void probe_try_door(int y, int x);
 extern void probe_place_stairs(int typ, int num, int walls);
 extern void probe_new_spot(int *y, int *x);
+extern void probe_alloc_object(int which_set, int typ, int num);
 
 /* From oracle_probe_main.c, which reaches the object sort inside main.c. */
 extern void probe_init_t_level(void);
@@ -832,6 +833,141 @@ static void dump_enchanted(unsigned long seed, int level, int count)
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* -------------------------------------------------------------- populate */
+
+/* A finished level, less the monsters.
+
+   This is cave_gen from end to end apart from alloc_monster and
+   place_win_monster, which are not ported yet. Skipping them on both sides
+   keeps the generator streams aligned, so what is compared is every object
+   scattered across a real level: rubble in the corridors, treasure in the
+   rooms, gold and traps anywhere. */
+static void dump_populate(unsigned long seed, int level)
+{
+  int i, j, k, rows, cols, count, alloc_level, cy, cx;
+  int yloc[64], xloc[64];
+  char *row;
+
+  header("populate", seed);
+  printf("level %d\n", level);
+
+  probe_init_t_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+  pin_player(level);
+  dun_level = (int16)level;
+
+  probe_tlink();
+  probe_mlink();
+  probe_blank_cave();
+
+  cur_height = MAX_HEIGHT;
+  cur_width = MAX_WIDTH;
+
+  rows = 2 * (cur_height / SCREEN_HEIGHT);
+  cols = 2 * (cur_width / SCREEN_WIDTH);
+
+  count = 0;
+  for (i = 0; i < rows; i++)
+    {
+      for (j = 0; j < cols; j++)
+        {
+          yloc[count] = i * (SCREEN_HEIGHT >> 1) + QUART_HEIGHT;
+          xloc[count] = j * (SCREEN_WIDTH >> 1) + QUART_WIDTH;
+          probe_build_room(yloc[count], xloc[count]);
+          count++;
+        }
+    }
+
+  probe_reset_doors();
+  yloc[count] = yloc[0];
+  xloc[count] = xloc[0];
+  for (i = 0; i < count; i++)
+    {
+      probe_build_tunnel(yloc[i + 1], xloc[i + 1], yloc[i], xloc[i]);
+    }
+
+  probe_fill_cave(GRANITE_WALL);
+  for (i = 0; i < DUN_STR_MAG; i++)
+    probe_place_streamer(MAGMA_WALL, DUN_STR_MC);
+  for (i = 0; i < DUN_STR_QUA; i++)
+    probe_place_streamer(QUARTZ_WALL, DUN_STR_QC);
+  probe_place_boundary();
+
+  k = probe_door_count();
+  for (i = 0; i < k; i++)
+    {
+      int dy, dx;
+      probe_door_at(i, &dy, &dx);
+      probe_try_door(dy, dx - 1);
+      probe_try_door(dy, dx + 1);
+      probe_try_door(dy - 1, dx);
+      probe_try_door(dy + 1, dx);
+    }
+
+  alloc_level = dun_level / 3;
+  if (alloc_level < 2)
+    alloc_level = 2;
+  else if (alloc_level > 10)
+    alloc_level = 10;
+
+  probe_place_stairs(2, randint(2) + 2, 3);
+  probe_place_stairs(1, randint(2), 3);
+
+  probe_new_spot(&cy, &cx);
+  char_row = (int16)cy;
+  char_col = (int16)cx;
+  printf("char-row %d\n", cy);
+  printf("char-col %d\n", cx);
+
+  /* alloc_monster would run here; it is not ported yet and is skipped on both
+     sides so the streams stay aligned. */
+
+  probe_alloc_object(0, 3, randint(alloc_level));
+  probe_alloc_object(1, 5, randnor(TREAS_ROOM_ALLOC, 3));
+  probe_alloc_object(2, 5, randnor(TREAS_ANY_ALLOC, 3));
+  probe_alloc_object(2, 4, randnor(TREAS_GOLD_ALLOC, 3));
+  probe_alloc_object(2, 1, randint(alloc_level));
+
+  printf("height %d\n", (int)cur_height);
+  printf("width %d\n", (int)cur_width);
+
+  row = (char *)malloc((size_t)cur_width + 1);
+  if (row == NULL)
+    {
+      fprintf(stderr, "oracle: out of memory\n");
+      exit(2);
+    }
+
+  for (i = 0; i < cur_height; i++)
+    {
+      for (j = 0; j < cur_width; j++)
+        row[j] = feature_char((int)cave[i][j].fval);
+      row[cur_width] = '\0';
+      printf("row %d %s\n", i, row);
+    }
+
+  free(row);
+
+  printf("objects %d\n", (int)(tcptr - MIN_TRIX));
+  for (i = MIN_TRIX; i < tcptr; i++)
+    {
+      inven_type *t = &t_list[i];
+      printf("object %d %d %d %d %d %ld %d %d %d %lu %d\n",
+             i, (int)t->index, (int)t->tval, (int)t->subval, (int)t->p1,
+             (long)t->cost, (int)t->number, (int)t->tohit, (int)t->todam,
+             (unsigned long)t->flags, (int)t->name2);
+    }
+
+  for (i = 0; i < cur_height; i++)
+    for (j = 0; j < cur_width; j++)
+      if (cave[i][j].tptr != 0)
+        printf("at %d %d %d\n", i, j, (int)cave[i][j].tptr);
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ---------------------------------------------------------------- driver */
 
 static int usage(void)
@@ -846,7 +982,8 @@ static int usage(void)
           "  oracle tunnels <seed> <level>  rooms joined by corridors\n"
           "  oracle stairs <seed> <level>  the whole terrain half of cave_gen\n"
           "  oracle picks <seed> <level> <count>  object sort and get_obj_num\n"
-          "  oracle enchanted <seed> <level> <count>  magic_treasure\n");
+          "  oracle enchanted <seed> <level> <count>  magic_treasure\n"
+          "  oracle populate <seed> <level>  a finished level, less monsters\n");
   return 2;
 }
 
@@ -942,6 +1079,16 @@ int main(int argc, char *argv[])
       dump_enchanted(strtoul(argv[2], NULL, 10),
                      (int)strtol(argv[3], NULL, 10),
                      (int)strtol(argv[4], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "populate") == 0)
+    {
+      if (argc != 4)
+        {
+          return usage();
+        }
+      dump_populate(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
       return 0;
     }
 

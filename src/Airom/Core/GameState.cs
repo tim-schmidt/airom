@@ -57,6 +57,15 @@ public sealed class GameState
     /// </summary>
     public int MissileCounter { get; set; }
 
+    /// <summary>
+    /// Where the player stands. Scattered objects avoid this square, so it has
+    /// to be decided before the level is populated. Negative means unplaced.
+    /// </summary>
+    public int CharacterRow { get; set; } = -1;
+
+    /// <inheritdoc cref="CharacterRow"/>
+    public int CharacterColumn { get; set; } = -1;
+
     /// <summary>Turns freshly generated items into specific enchanted ones.</summary>
     public Enchantment Enchantment => _enchantment ??= new Enchantment(this);
 

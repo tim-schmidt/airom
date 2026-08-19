@@ -882,6 +882,90 @@ public sealed class DungeonGenerator(GameState game)
     }
 
     /// <summary>
+    /// What alloc_object() scatters. The numbers are Umoria's; 2 is absent
+    /// because it once meant visible traps and no longer does.
+    /// </summary>
+    public static class Scatter
+    {
+        public const int Trap = 1;
+        public const int Rubble = 3;
+        public const int Gold = 4;
+        public const int Item = 5;
+    }
+
+    /// <summary>
+    /// Scatters things about the finished level. Mirrors alloc_object() in
+    /// misc3.c.
+    ///
+    /// Positions are drawn at random and rejected until one satisfies the given
+    /// terrain predicate, holds nothing already, and is not where the player is
+    /// standing. The original notes why the last check matters: an object under
+    /// the player causes trouble if it turns out to be rubble or a trap.
+    ///
+    /// A negative count is possible and harmless - cave_gen draws several of
+    /// these counts from randnor, which can go below zero, and the loop simply
+    /// does nothing.
+    /// </summary>
+    /// <param name="allowed">Terrain test, one of the <see cref="CaveSets"/> predicates.</param>
+    /// <param name="type">One of the <see cref="Scatter"/> kinds.</param>
+    /// <param name="count">How many to place.</param>
+    public void AllocObject(Func<byte, bool> allowed, int type, int count)
+    {
+        ArgumentNullException.ThrowIfNull(allowed);
+
+        for (int placed = 0; placed < count; placed++)
+        {
+            int row;
+            int column;
+            do
+            {
+                row = Rng.RandInt(Cave.Height) - 1;
+                column = Rng.RandInt(Cave.Width) - 1;
+            }
+            while (!allowed(Cave[row, column].Feature)
+                || Cave[row, column].ObjectIndex != 0
+                || (row == _game.CharacterRow && column == _game.CharacterColumn));
+
+            switch (type)
+            {
+                case Scatter.Trap:
+                    PlaceRandomTrap(row, column);
+                    break;
+                case Scatter.Rubble:
+                    PlaceRubble(row, column);
+                    break;
+                case Scatter.Gold:
+                    PlaceGold(row, column);
+                    break;
+                default:
+                    PlaceObject(row, column, mustBeSmall: false);
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Scatters everything a finished level gets. Mirrors the tail of
+    /// cave_gen(), less the monsters.
+    ///
+    /// The order and the counts are both load-bearing: each call consumes draws,
+    /// and three of the counts come from randnor and can land below zero, which
+    /// simply means nothing of that kind appears on this level.
+    /// </summary>
+    public void PopulateLevel(int allocLevel)
+    {
+        AllocObject(CaveSets.IsCorridor, Scatter.Rubble, Rng.RandInt(allocLevel));
+        AllocObject(CaveSets.IsRoom, Scatter.Item, Rng.RandNor(TreasureInRooms, 3));
+        AllocObject(CaveSets.IsFloor, Scatter.Item, Rng.RandNor(TreasureAnywhere, 3));
+        AllocObject(CaveSets.IsFloor, Scatter.Gold, Rng.RandNor(GoldAnywhere, 3));
+        AllocObject(CaveSets.IsFloor, Scatter.Trap, Rng.RandInt(allocLevel));
+    }
+
+    private const int TreasureInRooms = 7;  // TREAS_ROOM_ALLOC
+    private const int TreasureAnywhere = 2; // TREAS_ANY_ALLOC
+    private const int GoldAnywhere = 2;     // TREAS_GOLD_ALLOC
+
+    /// <summary>
     /// Whether a room built at this depth is lit. Mirrors the test the room
     /// builders open with: shallow levels are almost always lit, and by depth 25
     /// a lit room is impossible.

@@ -83,6 +83,7 @@ divergence.
 | `stairs` | The whole terrain half of cave_gen, through to the player's start square | **Verified matching** |
 | `picks` | The depth-sorted object index and the draws that read it | **Verified matching** |
 | `enchanted` | magic_treasure: generated items with every bonus, flag, charge and price | **Verified matching** |
+| `populate` | A complete level, monsters excepted: terrain plus every object on it | **Verified matching** |
 | `seeds` | `init_seeds` chain, `magic_init`, the shuffled appearance tables | **Verified matching** |
 | `cave` | A generated level: terrain, lighting flags, monsters, objects | C side written; C# side waiting on the generator |
 

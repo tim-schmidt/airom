@@ -98,3 +98,15 @@ void probe_new_spot(int *y, int *x)
   *y = (int)ny;
   *x = (int)nx;
 }
+
+/* alloc_object takes a function pointer, so the probe names the three
+   predicates rather than making the caller pass one across the boundary. */
+void probe_alloc_object(int which_set, int typ, int num)
+{
+  switch (which_set)
+    {
+    case 0: alloc_object(set_corr, typ, num); break;
+    case 1: alloc_object(set_room, typ, num); break;
+    default: alloc_object(set_floor, typ, num); break;
+    }
+}
