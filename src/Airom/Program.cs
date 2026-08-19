@@ -10,7 +10,15 @@
 
 using Airom.Core;
 using Airom.Data;
+using Airom.Oracle;
 using Airom.Terminal;
+
+// Headless reference dumps, for diffing against the C oracle in tools/oracle.
+// Checked before anything touches the console, so output stays pipe-clean.
+if (args.Length > 0 && args[0] == "oracle")
+{
+    return OracleDump.Run(Console.Out, Console.Error, args[1..]);
+}
 
 // The game is not playable yet. Until it is, the entry point exercises the
 // pieces that exist: it paints a frame through the real terminal layer and
