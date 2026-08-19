@@ -54,6 +54,8 @@ extern void probe_reset_doors(void);
 extern int probe_door_count(void);
 extern void probe_door_at(int i, int *y, int *x);
 extern void probe_try_door(int y, int x);
+extern void probe_place_stairs(int typ, int num, int walls);
+extern void probe_new_spot(int *y, int *x);
 
 /* Windows stdio opens stdout in text mode and rewrites every "\n" as "\r\n",
    which would make all output differ from the C# side on line endings alone.
@@ -583,6 +585,139 @@ static void dump_tunnels(unsigned long seed, int level)
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* ---------------------------------------------------------------- stairs */
+
+/* The whole terrain half of cave_gen: rooms, corridors, junction doors,
+   granite fill, mineral veins, boundary, then staircases and the spot the
+   player starts on.
+
+   This is cave_gen exactly, stopping short of alloc_monster and alloc_object -
+   everything that shapes the map, none of what populates it. Rooms are still
+   built in fixed order with build_room so the comparison stays pointed at the
+   terrain code rather than at which room type was drawn. */
+static void dump_stairs(unsigned long seed, int level)
+{
+  int i, j, k, rows, cols, count, alloc_level, cy, cx;
+  int yloc[64], xloc[64];
+  char *row;
+
+  header("stairs", seed);
+  printf("level %d\n", level);
+
+  init_seeds((int32u)seed);
+  magic_init();
+  pin_player(level);
+  dun_level = (int16)level;
+
+  probe_tlink();
+  probe_mlink();
+  probe_blank_cave();
+
+  cur_height = MAX_HEIGHT;
+  cur_width = MAX_WIDTH;
+
+  rows = 2 * (cur_height / SCREEN_HEIGHT);
+  cols = 2 * (cur_width / SCREEN_WIDTH);
+
+  count = 0;
+  for (i = 0; i < rows; i++)
+    {
+      for (j = 0; j < cols; j++)
+        {
+          yloc[count] = i * (SCREEN_HEIGHT >> 1) + QUART_HEIGHT;
+          xloc[count] = j * (SCREEN_WIDTH >> 1) + QUART_WIDTH;
+          probe_build_room(yloc[count], xloc[count]);
+          count++;
+        }
+    }
+
+  probe_reset_doors();
+  yloc[count] = yloc[0];
+  xloc[count] = xloc[0];
+  for (i = 0; i < count; i++)
+    {
+      probe_build_tunnel(yloc[i + 1], xloc[i + 1], yloc[i], xloc[i]);
+    }
+
+  probe_fill_cave(GRANITE_WALL);
+  for (i = 0; i < DUN_STR_MAG; i++)
+    {
+      probe_place_streamer(MAGMA_WALL, DUN_STR_MC);
+    }
+  for (i = 0; i < DUN_STR_QUA; i++)
+    {
+      probe_place_streamer(QUARTZ_WALL, DUN_STR_QC);
+    }
+  probe_place_boundary();
+
+  k = probe_door_count();
+  for (i = 0; i < k; i++)
+    {
+      int dy, dx;
+      probe_door_at(i, &dy, &dx);
+      probe_try_door(dy, dx - 1);
+      probe_try_door(dy, dx + 1);
+      probe_try_door(dy - 1, dx);
+      probe_try_door(dy + 1, dx);
+    }
+
+  alloc_level = dun_level / 3;
+  if (alloc_level < 2)
+    alloc_level = 2;
+  else if (alloc_level > 10)
+    alloc_level = 10;
+  printf("alloc-level %d\n", alloc_level);
+
+  probe_place_stairs(2, randint(2) + 2, 3);
+  probe_place_stairs(1, randint(2), 3);
+
+  probe_new_spot(&cy, &cx);
+  printf("char-row %d\n", cy);
+  printf("char-col %d\n", cx);
+
+  printf("height %d\n", (int)cur_height);
+  printf("width %d\n", (int)cur_width);
+
+  row = (char *)malloc((size_t)cur_width + 1);
+  if (row == NULL)
+    {
+      fprintf(stderr, "oracle: out of memory\n");
+      exit(2);
+    }
+
+  for (i = 0; i < cur_height; i++)
+    {
+      for (j = 0; j < cur_width; j++)
+        {
+          row[j] = feature_char((int)cave[i][j].fval);
+        }
+      row[cur_width] = '\0';
+      printf("row %d %s\n", i, row);
+    }
+
+  free(row);
+
+  printf("objects %d\n", (int)(tcptr - MIN_TRIX));
+  for (i = MIN_TRIX; i < tcptr; i++)
+    {
+      inven_type *t = &t_list[i];
+      printf("object %d %d %d %d\n", i, (int)t->index, (int)t->tval, (int)t->p1);
+    }
+
+  for (i = 0; i < cur_height; i++)
+    {
+      for (j = 0; j < cur_width; j++)
+        {
+          if (cave[i][j].tptr != 0)
+            {
+              printf("at %d %d %d\n", i, j, (int)cave[i][j].tptr);
+            }
+        }
+    }
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ---------------------------------------------------------------- driver */
 
 static int usage(void)
@@ -594,7 +729,8 @@ static int usage(void)
           "  oracle cave  <seed> <level>   a generated dungeon level\n"
           "  oracle streamers <seed> <level>  terrain primitives only\n"
           "  oracle rooms <seed> <level> <type>  one room builder\n"
-          "  oracle tunnels <seed> <level>  rooms joined by corridors\n");
+          "  oracle tunnels <seed> <level>  rooms joined by corridors\n"
+          "  oracle stairs <seed> <level>  the whole terrain half of cave_gen\n");
   return 2;
 }
 
@@ -656,6 +792,16 @@ int main(int argc, char *argv[])
           return usage();
         }
       dump_tunnels(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "stairs") == 0)
+    {
+      if (argc != 4)
+        {
+          return usage();
+        }
+      dump_stairs(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
       return 0;
     }
 

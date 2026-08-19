@@ -407,6 +407,122 @@ public static class OracleDump
     }
 
     /// <summary>
+    /// The whole terrain half of cave_gen: rooms, corridors, junction doors,
+    /// granite fill, mineral veins, boundary, then staircases and the spot the
+    /// player starts on.
+    ///
+    /// This is cave_gen exactly, stopping short of alloc_monster and
+    /// alloc_object - everything that shapes the map, none of what populates
+    /// it. Rooms are still built in fixed order so the comparison stays pointed
+    /// at the terrain code rather than at which room type was drawn.
+    /// </summary>
+    public static void DumpStairs(TextWriter output, uint seed, int level)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+
+        Header(output, "stairs", seed);
+        output.Write("level " + level.ToString(CultureInfo.InvariantCulture) + "\n");
+
+        var game = new GameState();
+        game.InitSeeds(seed);
+        game.MagicInit();
+        game.DungeonLevel = level;
+
+        game.Objects.Reset();
+        game.Cave.Resize(GameState.DungeonHeight, GameState.DungeonWidth);
+        game.Cave.Blank();
+
+        var generator = new DungeonGenerator(game);
+        Cave cave = game.Cave;
+
+        const int ScreenHeight = 22;
+        const int ScreenWidth = 66;
+
+        List<(int Row, int Column)> centres = [];
+        for (int i = 0; i < 2 * (cave.Height / ScreenHeight); i++)
+        {
+            for (int j = 0; j < 2 * (cave.Width / ScreenWidth); j++)
+            {
+                int row = (i * (ScreenHeight >> 1)) + (ScreenHeight / 4);
+                int column = (j * (ScreenWidth >> 1)) + (ScreenWidth / 4);
+                centres.Add((row, column));
+                generator.BuildRoom(row, column);
+            }
+        }
+
+        generator.ResetDoorCandidates();
+        for (int i = 0; i < centres.Count; i++)
+        {
+            (int fromRow, int fromColumn) = centres[(i + 1) % centres.Count];
+            (int toRow, int toColumn) = centres[i];
+            generator.BuildTunnel(fromRow, fromColumn, toRow, toColumn);
+        }
+
+        generator.FillCave(CaveFeature.GraniteWall);
+        generator.PlaceStreamers();
+        generator.PlaceBoundary();
+        generator.PlaceJunctionDoors();
+
+        // Depth decides how much is scattered about; cave_gen clamps it to 2..10.
+        int allocLevel = Math.Clamp(level / 3, 2, 10);
+        output.Write("alloc-level " + allocLevel.ToString(CultureInfo.InvariantCulture) + "\n");
+
+        generator.PlaceStairs(2, game.Rng.RandInt(2) + 2, 3);
+        generator.PlaceStairs(1, game.Rng.RandInt(2), 3);
+
+        (int charRow, int charColumn) = generator.NewSpot();
+        output.Write("char-row " + charRow.ToString(CultureInfo.InvariantCulture) + "\n");
+        output.Write("char-col " + charColumn.ToString(CultureInfo.InvariantCulture) + "\n");
+
+        output.Write("height " + cave.Height.ToString(CultureInfo.InvariantCulture) + "\n");
+        output.Write("width " + cave.Width.ToString(CultureInfo.InvariantCulture) + "\n");
+
+        var line = new char[cave.Width];
+        for (int y = 0; y < cave.Height; y++)
+        {
+            for (int x = 0; x < cave.Width; x++)
+            {
+                line[x] = FeatureChar(cave[y, x].Feature);
+            }
+
+            output.Write(
+                "row " + y.ToString(CultureInfo.InvariantCulture) + " " + new string(line) + "\n");
+        }
+
+        int objectCount = game.Objects.Count - ObjectPool.FirstIndex;
+        output.Write("objects " + objectCount.ToString(CultureInfo.InvariantCulture) + "\n");
+        for (int i = ObjectPool.FirstIndex; i < game.Objects.Count; i++)
+        {
+            InvenType item = game.Objects[i];
+            output.Write(string.Join(
+                ' ',
+                "object",
+                i.ToString(CultureInfo.InvariantCulture),
+                item.Index.ToString(CultureInfo.InvariantCulture),
+                item.TVal.ToString(CultureInfo.InvariantCulture),
+                item.P1.ToString(CultureInfo.InvariantCulture)) + "\n");
+        }
+
+        for (int y = 0; y < cave.Height; y++)
+        {
+            for (int x = 0; x < cave.Width; x++)
+            {
+                if (cave[y, x].ObjectIndex != 0)
+                {
+                    output.Write(string.Join(
+                        ' ',
+                        "at",
+                        y.ToString(CultureInfo.InvariantCulture),
+                        x.ToString(CultureInfo.InvariantCulture),
+                        cave[y, x].ObjectIndex.ToString(CultureInfo.InvariantCulture)) + "\n");
+                }
+            }
+        }
+
+        Line(output, "final-state", game.Rng.State);
+    }
+
+    /// <summary>
     /// One character per terrain value, matching feature_char() in the C oracle.
     /// Every distinct value gets a distinct character so the dump stays exact
     /// while still being readable.
@@ -513,6 +629,17 @@ public static class OracleDump
                 DumpTunnels(output, tunSeed, tunLevel);
                 return 0;
 
+            case "stairs":
+                if (arguments.Length != 3
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint stSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int stLevel))
+                {
+                    return Usage(error);
+                }
+
+                DumpStairs(output, stSeed, stLevel);
+                return 0;
+
             case "cave":
                 error.WriteLine(
                     "oracle: 'cave' needs the dungeon generator, which is not ported yet.");
@@ -532,6 +659,7 @@ public static class OracleDump
         error.WriteLine("  airom oracle streamers <seed> <level>  terrain primitives only");
         error.WriteLine("  airom oracle rooms <seed> <level> <type>  one room builder");
         error.WriteLine("  airom oracle tunnels <seed> <level>  rooms joined by corridors");
+        error.WriteLine("  airom oracle stairs <seed> <level>  the whole terrain half of cave_gen");
         return 2;
     }
 }

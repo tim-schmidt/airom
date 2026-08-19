@@ -84,3 +84,17 @@ void probe_try_door(int y, int x)
 {
   try_door(y, x);
 }
+
+void probe_place_stairs(int typ, int num, int walls)
+{
+  place_stairs(typ, num, walls);
+}
+
+void probe_new_spot(int *y, int *x)
+{
+  int16 ny, nx;
+
+  new_spot(&ny, &nx);
+  *y = (int)ny;
+  *x = (int)nx;
+}

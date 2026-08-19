@@ -572,6 +572,183 @@ public sealed class DungeonGenerator(GameState game)
         }
     }
 
+    private const int UpStairObject = 370;   // OBJ_UP_STAIR
+    private const int DownStairObject = 371; // OBJ_DOWN_STAIR
+
+    /// <summary>
+    /// Counts how many of the four orthogonal neighbours are wall. Mirrors
+    /// next_to_walls() in misc1.c.
+    ///
+    /// Staircases prefer corners, so this is what "at least three walls" means
+    /// when picking a spot for one.
+    /// </summary>
+    private int CountAdjacentWalls(int row, int column)
+    {
+        int walls = 0;
+        if (Cave[row - 1, column].Feature >= CaveFeature.MinCaveWall)
+        {
+            walls++;
+        }
+
+        if (Cave[row + 1, column].Feature >= CaveFeature.MinCaveWall)
+        {
+            walls++;
+        }
+
+        if (Cave[row, column - 1].Feature >= CaveFeature.MinCaveWall)
+        {
+            walls++;
+        }
+
+        if (Cave[row, column + 1].Feature >= CaveFeature.MinCaveWall)
+        {
+            walls++;
+        }
+
+        return walls;
+    }
+
+    /// <summary>
+    /// Removes whatever object is on a square. Mirrors delete_object() in
+    /// moria3.c, less its display half - the original also redraws the square
+    /// and reports whether the player could see it, neither of which touches the
+    /// generator or the level.
+    ///
+    /// A blocked square reverts to corridor, because what was blocking it was
+    /// the door being removed.
+    /// </summary>
+    public void DeleteObject(int row, int column)
+    {
+        CaveSquare square = Cave[row, column];
+
+        if (square.Feature == CaveFeature.BlockedFloor)
+        {
+            square.Feature = CaveFeature.CorridorFloor;
+        }
+
+        _game.Objects.Release(square.ObjectIndex, Cave);
+        square.ObjectIndex = 0;
+        square.FieldMark = false;
+    }
+
+    private void PlaceStair(int row, int column, int objectIndex)
+    {
+        // Stairs displace whatever was here - they are placed last and win.
+        if (Cave[row, column].ObjectIndex != 0)
+        {
+            DeleteObject(row, column);
+        }
+
+        int slot = _game.Objects.Allocate();
+        Cave[row, column].ObjectIndex = slot;
+        _game.Objects[slot].CopyFrom(objectIndex);
+    }
+
+    /// <summary>Mirrors place_up_stairs().</summary>
+    public void PlaceUpStairs(int row, int column) =>
+        PlaceStair(row, column, UpStairObject);
+
+    /// <summary>Mirrors place_down_stairs().</summary>
+    public void PlaceDownStairs(int row, int column) =>
+        PlaceStair(row, column, DownStairObject);
+
+    /// <summary>
+    /// Scatters staircases about the level. Mirrors place_stairs().
+    ///
+    /// Each one is found by picking a random twelve-by-twelve window and
+    /// scanning it for open floor with nothing on it and enough surrounding
+    /// wall. After thirty-one failed windows the wall requirement drops by one
+    /// and it tries again, so a level with no corners left still gets its
+    /// stairs rather than looping forever.
+    ///
+    /// Note the requirement is not reset between staircases, and drops once per
+    /// staircase even when the first window succeeds. So later stairs are placed
+    /// under a looser rule than earlier ones - a quirk, but a load-bearing one.
+    /// </summary>
+    /// <param name="kind">1 for up, anything else for down.</param>
+    /// <param name="count">How many to place.</param>
+    /// <param name="walls">Neighbouring walls required to begin with.</param>
+    public void PlaceStairs(int kind, int count, int walls)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            bool placed = false;
+            do
+            {
+                int attempt = 0;
+                do
+                {
+                    // The window is kept clear of the boundary ring at both
+                    // ends, which is why the range stops fourteen short.
+                    int row = Rng.RandInt(Cave.Height - 14);
+                    int column = Rng.RandInt(Cave.Width - 14);
+                    int lastRow = row + 12;
+                    int lastColumn = column + 12;
+
+                    do
+                    {
+                        do
+                        {
+                            CaveSquare square = Cave[row, column];
+                            if (square.Feature <= CaveFeature.MaxOpenSpace
+                                && square.ObjectIndex == 0
+                                && CountAdjacentWalls(row, column) >= walls)
+                            {
+                                placed = true;
+                                if (kind == 1)
+                                {
+                                    PlaceUpStairs(row, column);
+                                }
+                                else
+                                {
+                                    PlaceDownStairs(row, column);
+                                }
+                            }
+
+                            column++;
+                        }
+                        while (column != lastColumn && !placed);
+
+                        column = lastColumn - 12;
+                        row++;
+                    }
+                    while (row != lastRow && !placed);
+
+                    attempt++;
+                }
+                while (!placed && attempt <= 30);
+
+                walls--;
+            }
+            while (!placed);
+        }
+    }
+
+    /// <summary>
+    /// Finds an empty walkable square anywhere on the level. Mirrors new_spot().
+    ///
+    /// Used to drop the player in, and to place things that only need somewhere
+    /// free. It simply retries until it lands on open floor with no monster and
+    /// no object, which is why a level with almost no floor left would spin -
+    /// the original accepts that risk and so does this.
+    /// </summary>
+    public (int Row, int Column) NewSpot()
+    {
+        int row;
+        int column;
+
+        do
+        {
+            row = Rng.RandInt(Cave.Height - 2);
+            column = Rng.RandInt(Cave.Width - 2);
+        }
+        while (Cave[row, column].Feature >= CaveFeature.MinClosedSpace
+            || Cave[row, column].MonsterIndex != 0
+            || Cave[row, column].ObjectIndex != 0);
+
+        return (row, column);
+    }
+
     /// <summary>
     /// Whether a room built at this depth is lit. Mirrors the test the room
     /// builders open with: shallow levels are almost always lit, and by depth 25
