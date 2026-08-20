@@ -970,6 +970,19 @@ public static partial class OracleDump
                 DumpShops(output, shSeed, shRounds);
                 return 0;
 
+            case "character":
+                if (arguments.Length != 5
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint chSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int chRace)
+                    || !int.TryParse(arguments[3], CultureInfo.InvariantCulture, out int chSex)
+                    || !int.TryParse(arguments[4], CultureInfo.InvariantCulture, out int chClass))
+                {
+                    return Usage(error);
+                }
+
+                DumpCharacter(output, chSeed, chRace, chSex, chClass);
+                return 0;
+
             case "cave":
                 if (arguments.Length != 3
                     || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint cvSeed)
@@ -1001,6 +1014,7 @@ public static partial class OracleDump
         error.WriteLine("  airom oracle populate <seed> <level>  a finished level, less monsters");
         error.WriteLine("  airom oracle town <seed> <turn>  the town, less shop restocking");
         error.WriteLine("  airom oracle shops <seed> <rounds>  shop owners, stock and prices");
+        error.WriteLine("  airom oracle character <seed> <race> <sex> <class>  a rolled character");
         return 2;
     }
 }

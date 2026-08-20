@@ -88,6 +88,7 @@ divergence.
 | `cave` | **A complete dungeon level**: every room type, terrain, lighting, monsters, objects | **Verified matching** |
 | `town` | **The complete town**: shops, doors, stairs, lighting, townsfolk, shop stock | **Verified matching** |
 | `shops` | Shop owners, stock and asking prices across repeated restocks | **Verified matching** |
+| `character` | A rolled character: stats, history, build, hit point curve, money | **Verified matching** |
 
 `seeds` is the one that will confirm the `reset_seed` quirk against the original
 rather than by inference: `magic_init` shuffles appearances inside a

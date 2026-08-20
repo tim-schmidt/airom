@@ -124,10 +124,33 @@ void pause_exit(prt_line, delay)
 int prt_line, delay;
 { }
 
+/* Scripted keystrokes, so the interactive parts of character creation can be
+   driven headlessly. Without this the whole of create.c would be unreachable:
+   race, sex and class are chosen at a prompt, not passed in. */
+static char oracle_keys[64];
+static int oracle_key_count = 0;
+static int oracle_key_next = 0;
+
+void oracle_feed_keys(keys)
+char *keys;
+{
+  int i;
+
+  oracle_key_count = 0;
+  oracle_key_next = 0;
+  for (i = 0; keys[i] != '\0' && i < 63; i++)
+    {
+      oracle_keys[oracle_key_count++] = keys[i];
+    }
+}
+
 char inkey()
 {
-  oracle_unexpected("inkey");
-  return 0;
+  if (oracle_key_next >= oracle_key_count)
+    {
+      oracle_unexpected("inkey (script exhausted)");
+    }
+  return oracle_keys[oracle_key_next++];
 }
 
 char inkeydir()
@@ -159,11 +182,13 @@ char *command;
   return 0;
 }
 
+/* Character creation asks for a name. Returning false makes it fall back to
+   user_name(), which is fixed, so the result stays reproducible. */
 int get_string(in_str, row, column, slen)
 char *in_str;
 int row, column, slen;
 {
-  oracle_unexpected("get_string");
+  in_str[0] = '\0';
   return 0;
 }
 

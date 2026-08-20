@@ -63,6 +63,7 @@ extern void probe_build_store(int store_num, int y, int x);
 /* From oracle_probe_main.c, which reaches the object sort inside main.c. */
 extern void probe_init_t_level(void);
 extern void probe_init_m_level(void);
+extern void oracle_feed_keys(char *keys);
 
 /* Windows stdio opens stdout in text mode and rewrites every "\n" as "\r\n",
    which would make all output differ from the C# side on line endings alone.
@@ -1199,6 +1200,107 @@ static void dump_shops(unsigned long seed, int rounds)
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* ------------------------------------------------------------- character */
+
+/* A rolled character.
+
+   create_character asks for race, sex and class at a prompt rather than taking
+   them as arguments, so the choices are fed in as keystrokes and the real
+   function runs unchanged. That reaches the whole of create.c - the stat roll
+   and its re-roll band, the race and class adjustments, the history walk, age
+   and build, the hit point curve and the starting money. */
+static void dump_character(unsigned long seed, int race_index, int sex, int pclass)
+{
+  char keys[8];
+  int i;
+
+  header("character", seed);
+  printf("race %d\n", race_index);
+  printf("sex %d\n", sex);
+  printf("class %d\n", pclass);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+
+  /* get_class lists only the classes the race allows, and the letter indexes
+     that list rather than the class table. Work out which letter names the
+     class asked for, and say so plainly when the race cannot take it. */
+  {
+    int letter = -1;
+    int slot = 0;
+    int j;
+
+    for (j = 0; j < MAX_CLASS; j++)
+      {
+        if (race[race_index].rtclass & (0x1L << j))
+          {
+            if (j == pclass)
+              {
+                letter = slot;
+              }
+            slot++;
+          }
+      }
+
+    if (letter < 0)
+      {
+        printf("invalid race and class combination\n");
+        return;
+      }
+
+    /* Race letter, sex letter, ESC to accept the roll, then the class letter. */
+    keys[0] = (char)('a' + race_index);
+    keys[1] = sex ? 'm' : 'f';
+    keys[2] = ESCAPE;
+    keys[3] = (char)('a' + letter);
+    keys[4] = '\0';
+    oracle_feed_keys(keys);
+  }
+
+  create_character();
+
+  printf("name %s\n", py.misc.name);
+  printf("male %d\n", (int)py.misc.male);
+  printf("prace %d\n", (int)py.misc.prace);
+  printf("pclass %d\n", (int)py.misc.pclass);
+  printf("age %d\n", (int)py.misc.age);
+  printf("height %d\n", (int)py.misc.ht);
+  printf("weight %d\n", (int)py.misc.wt);
+  printf("social %d\n", (int)py.misc.sc);
+  printf("gold %ld\n", (long)py.misc.au);
+  printf("hitdie %d\n", (int)py.misc.hitdie);
+  printf("mhp %d\n", (int)py.misc.mhp);
+  printf("expfact %d\n", (int)py.misc.expfact);
+  printf("srh %d\n", (int)py.misc.srh);
+  printf("fos %d\n", (int)py.misc.fos);
+  printf("bth %d\n", (int)py.misc.bth);
+  printf("bthb %d\n", (int)py.misc.bthb);
+  printf("stl %d\n", (int)py.misc.stl);
+  printf("save %d\n", (int)py.misc.save);
+  printf("disarm %d\n", (int)py.misc.disarm);
+  printf("ptohit %d\n", (int)py.misc.ptohit);
+  printf("ptodam %d\n", (int)py.misc.ptodam);
+  printf("ptoac %d\n", (int)py.misc.ptoac);
+  printf("pac %d\n", (int)py.misc.pac);
+  printf("infra %d\n", (int)py.flags.see_infra);
+
+  for (i = 0; i < 6; i++)
+    printf("stat %d %d %d %d\n",
+           i, (int)py.stats.max_stat[i], (int)py.stats.cur_stat[i],
+           (int)py.stats.use_stat[i]);
+
+  for (i = 0; i < 4; i++)
+    printf("history %d %s\n", i, py.misc.history[i]);
+
+  for (i = 0; i < MAX_PLAYER_LEVEL; i++)
+    printf("hp %d %d\n", i, (int)player_hp[i]);
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ---------------------------------------------------------------- driver */
 
 static int usage(void)
@@ -1216,7 +1318,8 @@ static int usage(void)
           "  oracle enchanted <seed> <level> <count>  magic_treasure\n"
           "  oracle populate <seed> <level>  a finished level, less monsters\n"
           "  oracle town <seed> <turn>  the town, less shop restocking\n"
-          "  oracle shops <seed> <rounds>  shop owners, stock and prices\n");
+          "  oracle shops <seed> <rounds>  shop owners, stock and prices\n"
+          "  oracle character <seed> <race> <sex> <class>  a rolled character\n");
   return 2;
 }
 
@@ -1342,6 +1445,19 @@ int main(int argc, char *argv[])
           return usage();
         }
       dump_shops(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "character") == 0)
+    {
+      if (argc != 6)
+        {
+          return usage();
+        }
+      dump_character(strtoul(argv[2], NULL, 10),
+                     (int)strtol(argv[3], NULL, 10),
+                     (int)strtol(argv[4], NULL, 10),
+                     (int)strtol(argv[5], NULL, 10));
       return 0;
     }
 

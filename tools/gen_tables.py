@@ -671,6 +671,107 @@ def gen_misc_tables(moria: Path) -> str:
     return "\n".join(lines)
 
 
+
+def _player_source(moria):
+    defines = parse_defines(
+        (moria / "source" / "constant.h").read_text(encoding="latin-1")
+    )
+    text = (moria / "source" / "player.c").read_text(encoding="latin-1")
+    return strip_comments(select_branches(text)), defines
+
+
+def _emit_rows(lines, declaration, kind, expected, fields, text, defines, doc):
+    body = extract_initialiser(text, declaration)
+    rows = split_rows(body)
+    if len(rows) != expected:
+        raise SystemExit(
+            "{0}: parsed {1} rows, expected {2}".format(declaration, len(rows), expected)
+        )
+
+    lines.extend(doc)
+    lines.append(
+        "    public static readonly {0}[] {1} = new {0}[{2}]".format(kind[0], kind[1], expected)
+    )
+    lines.append("    {")
+
+    for index, row in enumerate(rows):
+        f = split_fields(row)
+        if len(f) != fields:
+            raise SystemExit(
+                "{0} row {1}: expected {2} fields, got {3}".format(
+                    declaration, index, fields, len(f)
+                )
+            )
+        values = [c_string(f[0])]
+        values += [str(c_number(x, defines)) for x in f[1:]]
+        lines.append("        new(" + ", ".join(values) + "),")
+
+    lines += ["    };", ""]
+
+
+def gen_player(moria):
+    text, defines = _player_source(moria)
+
+    lines = [
+        HEADER.format(source="moria/source/player.c"),
+        "namespace Airom.Data;",
+        "",
+        "public static partial class GameTables",
+        "{",
+    ]
+
+    _emit_rows(
+        lines, "race[MAX_RACES]", ("RaceType", "Races"), defines["MAX_RACES"], 28,
+        text, defines,
+        [
+            "    /// <summary>",
+            "    /// The eight playable races. Each shifts the rolled stats and carries its",
+            "    /// own build, lifespan and aptitudes.",
+            "    /// </summary>",
+        ],
+    )
+
+    _emit_rows(
+        lines, "class[MAX_CLASS]", ("ClassType", "Classes"), defines["MAX_CLASS"], 18,
+        text, defines,
+        [
+            "    /// <summary>",
+            "    /// The six classes. Their stat adjustments are applied after the race's,",
+            "    /// so a class can pull a stat back down that a race pushed up.",
+            "    /// </summary>",
+        ],
+    )
+
+    _emit_rows(
+        lines, "background[MAX_BACKGROUND]", ("BackgroundType", "Backgrounds"),
+        defines["MAX_BACKGROUND"], 5, text, defines,
+        [
+            "    /// <summary>",
+            "    /// Fragments of a character's history, arranged as a set of linked charts.",
+            "    /// Each entry names the chart it belongs to and the chart to continue with,",
+            "    /// so rolling walks from one to the next until it runs out.",
+            "    /// </summary>",
+        ],
+    )
+
+    body = extract_initialiser(text, "player_init[MAX_CLASS][5]")
+    rows = split_rows(body)
+    lines += [
+        "    /// <summary>",
+        "    /// The five items each class starts with, as object table indices.",
+        "    /// </summary>",
+        "    public static readonly int[][] StartingItems =",
+        "    [",
+    ]
+    for row in rows:
+        values = [str(c_number(x, defines)) for x in split_fields(row) if x]
+        lines.append("        [" + ", ".join(values) + "],")
+    lines += ["    ];", ""]
+
+    lines[-1:] = ["}", ""]
+    return "\n".join(lines)
+
+
 # ---------------------------------------------------------------- driver
 
 TARGETS = {
@@ -678,6 +779,7 @@ TARGETS = {
     "src/Airom/Data/GameTables.Monsters.g.cs": gen_monsters,
     "src/Airom/Data/GameTables.Names.g.cs": gen_names,
     "src/Airom/Data/GameTables.Misc.g.cs": gen_misc_tables,
+    "src/Airom/Data/GameTables.Player.g.cs": gen_player,
 }
 
 
