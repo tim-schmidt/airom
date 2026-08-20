@@ -1072,6 +1072,45 @@ public static partial class OracleDump
                 DumpMap(output, mpSeed, mpLevel);
                 return 0;
 
+            case "search":
+                if (arguments.Length != 5
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint srSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int srLevel)
+                    || !int.TryParse(arguments[3], CultureInfo.InvariantCulture, out int srRounds)
+                    || !int.TryParse(arguments[4], CultureInfo.InvariantCulture, out int srChance))
+                {
+                    return Usage(error);
+                }
+
+                DumpSearch(output, srSeed, srLevel, srRounds, srChance);
+                return 0;
+
+            case "walk":
+                if (arguments.Length != 5
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint wkSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int wkLevel)
+                    || !int.TryParse(arguments[3], CultureInfo.InvariantCulture, out int wkSteps)
+                    || !int.TryParse(arguments[4], CultureInfo.InvariantCulture, out int wkVar))
+                {
+                    return Usage(error);
+                }
+
+                DumpWalk(output, wkSeed, wkLevel, wkSteps, wkVar);
+                return 0;
+
+            case "run":
+                if (arguments.Length != 5
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint rnSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int rnLevel)
+                    || !int.TryParse(arguments[3], CultureInfo.InvariantCulture, out int rnDir)
+                    || !int.TryParse(arguments[4], CultureInfo.InvariantCulture, out int rnVar))
+                {
+                    return Usage(error);
+                }
+
+                DumpRun(output, rnSeed, rnLevel, rnDir, rnVar);
+                return 0;
+
             case "light":
                 if (arguments.Length != 5
                     || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint ltSeed)
@@ -1178,6 +1217,9 @@ public static partial class OracleDump
         error.WriteLine("  airom oracle upkeep <seed> <turns> <variation>  a turn in the dungeon");
         error.WriteLine("  airom oracle hallucinate <seed> <level>  the map drawn while hallucinating");
         error.WriteLine("  airom oracle light <seed> <level> <steps> <variation>  a walk, lit");
+        error.WriteLine("  airom oracle walk <seed> <level> <steps> <variation>  scripted steps");
+        error.WriteLine("  airom oracle run <seed> <level> <direction> <variation>  one run");
+        error.WriteLine("  airom oracle search <seed> <level> <rounds> <chance>  finding what is hidden");
         error.WriteLine("  airom oracle regen <seed> <turns>  regeneration of hit points and mana");
         error.WriteLine("  airom oracle map <seed> <level>  the whole level shrunk to one screen");
         return 2;

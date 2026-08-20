@@ -135,6 +135,24 @@ public sealed class GameState
     public bool ShowSelfWhileRunning { get; set; }
 
     /// <summary>
+    /// Whether a run cuts a known corner rather than going the long way round. A
+    /// player option, on by default.
+    /// </summary>
+    public bool CutCorners { get; set; } = true;
+
+    /// <summary>
+    /// Whether a run examines a possible corner rather than stopping at it. A
+    /// player option, on by default.
+    /// </summary>
+    public bool ExamineCorners { get; set; } = true;
+
+    /// <summary>
+    /// Whether a run carries on past an open door. A player option, off by
+    /// default, since a doorway is usually worth stopping at.
+    /// </summary>
+    public bool IgnoreDoorsWhileRunning { get; set; }
+
+    /// <summary>
     /// Whether the rogue-like key set is in use. A player option, off by
     /// default, which decides how a typed key is translated before dispatch.
     /// </summary>

@@ -97,6 +97,9 @@ divergence.
 | `upkeep` | **A turn in the dungeon**: the real dungeon() loop, counter by counter | **Verified matching** |
 | `hallucinate` | The map drawn by a hallucinating character, rolls included | **Verified matching** |
 | `light` | **A walk, lit**: what the player sees as they move, step by step | **Verified matching** |
+| `walk` | **Steps**: move_char over a scripted path, walls and searching included | **Verified matching** |
+| `run` | **A run**: the whole find algorithm, path dumped square by square | **Verified matching** |
+| `search` | Finding traps, secret doors and the trap on a chest | **Verified matching** |
 
 `seeds` is the one that will confirm the `reset_seed` quirk against the original
 rather than by inference: `magic_init` shuffles appearances inside a
@@ -114,6 +117,13 @@ the original code.
 The monsters are cleared off the level first, because creature movement is not
 ported and a monster taking its turn would consume random numbers on one side
 only. Everything else - the whole screen included - is compared.
+
+`walk`, `run` and `search` strip the level of monsters and loose objects
+first. Monsters would move on the C side only, since `creature.c` is not
+ported; objects would be picked up on the C side only, since `carry()` needs
+the inventory, and picking one up prints a message and changes the pack. The
+`search` mode then puts back exactly what it wants to find - one of each trap,
+a secret door and a trapped chest - around the player.
 
 `light` covers what a stationary character never reaches. `move_char()` belongs
 to `moria2.c` and is not ported, so the walk is done in the harness itself: it

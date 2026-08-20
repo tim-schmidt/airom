@@ -2088,6 +2088,311 @@ static void dump_light(unsigned long seed, int level, int steps, int variation)
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* -------------------------------------------------------------------- walk */
+
+/* The directions a scripted walk tries, in order. Numbered as the number pad
+   is, so the table reads the same on both sides. */
+static int walk_script[8] = { 6, 2, 4, 8, 3, 1, 9, 7 };
+
+/* Sets up a level for a walk: the monsters and the loose objects are taken off
+   it first.
+
+   Monsters would move on the C side only, since creature.c is not ported.
+   Objects would be picked up on the C side only, since carry() needs the
+   inventory - and picking one up prints a message and changes the pack, which
+   is exactly the kind of divergence that would drown out what is being
+   compared. Doors and stairs go with them, being objects here too. */
+static void strip_level(void)
+{
+  int i, j;
+
+  for (i = 0; i < MAX_HEIGHT; i++)
+    for (j = 0; j < MAX_WIDTH; j++)
+      {
+        cave[i][j].cptr = 0;
+        cave[i][j].tptr = 0;
+      }
+
+  mfptr = MIN_MONIX;
+  tcptr = MIN_TRIX;
+}
+
+/* Walking, one step at a time.
+
+   move_char() is the whole of a step: it moves the record, drags the light
+   after it, lights a room on entry, searches what is nearby, and decides
+   whether a wall blocks the way. The script walks a fixed cycle of directions
+   rather than choosing cleverly, so both sides walk into the same walls. */
+static void dump_walk(unsigned long seed, int level, int steps, int variation)
+{
+  int step;
+
+  header("walk", seed);
+  printf("level %d\n", level);
+  printf("steps %d\n", steps);
+  printf("variation %d\n", variation);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+  pin_player(level);
+  dun_level = (int16)level;
+
+  init_curses();
+  oracle_screen_reset();
+
+  generate_cave();
+  strip_level();
+
+  cave[char_row][char_col].cptr = 1;
+
+  /* A searcher good enough to roll for something every step, so the search
+     inside move_char() is exercised rather than skipped. */
+  py.misc.fos = 1;
+  py.misc.srh = 40;
+
+  switch (variation)
+    {
+    case 0:
+      player_light = TRUE;
+      break;
+    case 1:
+      /* Confused: three steps in four go somewhere else entirely, which draws
+         random numbers of its own. */
+      player_light = TRUE;
+      py.flags.confused = 30000;
+      break;
+    case 2:
+      player_light = TRUE;
+      py.flags.blind = 30000;
+      break;
+    default:
+      player_light = FALSE;
+      break;
+    }
+
+  panel_row = panel_col = -1;
+  check_view();
+
+  for (step = 0; step < steps; step++)
+    {
+      free_turn_flag = FALSE;
+      move_char(walk_script[step % 8], TRUE);
+      printf("step %d at %d %d free %d\n", step, (int)char_row,
+             (int)char_col, free_turn_flag ? 1 : 0);
+    }
+
+  oracle_screen_dump("walk");
+
+  {
+    int permanent = 0;
+    int temporary = 0;
+    int marked = 0;
+    int i, j;
+
+    for (i = 0; i < cur_height; i++)
+      for (j = 0; j < cur_width; j++)
+        {
+          if (cave[i][j].pl)
+            permanent++;
+          if (cave[i][j].tl)
+            temporary++;
+          if (cave[i][j].fm)
+            marked++;
+        }
+
+    printf("permanent %d temporary %d marked %d\n", permanent, temporary,
+           marked);
+  }
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
+/* Running: a step repeated until something worth stopping for turns up.
+
+   find_init() decides what kind of run this is from the two squares either
+   side of the first step, and every step after that asks area_affect() where to
+   go next. The path is dumped square by square, so a run that turns one corner
+   differently shows up immediately rather than only in the final position. */
+static void dump_run(unsigned long seed, int level, int direction, int variation)
+{
+  int guard;
+
+  header("run", seed);
+  printf("level %d\n", level);
+  printf("direction %d\n", direction);
+  printf("variation %d\n", variation);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+  pin_player(level);
+  dun_level = (int16)level;
+
+  init_curses();
+  oracle_screen_reset();
+
+  generate_cave();
+  strip_level();
+
+  cave[char_row][char_col].cptr = 1;
+
+  /* No searching while running: it would draw a random number a step and drown
+     the run itself in noise. */
+  py.misc.fos = 30000;
+  py.misc.srh = 0;
+
+  player_light = TRUE;
+
+  switch (variation)
+    {
+    case 0:
+      break;
+    case 1:
+      /* Never cut a corner: go the long way round instead. */
+      find_cut = FALSE;
+      break;
+    case 2:
+      /* Stop at anything that might be a corner rather than examining it. */
+      find_examine = FALSE;
+      break;
+    default:
+      /* Draw the player while running, which keeps the lamp lit. */
+      find_prself = TRUE;
+      break;
+    }
+
+  panel_row = panel_col = -1;
+  check_view();
+
+  printf("start %d %d\n", (int)char_row, (int)char_col);
+
+  find_init(direction);
+
+  for (guard = 0; guard < 300 && find_flag; guard++)
+    {
+      printf("at %d %d\n", (int)char_row, (int)char_col);
+      find_run();
+    }
+
+  printf("stopped %d %d after %d\n", (int)char_row, (int)char_col, guard);
+
+  oracle_screen_dump("run");
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+
+  find_cut = TRUE;
+  find_examine = TRUE;
+  find_prself = FALSE;
+}
+
+/* ------------------------------------------------------------------ search */
+
+/* Searching for what is hidden.
+
+   The walk mode strips the level of objects, so nothing there is ever found.
+   Here the opposite: the eight squares around the player are filled with the
+   things a search can turn up - invisible traps of every kind, secret doors and
+   a trapped chest - and the search is run over and over.
+
+   Every square is rolled for separately, so what is found and in which order is
+   entirely the generator's doing. */
+static void dump_search(unsigned long seed, int level, int rounds, int chance)
+{
+  int i, j, round, k;
+
+  header("search", seed);
+  printf("level %d\n", level);
+  printf("rounds %d\n", rounds);
+  printf("chance %d\n", chance);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+  pin_player(level);
+  dun_level = (int16)level;
+
+  init_curses();
+  oracle_screen_reset();
+
+  generate_cave();
+  strip_level();
+
+  cave[char_row][char_col].cptr = 1;
+
+  /* Ring the player with things to find. The traps walk the whole trap list,
+     so their names are compared as well as the finding of them. */
+  k = 0;
+  for (i = char_row - 1; i <= char_row + 1; i++)
+    for (j = char_col - 1; j <= char_col + 1; j++)
+      {
+        int slot;
+
+        if (i == char_row && j == char_col)
+          continue;
+
+        slot = popt();
+        if (k == 7)
+          {
+            /* A chest, which is found differently: the trap on it is
+               discovered rather than the chest itself. */
+            invcopy(&t_list[slot], OBJ_OPEN_DOOR);
+            t_list[slot].tval = TV_CHEST;
+            t_list[slot].flags = CH_LOSE_STR | CH_POISON;
+          }
+        else if (k == 6)
+          invcopy(&t_list[slot], OBJ_SECRET_DOOR);
+        else
+          invcopy(&t_list[slot], OBJ_TRAP_LIST + k);
+
+        cave[i][j].tptr = (int8u)slot;
+        k++;
+      }
+
+  /* Spaces to answer any -more- the run of messages puts up: a good searcher
+     finds several things in a round, and the message line only holds two. */
+  {
+    char script[2001];
+    int n;
+
+    for (n = 0; n < 2000; n++)
+      script[n] = ' ';
+    script[2000] = ' ';
+    oracle_feed_keys(script);
+  }
+
+  for (round = 0; round < rounds; round++)
+    {
+      search((int)char_row, (int)char_col, chance);
+      printf("round %d\n", round);
+
+      k = 0;
+      for (i = char_row - 1; i <= char_row + 1; i++)
+        for (j = char_col - 1; j <= char_col + 1; j++)
+          {
+            inven_type *t;
+
+            if (i == char_row && j == char_col)
+              continue;
+
+            t = &t_list[cave[i][j].tptr];
+            printf("  found %d tval %d index %d ident %d\n", k,
+                   (int)t->tval, (int)t->index, (int)t->ident);
+            k++;
+          }
+    }
+
+  oracle_screen_dump("srch");
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ---------------------------------------------------------------- driver */
 
 
@@ -2116,7 +2421,10 @@ static int usage(void)
           "  oracle regen <seed> <turns>  hit point and mana regeneration\n"
           "  oracle upkeep <seed> <turns> <variation>  a turn in the dungeon\n"
           "  oracle hallucinate <seed> <level>  the map drawn while hallucinating\n"
-          "  oracle light <seed> <level> <steps> <variation>  a walk, lit\n");
+          "  oracle light <seed> <level> <steps> <variation>  a walk, lit\n"
+          "  oracle walk <seed> <level> <steps> <variation>  scripted steps\n"
+          "  oracle run <seed> <level> <direction> <variation>  one run\n"
+          "  oracle search <seed> <level> <rounds> <chance>  finding what is hidden\n");
   return 2;
 }
 
@@ -2286,6 +2594,45 @@ int main(int argc, char *argv[])
           return usage();
         }
       dump_map(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "search") == 0)
+    {
+      if (argc != 6)
+        {
+          return usage();
+        }
+      dump_search(strtoul(argv[2], NULL, 10),
+                  (int)strtol(argv[3], NULL, 10),
+                  (int)strtol(argv[4], NULL, 10),
+                  (int)strtol(argv[5], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "walk") == 0)
+    {
+      if (argc != 6)
+        {
+          return usage();
+        }
+      dump_walk(strtoul(argv[2], NULL, 10),
+                (int)strtol(argv[3], NULL, 10),
+                (int)strtol(argv[4], NULL, 10),
+                (int)strtol(argv[5], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "run") == 0)
+    {
+      if (argc != 6)
+        {
+          return usage();
+        }
+      dump_run(strtoul(argv[2], NULL, 10),
+               (int)strtol(argv[3], NULL, 10),
+               (int)strtol(argv[4], NULL, 10),
+               (int)strtol(argv[5], NULL, 10));
       return 0;
     }
 

@@ -45,9 +45,10 @@ Early. The foundations are in place; the game is not yet playable.
 | Status sidebar (prt_stat_block) | Done, verified against the original |
 | The turn: hunger, regeneration, every timed effect | Done, verified against the original |
 | Command keys, counts and the input loop | Done, verified against the original |
-| Command dispatch (do_command) | Quit, message recall and the map; the rest wait on their subsystems |
+| Command dispatch (do_command) | Movement, quit, message recall and the map; the rest wait on their subsystems |
 | Lighting: the lamp, lit rooms, what is remembered | Done, verified against the original |
-| Movement and running (moria2.c) | Not started |
+| Walking, running and searching | Done, verified against the original |
+| Combat, traps and the inventory | Not started |
 | Monsters in motion (creature.c) | Not started |
 | Inventory and equipment | Not started |
 | Save files | Not started |

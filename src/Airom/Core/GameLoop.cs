@@ -60,6 +60,7 @@ public class GameLoop
     private readonly GameState _game;
     private readonly Display _display;
     private readonly Lighting _lighting;
+    private Movement _movement;
 
     public GameLoop(GameState game, Display display)
     {
@@ -69,10 +70,14 @@ public class GameLoop
         _game = game;
         _display = display;
         _lighting = new Lighting(game, display);
+        _movement = new Movement(game, display, this);
     }
 
     /// <summary>What the player can see, and how the screen hears about it.</summary>
     public Lighting Lighting => _lighting;
+
+    /// <summary>Walking, running and searching.</summary>
+    public Movement Movement => _movement;
 
     private Player Player => _game.Player;
 
@@ -431,6 +436,39 @@ public class GameLoop
     /// </summary>
     protected virtual void DoCommand(char command)
     {
+        // "-" is a movement command that leaves whatever is on the floor where
+        // it is. It asks for a direction and then becomes the walk command for
+        // it, which is why the count has to be put back afterwards.
+        bool pickUp = true;
+
+        if (command == '-')
+        {
+            pickUp = false;
+            int saved = _display.CommandCount;
+
+            (bool taken, int direction) = ReadDirection();
+            if (taken)
+            {
+                _display.CommandCount = saved;
+                command = direction switch
+                {
+                    1 => 'b',
+                    2 => 'j',
+                    3 => 'n',
+                    4 => 'h',
+                    6 => 'l',
+                    7 => 'y',
+                    8 => 'k',
+                    9 => 'u',
+                    _ => Commands.Illegal,
+                };
+            }
+            else
+            {
+                command = Commands.Nothing;
+            }
+        }
+
         if (command == 'Q')
         {
             _display.FlushInput();
@@ -460,6 +498,14 @@ public class GameLoop
             _display.RestoreScreen();
             FreeTurn = true;
         }
+        else if (WalkDirection(command) is int walk)
+        {
+            _movement.MoveChar(walk, pickUp);
+        }
+        else if (RunDirection(command) is int run)
+        {
+            _movement.FindInit(run);
+        }
         else
         {
             _display.Print("That command is not ported yet.", 0, 0);
@@ -468,6 +514,34 @@ public class GameLoop
 
         LastCommand = command;
     }
+
+    /// <summary>The direction a walk command steps in, or null if it is not one.</summary>
+    private static int? WalkDirection(char command) => command switch
+    {
+        'b' => 1,
+        'j' => 2,
+        'n' => 3,
+        'h' => 4,
+        'l' => 6,
+        'y' => 7,
+        'k' => 8,
+        'u' => 9,
+        _ => null,
+    };
+
+    /// <summary>The direction a run command sets off in, or null if it is not one.</summary>
+    private static int? RunDirection(char command) => command switch
+    {
+        'B' => 1,
+        'J' => 2,
+        'N' => 3,
+        'H' => 4,
+        'L' => 6,
+        'Y' => 7,
+        'K' => 8,
+        'U' => 9,
+        _ => null,
+    };
 
     /// <summary>
     /// Shows the messages already gone by. Mirrors the ^P branch of
@@ -520,11 +594,8 @@ public class GameLoop
         }
     }
 
-    /// <summary>
-    /// Takes one step of a run. Mirrors find_run(). Pending: the running half of
-    /// moria2.c.
-    /// </summary>
-    protected virtual void TakeRunStep() => EndRun();
+    /// <summary>Takes one step of a run. Mirrors find_run().</summary>
+    protected virtual void TakeRunStep() => _movement.FindRun();
 
     // ------------------------------------------------------------ the turn
 
@@ -1306,14 +1377,7 @@ public class GameLoop
     }
 
     /// <summary>Ends a run. Mirrors end_find().</summary>
-    public void EndRun()
-    {
-        if (Running)
-        {
-            Running = false;
-            CheckView();
-        }
-    }
+    public void EndRun() => _movement.EndFind();
 
     // ------------------------------------------------------ pending subsystems
     //
