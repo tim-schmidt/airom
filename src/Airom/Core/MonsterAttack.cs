@@ -789,19 +789,334 @@ public sealed class MonsterAttack
     /// <summary>
     /// Casts one of a monster's spells. Mirrors mon_cast_spell().
     ///
-    /// Pending: the effects are spells.c - bolts, balls, breaths and the rest -
-    /// which is not ported. Until it is, a monster that would cast simply does
-    /// not, and the oracle compares only creatures with no spells at all.
+    /// Three things must hold before anything is cast: the frequency roll, a
+    /// range the spell can reach, and a clear line of sight. Then one spell is
+    /// picked at random from the ones the creature knows - the flags are a bit
+    /// set, and the choice is made by pulling the set bits out one at a time.
+    ///
+    /// Casting is loud: everything except the two quiet spells interrupts a
+    /// rest or a run.
     /// </summary>
     /// <returns>Whether the monster spent its turn casting.</returns>
     public bool CastSpell(int index)
     {
-        // Nothing casts yet, so nothing spends its turn casting. The lookup is
-        // here so that filling this in does not change the shape of its
-        // callers.
-        _ = _game.Monsters[index];
-        return false;
+        if (_loop.Dead)
+        {
+            return false;
+        }
+
+        Monster monster = _game.Monsters[index];
+        CreatureType creature = GameTables.CreatureList[monster.CreatureIndex];
+
+        // A one in however many chance, and only within range and in sight.
+        if (Rng.RandInt(creature.SpellFrequency) != 1
+            || monster.DistanceToPlayer > MaxSpellDistance
+            || !LineOfSight.Between(
+                _game.Cave, _game.CharacterRow, _game.CharacterColumn,
+                monster.Row, monster.Column))
+        {
+            return false;
+        }
+
+        // It may not be lit yet, and the player should see what cast at them.
+        _loop.MonsterAi.UpdateMonster(index);
+
+        string describer = monster.Visible ? "The " + creature.Name + " " : "It ";
+
+        string killer = (creature.MoveFlags & CreatureMove.Win) != 0
+            ? "The " + creature.Name
+            : (IsVowel(creature.Name[0]) ? "an " : "a ") + creature.Name;
+
+        // Pull the known spells out of the flags, one bit at a time.
+        Span<int> choices = stackalloc int[32];
+        int count = 0;
+        uint bits = creature.SpellFlags & ~CreatureSpell.Frequency;
+
+        while (bits != 0)
+        {
+            int bit = System.Numerics.BitOperations.TrailingZeroCount(bits);
+            choices[count++] = bit;
+            bits &= ~(1u << bit);
+        }
+
+        int spell = choices[Rng.RandInt(count) - 1] + 1;
+
+        // Everything except slipping away and draining mana is loud enough to
+        // interrupt whatever the player was doing.
+        if (spell > 6 && spell != 17)
+        {
+            _loop.Disturb(true, false);
+        }
+
+        // The spells with no announcement of their own are simply "a spell".
+        if ((spell is < 14 and > 6) || spell == 16)
+        {
+            _display.MessagePrint(describer + "casts a spell.");
+        }
+
+        Cast(spell, index, monster, creature, describer, killer);
+
+        if (monster.Visible)
+        {
+            MonsterMemory memory = _game.Memories[monster.CreatureIndex];
+            memory.Spells |= 1u << (spell - 1);
+
+            // The frequency is learned by counting castings, up to the real
+            // value.
+            if ((memory.Spells & CreatureSpell.Frequency) != CreatureSpell.Frequency)
+            {
+                memory.Spells++;
+            }
+
+            if (_loop.Dead && memory.Deaths < GameLoop.MaxShort)
+            {
+                memory.Deaths++;
+            }
+        }
+
+        return true;
     }
+
+    private void Cast(
+        int spell, int index, Monster monster, CreatureType creature,
+        string describer, string killer)
+    {
+        switch (spell)
+        {
+            case 5: // slip away a short distance
+                TeleportAway(index, 5);
+                break;
+
+            case 6: // slip away entirely
+                TeleportAway(index, MonsterAi.MaxSight);
+                break;
+
+            case 7: // drag the player over
+                _loop.Spells.TeleportTo(monster.Row, monster.Column);
+                break;
+
+            case 8:
+                Wound(3, killer);
+                break;
+
+            case 9:
+                Wound(8, killer);
+                break;
+
+            case 10: // hold
+                if (Player.FreeAction)
+                {
+                    _display.MessagePrint("You are unaffected.");
+                }
+                else if (_loop.Combat.PlayerSaves())
+                {
+                    _display.MessagePrint("You resist the effects of the spell.");
+                }
+                else if (Player.Paralysis > 0)
+                {
+                    Player.Paralysis += 2;
+                }
+                else
+                {
+                    Player.Paralysis = Rng.RandInt(5) + 4;
+                }
+
+                break;
+
+            case 11: // blind
+                if (_loop.Combat.PlayerSaves())
+                {
+                    _display.MessagePrint("You resist the effects of the spell.");
+                }
+                else if (Player.Blind > 0)
+                {
+                    Player.Blind += 6;
+                }
+                else
+                {
+                    Player.Blind += 12 + Rng.RandInt(3);
+                }
+
+                break;
+
+            case 12: // confuse
+                if (_loop.Combat.PlayerSaves())
+                {
+                    _display.MessagePrint("You resist the effects of the spell.");
+                }
+                else if (Player.Confused > 0)
+                {
+                    Player.Confused += 2;
+                }
+                else
+                {
+                    Player.Confused = Rng.RandInt(5) + 3;
+                }
+
+                break;
+
+            case 13: // frighten
+                if (_loop.Combat.PlayerSaves())
+                {
+                    _display.MessagePrint("You resist the effects of the spell.");
+                }
+                else if (Player.Afraid > 0)
+                {
+                    Player.Afraid += 2;
+                }
+                else
+                {
+                    Player.Afraid = Rng.RandInt(5) + 3;
+                }
+
+                break;
+
+            case 14: // call for help
+                _display.MessagePrint(describer + "magically summons a monster!");
+                Summon(index, undead: false);
+                break;
+
+            case 15:
+                _display.MessagePrint(describer + "magically summons an undead!");
+                Summon(index, undead: true);
+                break;
+
+            case 16: // slow
+                if (Player.FreeAction)
+                {
+                    _display.MessagePrint("You are unaffected.");
+                }
+                else if (_loop.Combat.PlayerSaves())
+                {
+                    _display.MessagePrint("You resist the effects of the spell.");
+                }
+                else if (Player.Slowed > 0)
+                {
+                    Player.Slowed += 2;
+                }
+                else
+                {
+                    Player.Slowed = Rng.RandInt(5) + 3;
+                }
+
+                break;
+
+            case 17: // drink the player's magic, and grow fat on it
+                DrainMana(monster, creature, describer);
+                break;
+
+            case 20:
+                _display.MessagePrint(describer + "breathes lightning.");
+                Breathe(SpellElement.Lightning, monster.HitPoints / 4, killer, index);
+                break;
+
+            case 21:
+                _display.MessagePrint(describer + "breathes gas.");
+                Breathe(SpellElement.PoisonGas, monster.HitPoints / 3, killer, index);
+                break;
+
+            case 22:
+                _display.MessagePrint(describer + "breathes acid.");
+                Breathe(SpellElement.Acid, monster.HitPoints / 3, killer, index);
+                break;
+
+            case 23:
+                _display.MessagePrint(describer + "breathes frost.");
+                Breathe(SpellElement.Frost, monster.HitPoints / 3, killer, index);
+                break;
+
+            case 24:
+                _display.MessagePrint(describer + "breathes fire.");
+                Breathe(SpellElement.Fire, monster.HitPoints / 3, killer, index);
+                break;
+
+            default:
+                _display.MessagePrint(describer + "cast unknown spell.");
+                break;
+        }
+    }
+
+    private void Wound(int dice, string killer)
+    {
+        if (_loop.Combat.PlayerSaves())
+        {
+            _display.MessagePrint("You resist the effects of the spell.");
+        }
+        else
+        {
+            _loop.TakeHit(Rng.DamRoll(dice, 8), killer);
+        }
+    }
+
+    private void Breathe(int element, int damage, string killer, int index) =>
+        _loop.Spells.Breath(
+            element, _game.CharacterRow, _game.CharacterColumn, damage, killer, index);
+
+    /// <summary>
+    /// Calls something else in. The monster being processed has to be named, in
+    /// case the list has to be compacted to make room.
+    /// </summary>
+    private void Summon(int index, bool undead)
+    {
+        int row = _game.CharacterRow;
+        int column = _game.CharacterColumn;
+
+        _game.Monsters.ScanIndex = index;
+
+        var generator = new DungeonGenerator(_game);
+
+        if (undead)
+        {
+            generator.SummonUndead(ref row, ref column);
+        }
+        else
+        {
+            generator.SummonMonster(ref row, ref column, false);
+        }
+
+        _game.Monsters.ScanIndex = -1;
+
+        _loop.MonsterAi.UpdateMonster(_game.Cave[row, column].MonsterIndex);
+    }
+
+    /// <summary>
+    /// Drinks the player's spell points and heals on them, which is why a mage
+    /// is worth more to some monsters than a warrior.
+    /// </summary>
+    private void DrainMana(Monster monster, CreatureType creature, string describer)
+    {
+        if (Player.CurrentMana <= 0)
+        {
+            return;
+        }
+
+        _loop.Disturb(true, false);
+        _display.MessagePrint(describer + "draws psychic energy from you!");
+
+        if (monster.Visible)
+        {
+            _display.MessagePrint(describer + "appears healthier.");
+        }
+
+        int drawn = (Rng.RandInt(creature.Level) >> 1) + 1;
+
+        if (drawn > Player.CurrentMana)
+        {
+            drawn = Player.CurrentMana;
+            Player.CurrentMana = 0;
+            Player.ManaFraction = 0;
+        }
+        else
+        {
+            Player.CurrentMana -= drawn;
+        }
+
+        _display.PrintCurrentMana(Player);
+        monster.HitPoints += 6 * drawn;
+    }
+
+    /// <summary>How far a monster's spell reaches. Umoria's MAX_SPELL_DIS.</summary>
+    public const int MaxSpellDistance = 20;
 
     private bool FindInPack(int category, out int slot)
     {

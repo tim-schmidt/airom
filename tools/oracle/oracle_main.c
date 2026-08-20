@@ -2881,10 +2881,8 @@ static void dump_traps(unsigned long seed, int level, int first, int count)
    they eat, what they breed, what they steal, and what the player learns about
    them along the way.
 
-   Only creatures with no spells are used. mon_cast_spell() reaches into
-   spells.c, which is not ported, so a spellcaster would draw random numbers on
-   this side that the other side never draws. The monsters that would cast are
-   replaced with ones that would not, from the same depth. */
+   The level is left exactly as generated, spellcasters included: they breathe,
+   summon, blind, drain and teleport, and all of it is compared. */
 static void dump_monsters(unsigned long seed, int level, int turns, int variation)
 {
   int turn_index, i;
@@ -2908,23 +2906,6 @@ static void dump_monsters(unsigned long seed, int level, int turns, int variatio
 
   generate_cave();
 
-  /* Replace every spellcaster with something from the same table entry range
-     that does not cast, so the comparison stays honest. */
-  for (i = MIN_MONIX; i < mfptr; i++)
-    {
-      int guard = 0;
-
-      while ((c_list[m_list[i].mptr].spells & CS_FREQ) && guard < MAX_CREATURES)
-        {
-          m_list[i].mptr = (int16u)((m_list[i].mptr + 1) % MAX_CREATURES);
-          guard++;
-        }
-
-      m_list[i].hp = (int16)(c_list[m_list[i].mptr].hd[0]
-                             * c_list[m_list[i].mptr].hd[1]);
-      m_list[i].cspeed = (int16)(c_list[m_list[i].mptr].speed - 10);
-    }
-
   cave[char_row][char_col].cptr = 1;
   player_light = TRUE;
 
@@ -2946,11 +2927,54 @@ static void dump_monsters(unsigned long seed, int level, int turns, int variatio
       /* Aggravated: everything wakes at once and hurries. */
       py.flags.aggravate = TRUE;
       break;
-    default:
+    case 3:
       /* Resting, which changes how often a sleeper checks and how many moves a
          fast monster gets. */
       py.flags.rest = 30000;
       py.flags.status |= PY_REST;
+      break;
+    default:
+      /* Ring the player with things that cast, awake and in range, so the
+         spells themselves are compared rather than waited for: breaths,
+         summonings, blindness, drained mana and the rest. */
+      {
+        int placed = 0;
+        int kind;
+
+        for (kind = 0; kind < MAX_CREATURES && placed < 8; kind++)
+          {
+            int dir;
+
+            if ((c_list[kind].spells & CS_FREQ) == 0)
+              continue;
+            if (c_list[kind].level > dun_level + 10)
+              continue;
+
+            for (dir = 1; dir <= 9; dir++)
+              {
+                int ty = char_row;
+                int tx = char_col;
+
+                if (dir == 5)
+                  continue;
+                if (!mmove(dir, &ty, &tx))
+                  continue;
+                if (cave[ty][tx].fval > MAX_OPEN_SPACE || cave[ty][tx].cptr != 0)
+                  continue;
+
+                if (place_monster(ty, tx, kind, FALSE))
+                  {
+                    m_list[cave[ty][tx].cptr].csleep = 0;
+                    m_list[cave[ty][tx].cptr].ml = TRUE;
+                    placed++;
+                  }
+
+                break;
+              }
+          }
+
+        printf("casters %d\n", placed);
+      }
       break;
     }
 
@@ -2989,10 +3013,11 @@ static void dump_monsters(unsigned long seed, int level, int turns, int variatio
 
   /* What the fight taught the player about each kind that took part. */
   for (i = 0; i < MAX_CREATURES; i++)
-    if (c_recall[i].r_cmove || c_recall[i].r_wake || c_recall[i].r_ignore
-        || c_recall[i].r_attacks[0] || c_recall[i].r_kills)
-      printf("recall %d move %lu wake %d ignore %d attacks %d %d %d %d\n",
-             i, (unsigned long)c_recall[i].r_cmove, (int)c_recall[i].r_wake,
+    if (c_recall[i].r_cmove || c_recall[i].r_spells || c_recall[i].r_wake
+        || c_recall[i].r_ignore || c_recall[i].r_attacks[0] || c_recall[i].r_kills)
+      printf("recall %d move %lu spells %lu wake %d ignore %d attacks %d %d %d %d\n",
+             i, (unsigned long)c_recall[i].r_cmove,
+             (unsigned long)c_recall[i].r_spells, (int)c_recall[i].r_wake,
              (int)c_recall[i].r_ignore, (int)c_recall[i].r_attacks[0],
              (int)c_recall[i].r_attacks[1], (int)c_recall[i].r_attacks[2],
              (int)c_recall[i].r_attacks[3]);

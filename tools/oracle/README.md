@@ -104,7 +104,7 @@ divergence.
 | `pickup` | Walking over things and carrying them: the purse, the pack, the weight | **Verified matching** |
 | `fight` | **Hitting things**: every blow, every kill, the drops and the memory | **Verified matching** |
 | `traps` | **Every trap in the table**, sprung on a fresh character each | **Verified matching** |
-| `monsters` | **The monsters taking their turns**: moving, breeding, stealing, attacking | **Verified matching** |
+| `monsters` | **The monsters taking their turns**: moving, breeding, stealing, attacking, casting | **Verified matching** |
 
 `seeds` is the one that will confirm the `reset_seed` quirk against the original
 rather than by inference: `magic_init` shuffles appearances inside a
@@ -123,10 +123,10 @@ The monsters are cleared off the level first. They move now, so the reason has
 changed: a monster reaching the player would fight, and the fight would drown
 out the turn being compared. `monsters` is the mode that leaves them on.
 
-One gap remains inside that mode. `mon_cast_spell()` reaches into `spells.c`,
-which is not ported, so a spellcaster would draw random numbers on one side
-that the other never draws. Every caster on the level is replaced with a
-creature that does not cast before the comparison starts.
+Spellcasters cast now. One variation of that mode rings the player with
+everything at the depth that has spells, awake and in range, so the breaths,
+summonings and drains are compared rather than waited for - a level left to
+itself rarely brings a caster into line of sight.
 
 `walk`, `run` and `search` strip the level of monsters and loose objects
 first; `pickup` keeps the objects and strips only the monsters and the traps,

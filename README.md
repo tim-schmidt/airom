@@ -55,7 +55,9 @@ Early. The foundations are in place; the game is not yet playable.
 | Levels, experience and stat changes | Done, verified against the original |
 | The inventory screens and wielding | Not started |
 | Monsters in motion: moving, breeding, waking, attacking | Done, verified against the original |
-| Monster spells and breaths | Not started - waits on spells.c |
+| Monster spells and breaths | Done, verified against the original |
+| Spell engine: bolts, balls, breaths, and the spells aimed at monsters | Done, verified against the original |
+| The rest of spells.c: the player's own utility spells | Not started |
 | Inventory and equipment | Not started |
 | Save files | Not started |
 

@@ -21,9 +21,8 @@ public static partial class OracleDump
     /// open, what they eat, what they breed, what they steal, and what the
     /// player learns about them along the way.
     ///
-    /// Only creatures with no spells are used. mon_cast_spell() reaches into
-    /// spells.c, which is not ported, so a spellcaster would draw random numbers
-    /// on one side that the other never draws.
+    /// The level is left exactly as generated, spellcasters included: they
+    /// breathe, summon, blind, drain and teleport, and all of it is compared.
     /// </summary>
     public static void DumpMonsters(TextWriter output, uint seed, int level, int turns, int variation)
     {
@@ -44,26 +43,6 @@ public static partial class OracleDump
 
         new DungeonGenerator(game).Generate();
 
-        // Replace every spellcaster with something from the same table entry
-        // range that does not cast, so the comparison stays honest.
-        for (int i = MonsterPool.FirstIndex; i < game.Monsters.Count; i++)
-        {
-            Monster monster = game.Monsters[i];
-            int guard = 0;
-
-            while (GameTables.CreatureList[monster.CreatureIndex].CastsSpells
-                   && guard < GameTables.CreatureList.Length)
-            {
-                monster.CreatureIndex =
-                    (monster.CreatureIndex + 1) % GameTables.CreatureList.Length;
-                guard++;
-            }
-
-            CreatureType creature = GameTables.CreatureList[monster.CreatureIndex];
-            monster.HitPoints = creature.HitDiceCount * creature.HitDiceSides;
-            monster.Speed = creature.Speed - 10;
-        }
-
         game.Cave[game.CharacterRow, game.CharacterColumn].MonsterIndex = 1;
         game.PlayerLight = true;
 
@@ -72,6 +51,8 @@ public static partial class OracleDump
         player.MaxHitPoints = 2000;
         player.Food = 7500;
         player.Stealth = 3;
+
+        int casters = -1;
 
         switch (variation)
         {
@@ -89,16 +70,27 @@ public static partial class OracleDump
                 // Aggravated: everything wakes at once and hurries.
                 player.AggravatesMonsters = true;
                 break;
-            default:
+            case 3:
                 // Resting, which changes how often a sleeper checks and how many
                 // moves a fast monster gets.
                 player.Rest = 30000;
                 player.Status |= PlayerStatus.Resting;
                 break;
+            default:
+                // Ring the player with things that cast, awake and in range, so
+                // the spells themselves are compared rather than waited for:
+                // breaths, summonings, blindness, drained mana and the rest.
+                casters = RingWithCasters(game);
+                break;
         }
 
         var screen = new MemoryScreen { TypeAheadVisible = false };
         screen.SendKeys(new string(' ', 3999));
+
+        if (casters >= 0)
+        {
+            output.Write("casters " + casters.ToString(CultureInfo.InvariantCulture) + "\n");
+        }
 
         var display = new Display(game, screen);
         display.Panel.Resize(game.Cave.Height, game.Cave.Width);
@@ -174,8 +166,8 @@ public static partial class OracleDump
         {
             MonsterMemory memory = game.Memories[i];
 
-            if (memory.Move == 0 && memory.Wake == 0 && memory.Ignore == 0
-                && memory.Attacks[0] == 0 && memory.Kills == 0)
+            if (memory.Move == 0 && memory.Spells == 0 && memory.Wake == 0
+                && memory.Ignore == 0 && memory.Attacks[0] == 0 && memory.Kills == 0)
             {
                 continue;
             }
@@ -186,6 +178,8 @@ public static partial class OracleDump
                 N(i),
                 "move",
                 memory.Move.ToString(CultureInfo.InvariantCulture),
+                "spells",
+                memory.Spells.ToString(CultureInfo.InvariantCulture),
                 "wake",
                 N(memory.Wake),
                 "ignore",
@@ -205,5 +199,58 @@ public static partial class OracleDump
         }
 
         Line(output, "final-state", game.Rng.State);
+    }
+    /// <summary>
+    /// Puts something that casts on every open square around the player, awake
+    /// and looking at them.
+    /// </summary>
+    private static int RingWithCasters(GameState game)
+    {
+        var generator = new DungeonGenerator(game);
+        int placed = 0;
+
+        for (int kind = 0; kind < GameTables.CreatureList.Length && placed < 8; kind++)
+        {
+            CreatureType creature = GameTables.CreatureList[kind];
+
+            if (!creature.CastsSpells || creature.Level > game.DungeonLevel + 10)
+            {
+                continue;
+            }
+
+            for (int direction = 1; direction <= 9; direction++)
+            {
+                if (direction == 5)
+                {
+                    continue;
+                }
+
+                int row = game.CharacterRow;
+                int column = game.CharacterColumn;
+
+                if (!game.Cave.Move(direction, ref row, ref column))
+                {
+                    continue;
+                }
+
+                CaveSquare square = game.Cave[row, column];
+
+                if (square.Feature > CaveFeature.MaxOpenSpace || square.MonsterIndex != 0)
+                {
+                    continue;
+                }
+
+                if (generator.PlaceMonster(row, column, kind, asleep: false))
+                {
+                    game.Monsters[square.MonsterIndex].Sleep = 0;
+                    game.Monsters[square.MonsterIndex].Visible = true;
+                    placed++;
+                }
+
+                break;
+            }
+        }
+
+        return placed;
     }
 }

@@ -70,6 +70,7 @@ public class GameLoop
     private Doors _doors;
     private MonsterAi _monsterAi;
     private MonsterAttack _monsterAttack;
+    private Spells _spells;
 
     public GameLoop(GameState game, Display display)
     {
@@ -89,6 +90,7 @@ public class GameLoop
         _doors = new Doors(game, display, this);
         _monsterAi = new MonsterAi(game, display, this);
         _monsterAttack = new MonsterAttack(game, display, this);
+        _spells = new Spells(game, display, this);
     }
 
     /// <summary>What the player can see, and how the screen hears about it.</summary>
@@ -123,6 +125,9 @@ public class GameLoop
 
     /// <summary>What a monster does when it reaches the player.</summary>
     public MonsterAttack MonsterAttack => _monsterAttack;
+
+    /// <summary>Spells, and the three shapes they come in.</summary>
+    public Spells Spells => _spells;
 
     /// <summary>
     /// Lights the monsters without moving them, which is what creatures(FALSE)

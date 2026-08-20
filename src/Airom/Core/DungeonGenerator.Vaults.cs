@@ -27,6 +27,78 @@ public sealed partial class DungeonGenerator
     /// <param name="column">As <paramref name="row"/>.</param>
     /// <param name="asleep">Whether it starts asleep.</param>
     /// <returns>Whether anything was placed.</returns>
+    /// <summary>
+    /// Calls up something undead. Mirrors summon_undead().
+    ///
+    /// The kind is found by picking a point in the whole creature list and
+    /// walking forward until something undead turns up, so the deeper the list
+    /// is searched the nastier what answers.
+    /// </summary>
+    public bool SummonUndead(ref int row, ref int column)
+    {
+        int limit = MonsterLevels.LevelTotals[MonsterLevels.MaxMonsterLevel];
+        int kind;
+
+        do
+        {
+            kind = Rng.RandInt(limit) - 1;
+            int guard = 0;
+
+            do
+            {
+                if ((GameTables.CreatureList[kind].DefenseFlags & CreatureDefense.Undead) != 0)
+                {
+                    guard = 20;
+                    limit = 0;
+                }
+                else
+                {
+                    kind++;
+
+                    if (kind > limit)
+                    {
+                        guard = 20;
+                    }
+                    else
+                    {
+                        guard++;
+                    }
+                }
+            }
+            while (guard <= 19);
+        }
+        while (limit != 0);
+
+        for (int attempt = 0; attempt <= 9; attempt++)
+        {
+            int y = row - 2 + Rng.RandInt(3);
+            int x = column - 2 + Rng.RandInt(3);
+
+            if (!_game.Cave.InBounds(y, x))
+            {
+                continue;
+            }
+
+            CaveSquare square = _game.Cave[y, x];
+
+            if (square.Feature > CaveFeature.MaxOpenSpace || square.MonsterIndex != 0)
+            {
+                continue;
+            }
+
+            if (!PlaceMonster(y, x, kind, false))
+            {
+                return false;
+            }
+
+            row = y;
+            column = x;
+            return true;
+        }
+
+        return false;
+    }
+
     public bool SummonMonster(ref int row, ref int column, bool asleep)
     {
         int kind = GetMonsterNumber(_game.DungeonLevel + SummonLevelAdjust);
