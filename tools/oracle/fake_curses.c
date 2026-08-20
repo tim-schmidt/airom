@@ -200,8 +200,45 @@ char *keys;
     oracle_keys[oracle_key_count++] = keys[i];
 }
 
+/* Some screens are torn down before they can be dumped: screen_map draws the
+   whole level, waits for a key, then puts back what was there before. Arming a
+   snapshot captures the screen at the moment it asks, which is the only point
+   the drawing exists. */
+static WINDOW oracle_snapshot;
+static int oracle_snapshot_armed = 0;
+
+void oracle_snapshot_next_key()
+{
+  oracle_snapshot_armed = 1;
+}
+
+void oracle_snapshot_dump(label)
+const char *label;
+{
+  char line[ORACLE_SCREEN_COLS + 1];
+  int r, c, end;
+
+  for (r = 0; r < ORACLE_SCREEN_ROWS; r++)
+    {
+      for (c = 0; c < ORACLE_SCREEN_COLS; c++)
+        line[c] = oracle_snapshot.cells[r][c];
+      end = ORACLE_SCREEN_COLS;
+      while (end > 0 && line[end - 1] == ' ')
+        end--;
+      line[end] = '\0';
+      printf("%s %d %s\n", label, r, line);
+    }
+}
+
 int getch()
 {
+  if (oracle_snapshot_armed)
+    {
+      memcpy(oracle_snapshot.cells, oracle_main_screen.cells,
+             sizeof(oracle_main_screen.cells));
+      oracle_snapshot_armed = 0;
+    }
+
   if (oracle_key_next >= oracle_key_count)
     {
       fflush(stdout);

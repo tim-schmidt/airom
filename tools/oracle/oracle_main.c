@@ -1374,6 +1374,104 @@ static void dump_screen(unsigned long seed, int level)
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* -------------------------------------------------------------- messages */
+
+/* The message line.
+
+   msg_print runs two messages together when they both fit and prompts with
+   -more- when they do not, so the interesting behaviour is a sequence rather
+   than a single call. The screen is dumped after each one, along with the
+   history ring the player can review. */
+static void dump_messages(unsigned long seed)
+{
+  static char *lines[] = {
+    "You feel a sudden chill.",
+    "It bites you.",
+    "You have a Scroll of Word of Recall (e) in your pack, and it glows faintly blue.",
+    "The Giant White Louse breeds explosively and the whole corridor fills with them.",
+    "You die."
+  };
+  int i;
+
+  header("messages", seed);
+
+  init_seeds((int32u)seed);
+
+  (void)initscr();
+  oracle_screen_reset();
+
+  /* Spaces to answer any -more- prompt the sequence provokes. */
+  oracle_feed_keys("          ");
+
+  for (i = 0; i < 5; i++)
+    {
+      msg_print(lines[i]);
+      printf("after %d flag %d last %d\n", i, (int)msg_flag, (int)last_msg);
+      oracle_screen_dump("msg");
+    }
+
+  /* A null message flushes whatever is showing. */
+  msg_print(CNIL);
+  printf("after flush flag %d\n", (int)msg_flag);
+  oracle_screen_dump("msg");
+
+  for (i = 0; i < MAX_SAVE_MSG; i++)
+    printf("history %d %s\n", i, old_msg[i]);
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
+/* ------------------------------------------------------------------- map */
+
+/* The whole level shrunk to one screen, as the M command shows it.
+
+   Three squares by three collapse into one, so something has to win. What
+   survives the shrinking is decided by a priority table, and getting that wrong
+   would quietly lose the stairs. */
+static void dump_map(unsigned long seed, int level)
+{
+  int i, j;
+
+  header("map", seed);
+  printf("level %d\n", level);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+  pin_player(level);
+  dun_level = (int16)level;
+
+  /* init_curses rather than initscr: screen_map saves the screen into the
+     spare window, which only init_curses allocates. */
+  init_curses();
+  oracle_screen_reset();
+
+  generate_cave();
+
+  for (i = 0; i < cur_height; i++)
+    for (j = 0; j < cur_width; j++)
+      {
+        cave[i][j].pl = TRUE;
+        cave[i][j].fm = TRUE;
+      }
+  for (i = MIN_MONIX; i < mfptr; i++)
+    m_list[i].ml = TRUE;
+  cave[char_row][char_col].cptr = 1;
+
+  (void)get_panel((int)char_row, (int)char_col, TRUE);
+
+  /* screen_map draws the level, waits for a key, then puts back what was on
+     screen before - so the map only exists while it is asking. */
+  oracle_feed_keys(" ");
+  oracle_snapshot_next_key();
+  screen_map();
+  oracle_snapshot_dump("map");
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ---------------------------------------------------------------- driver */
 
 static int usage(void)
@@ -1393,7 +1491,9 @@ static int usage(void)
           "  oracle town <seed> <turn>  the town, less shop restocking\n"
           "  oracle shops <seed> <rounds>  shop owners, stock and prices\n"
           "  oracle character <seed> <race> <sex> <class>  a rolled character\n"
-          "  oracle screen <seed> <level>  the drawn map\n");
+          "  oracle screen <seed> <level>  the drawn map\n"
+          "  oracle messages <seed>  the message line and its history\n"
+          "  oracle map <seed> <level>  the whole level shrunk to one screen\n");
   return 2;
 }
 
@@ -1542,6 +1642,26 @@ int main(int argc, char *argv[])
           return usage();
         }
       dump_screen(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "messages") == 0)
+    {
+      if (argc != 3)
+        {
+          return usage();
+        }
+      dump_messages(strtoul(argv[2], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "map") == 0)
+    {
+      if (argc != 4)
+        {
+          return usage();
+        }
+      dump_map(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
       return 0;
     }
 

@@ -994,6 +994,27 @@ public static partial class OracleDump
                 DumpScreen(output, scSeed, scLevel);
                 return 0;
 
+            case "messages":
+                if (arguments.Length != 2
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint msSeed))
+                {
+                    return Usage(error);
+                }
+
+                DumpMessages(output, msSeed);
+                return 0;
+
+            case "map":
+                if (arguments.Length != 3
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint mpSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int mpLevel))
+                {
+                    return Usage(error);
+                }
+
+                DumpMap(output, mpSeed, mpLevel);
+                return 0;
+
             case "cave":
                 if (arguments.Length != 3
                     || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint cvSeed)
@@ -1027,6 +1048,8 @@ public static partial class OracleDump
         error.WriteLine("  airom oracle shops <seed> <rounds>  shop owners, stock and prices");
         error.WriteLine("  airom oracle character <seed> <race> <sex> <class>  a rolled character");
         error.WriteLine("  airom oracle screen <seed> <level>  the drawn map");
+        error.WriteLine("  airom oracle messages <seed>  the message line and its history");
+        error.WriteLine("  airom oracle map <seed> <level>  the whole level shrunk to one screen");
         return 2;
     }
 }

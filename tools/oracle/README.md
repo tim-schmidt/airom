@@ -89,6 +89,8 @@ divergence.
 | `shops` | Shop owners, stock and asking prices across repeated restocks | **Verified matching** |
 | `character` | A rolled character: stats, history, build, hit point curve, money | **Verified matching** |
 | `screen` | The drawn map, composed by the real io.c through the panel arithmetic | **Verified matching** |
+| `messages` | The message line: combining, -more- prompting, the history ring | **Verified matching** |
+| `map` | The whole level shrunk to one screen, as the M command shows it | **Verified matching** |
 
 `seeds` is the one that will confirm the `reset_seed` quirk against the original
 rather than by inference: `magic_init` shuffles appearances inside a
@@ -125,6 +127,11 @@ written for this project.
 
 `inkey()` reads through `getch()`, so scripting the fake `getch` drives the real
 input path rather than bypassing it.
+
+Some screens are torn down before they can be dumped — `screen_map` draws the
+whole level, waits for a key, then puts back what was there before. Arming a
+snapshot captures the screen at the moment it asks, which is the only point the
+drawing exists.
 
 ## Format
 

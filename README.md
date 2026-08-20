@@ -41,7 +41,7 @@ Early. The foundations are in place; the game is not yet playable.
 
 | Terminal surface | Done — System.Console, no third-party library |
 | Display: panel window and map drawing | Done, verified against the original |
-| Messages, prompts, input handling | Not started |
+| Messages, prompts, input handling | Done, verified against the original |
 | Save files | Not started |
 
 ## Building

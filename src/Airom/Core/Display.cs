@@ -140,7 +140,7 @@ public sealed class Panel
 /// Everything here writes into an <see cref="IScreen"/> rather than a terminal,
 /// so the composed frame can be read back and compared against the original's.
 /// </summary>
-public sealed class Display(GameState game, IScreen screen)
+public sealed partial class Display(GameState game, IScreen screen)
 {
     /// <summary>The row messages appear on. Umoria's MSG_LINE.</summary>
     public const int MessageLine = 0;

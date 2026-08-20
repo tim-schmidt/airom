@@ -91,6 +91,9 @@ public sealed class GameState
 
     private Stores? _stores;
 
+    /// <summary>Whether the terminal bell sounds. A player option, on by default.</summary>
+    public bool SoundEnabled { get; set; } = true;
+
     /// <summary>
     /// Whether mineral veins are drawn differently from plain rock. A player
     /// option, off by default.
