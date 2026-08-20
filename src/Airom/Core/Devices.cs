@@ -51,6 +51,75 @@ public sealed class Devices
     public const int UseDevice = 3;
 
     /// <summary>
+    /// The aim command: asks which wand and which way, then fires it. Mirrors
+    /// the front of aim().
+    ///
+    /// The turn stops being free before the direction is asked, so backing out
+    /// of the direction is what gives it back - and a wand pointed nowhere
+    /// costs nothing.
+    /// </summary>
+    public void Aim()
+    {
+        _loop.FreeTurn = true;
+
+        if (Pack.Count == 0)
+        {
+            _display.MessagePrint("But you are not carrying anything.");
+            return;
+        }
+
+        if (!Pack.FindRange(ItemCategory.Wand, ItemCategory.Never,
+                            out int first, out int last))
+        {
+            _display.MessagePrint("You are not carrying any wands.");
+            return;
+        }
+
+        if (_loop.InventoryScreen.GetItem("Aim which wand?", first, last)
+            is not int slot)
+        {
+            return;
+        }
+
+        _loop.FreeTurn = false;
+
+        (bool taken, int direction) = _loop.ReadDirection();
+
+        if (taken)
+        {
+            Aim(slot, direction);
+        }
+    }
+
+    /// <summary>
+    /// The use command: asks which staff, then uses it. Mirrors the front of
+    /// use().
+    /// </summary>
+    public void Use()
+    {
+        _loop.FreeTurn = true;
+
+        if (Pack.Count == 0)
+        {
+            _display.MessagePrint("But you are not carrying anything.");
+            return;
+        }
+
+        if (!Pack.FindRange(ItemCategory.Staff, ItemCategory.Never,
+                            out int first, out int last))
+        {
+            _display.MessagePrint("You are not carrying any staffs.");
+            return;
+        }
+
+        if (_loop.InventoryScreen.GetItem("Use which staff?", first, last)
+            is int slot)
+        {
+            Use(slot);
+        }
+    }
+
+    /// <summary>
     /// Aims a wand in a direction. Mirrors aim(), less the prompting that picks
     /// the wand and the direction.
     /// </summary>

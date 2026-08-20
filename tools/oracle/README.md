@@ -111,6 +111,8 @@ divergence.
 | `staff` | **Every staff in the table**, used on a generated level | **Verified matching** |
 | `spell` | **Every mage spell**, cast twice on a generated level - with mana and without | **Verified matching** |
 | `prayer` | **Every prayer**, recited the same way | **Verified matching** |
+| `inven` | **Twenty scripted runs of the inventory mode**, screen and pack compared | **Verified matching** |
+| `getitem` | **Ten runs of the prompt that asks which item** | **Verified matching** |
 
 `seeds` is the one that will confirm the `reset_seed` quirk against the original
 rather than by inference: `magic_init` shuffles appearances inside a
@@ -206,6 +208,31 @@ clears everything else and have to be cleared by hand between casts; and they
 are set after the stats rather than before, since setting a casting stat is what
 makes the game work out which spells the character is entitled to, and it would
 forget the ones it had just been given.
+
+## Comparing a screen that puts itself away
+
+The inventory lists are drawn as far right as their longest line allows, so one
+character more in one description moves the whole column. That makes the layout
+worth comparing character by character - and awkward to compare, because the
+command mode saves the screen on the way in and puts it back on the way out, so
+by the time it returns there is nothing left to look at.
+
+Both sides therefore dump twice: the screen as the mode left it, which proves
+the restore worked, and then each list drawn again on its own, which is what
+actually pins the column. Every other variation turns the weights on, since that
+narrows the room left for the descriptions and moves everything.
+
+The mode is also driven the way the main loop drives it. A key that costs a turn
+makes it return with a note of where it was, and the loop calls it again next
+turn; the harness does the same, up to four rounds, and prints the pack after
+each. That is what covers the resuming half of the state machine rather than
+just the drawing.
+
+One thing had to be turned off to compare anything at all: bell() in io.c writes
+the bell character straight to file descriptor 1, unbuffered, which is the same
+stream the dump goes to - so a single mistyped key in a script put a stray byte
+somewhere in the middle of the output. Turning the beep off is a player option
+the real game already has, and it leaves everything else bell() does alone.
 
 ## Reaching inside generate.c and main.c
 

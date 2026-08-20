@@ -45,7 +45,7 @@ Early. The foundations are in place; the game is not yet playable.
 | Status sidebar (prt_stat_block) | Done, verified against the original |
 | The turn: hunger, regeneration, every timed effect | Done, verified against the original |
 | Command keys, counts and the input loop | Done, verified against the original |
-| Command dispatch (do_command) | Movement, quit, message recall and the map; the rest wait on their subsystems |
+| Command dispatch (do_command) | Movement, the pack, eating, drinking, reading, devices and spells; the rest wait on their subsystems |
 | Lighting: the lamp, lit rooms, what is remembered | Done, verified against the original |
 | Walking, running and searching | Done, verified against the original |
 | Item naming (objdes) and what the player knows | Done, verified against the original |
@@ -53,7 +53,7 @@ Early. The foundations are in place; the game is not yet playable.
 | Combat: blows, criticals, kills and their rewards | Done, verified against the original |
 | Traps, chests and doors | Done, verified against the original |
 | Levels, experience and stat changes | Done, verified against the original |
-| The inventory screens and wielding | Not started |
+| The inventory screens, wearing and wielding | Done, verified against the original |
 | Monsters in motion: moving, breeding, waking, attacking | Done, verified against the original |
 | Monster spells and breaths | Done, verified against the original |
 | Spell engine: bolts, balls, breaths, and the spells aimed at monsters | Done, verified against the original |
@@ -63,7 +63,6 @@ Early. The foundations are in place; the game is not yet playable.
 | The rest of spells.c: detection, enchantment, earthquakes, destruction | Done, verified against the original |
 | The player's own spellcasting (magic.c, prayer.c) | Done, verified against the original |
 | Learning spells, mana and the spell list (misc3.c) | Done, verified against the original |
-| Inventory and equipment | Not started |
 | Save files | Not started |
 
 ## Building

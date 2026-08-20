@@ -101,41 +101,17 @@ public static partial class OracleDump
             carried.CopyFrom(which);
             game.Inventory.Carry(carried);
 
-            InvenType potion = game.Inventory[0];
-            bool identified = category == ItemCategory.Food
-                ? loop.Food.Eat(potion)
-                : loop.Potions.Quaff(potion);
-
-            // What quaff() does around the effects. Working out what something
-            // was is worth experience in itself - the only experience in the
-            // game that comes from understanding rather than killing - and it
-            // is scaled by the player's level, so a novice learns more from the
-            // same bottle.
-            if (identified)
+            // The real quaff() and eat(), less the prompt that picks which:
+            // the effects, the experience for working out what it was, the
+            // nourishment, and using it up.
+            if (category == ItemCategory.Food)
             {
-                if (!game.Knowledge.IsKindKnown(potion))
-                {
-                    player.Experience +=
-                        (potion.Level + (player.Level >> 1)) / player.Level;
-
-                    loop.Levelling.PrintExperience();
-                    game.Knowledge.LearnKind(potion);
-                }
+                loop.Food.Consume(0);
             }
-            else if (!game.Knowledge.IsKindKnown(potion))
+            else
             {
-                game.Knowledge.MarkTried(potion);
+                loop.Potions.Drink(0);
             }
-
-            loop.Spells.AddFood(potion.P1);
-
-            // desc_remain(): the pile is described one short, which is how "no
-            // more" is reached without the item having gone yet.
-            potion.Number--;
-            display.MessagePrint("You have " + game.Names.Describe(potion, withArticle: true));
-            potion.Number++;
-
-            game.Inventory.Destroy(0);
 
             // Asked about a fresh copy rather than the slot, which the potion
             // has just been destroyed out of.

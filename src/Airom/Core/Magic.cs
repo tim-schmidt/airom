@@ -80,11 +80,13 @@ public class Magic
     public string SpellName(int spell) => GameTables.SpellNames[spell + NameOffset];
 
     /// <summary>
-    /// Asks which book to use. Pending: get_item() from misc3.c.
+    /// Asks which book to use. Mirrors the get_item() call.
     ///
-    /// Returning nothing means the player backed out, which costs no turn.
+    /// Returning nothing means the player backed out, which costs no turn. Left
+    /// overridable so a harness can answer without a terminal.
     /// </summary>
-    protected internal virtual int? ChooseBook(string prompt, int first, int last) => null;
+    protected internal virtual int? ChooseBook(string prompt, int first, int last) =>
+        _loop.InventoryScreen.GetItem(prompt, first, last);
 
     // -------------------------------------------------------------- casting
 

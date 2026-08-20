@@ -502,7 +502,9 @@ public class GameLoopTests
         (GameState game, _, Display display, MemoryScreen screen, _) = Fresh();
 
         var loop = new ProbeLoop(game, display);
-        loop.Dispatch('i');
+
+        // Tunnelling belongs to moria4.c, which is not ported.
+        loop.Dispatch('T');
 
         Assert.Contains("not ported yet", screen.GetRow(0), StringComparison.Ordinal);
         Assert.True(loop.FreeTurn, "an unported command still took a turn");

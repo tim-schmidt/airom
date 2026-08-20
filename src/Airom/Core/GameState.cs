@@ -184,6 +184,13 @@ public sealed class GameState
     /// <summary>Whether repeat and rest counts are shown. A player option.</summary>
     public bool DisplayCounts { get; set; } = true;
 
+    /// <summary>
+    /// Whether the inventory screens show what each thing weighs. A player
+    /// option, off by default; turning it on narrows the room left for the
+    /// descriptions themselves.
+    /// </summary>
+    public bool ShowWeights { get; set; }
+
     /// <summary>Whether wizard mode is active, which forfeits the score.</summary>
     public bool Wizard { get; set; }
 

@@ -41,6 +41,88 @@ public sealed class Food
     private Spells Spells => _loop.Spells;
 
     /// <summary>
+    /// Eats something out of the pack. Mirrors eat(), less the prompting.
+    ///
+    /// The hunger flags are cleared whatever was eaten, and the sidebar redrawn
+    /// from them, so a mushroom that turns out to be poison still stops the
+    /// "Hungry" showing.
+    /// </summary>
+    public void Consume(int slot)
+    {
+        InvenType food = _game.Inventory[slot];
+        _loop.FreeTurn = false;
+
+        bool identified = Eat(food);
+
+        if (identified)
+        {
+            if (!_game.Knowledge.IsKindKnown(food))
+            {
+                // Rounded half-way up, as the potion does.
+                Player.Experience += (food.Level + (Player.Level >> 1)) / Player.Level;
+                _loop.Levelling.PrintExperience();
+
+                slot = _game.Inventory.Identify(slot, _display);
+                food = _game.Inventory[slot];
+            }
+        }
+        else if (!_game.Knowledge.IsKindKnown(food))
+        {
+            _game.Knowledge.MarkTried(food);
+        }
+
+        _loop.Spells.AddFood(food.P1);
+
+        Player.Status &= ~(PlayerStatus.Weak | PlayerStatus.Hungry);
+        _display.PrintHunger(Player);
+
+        DescribeRemaining(slot);
+        _game.Inventory.Destroy(slot);
+    }
+
+    /// <summary>
+    /// The eat command: asks which food, then eats it. Mirrors the front of
+    /// eat().
+    /// </summary>
+    public void EatCommand()
+    {
+        _loop.FreeTurn = true;
+
+        if (_game.Inventory.Count == 0)
+        {
+            _display.MessagePrint("But you are not carrying anything.");
+            return;
+        }
+
+        if (!_game.Inventory.FindRange(ItemCategory.Food, ItemCategory.Never,
+                                       out int first, out int last))
+        {
+            _display.MessagePrint("You are not carrying any food.");
+            return;
+        }
+
+        if (_loop.InventoryScreen.GetItem("Eat what?", first, last) is int slot)
+        {
+            Consume(slot);
+        }
+    }
+
+    /// <summary>
+    /// Says what is left of the pile. Mirrors desc_remain(), which counts the
+    /// pile one short so that the last one reads as "no more".
+    /// </summary>
+    private void DescribeRemaining(int slot)
+    {
+        InvenType item = _game.Inventory[slot];
+
+        item.Number--;
+        string description = _game.Names.Describe(item, withArticle: true);
+        item.Number++;
+
+        _display.MessagePrint("You have " + description);
+    }
+
+    /// <summary>
     /// Eats something and applies everything it does. Mirrors the body of eat(),
     /// less the prompting.
     /// </summary>

@@ -1101,6 +1101,26 @@ public static partial class OracleDump
                 DumpMagic(output, arguments[0], magSeed, magLevel, magFirst, magCount);
                 return 0;
 
+            case "inven":
+            case "getitem":
+                if (arguments.Length != 3
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint invSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int invVariation))
+                {
+                    return Usage(error);
+                }
+
+                if (arguments[0] == "inven")
+                {
+                    DumpInventory(output, invSeed, invVariation);
+                }
+                else
+                {
+                    DumpItemPrompt(output, invSeed, invVariation);
+                }
+
+                return 0;
+
             case "potion":
                 if (arguments.Length != 4
                     || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint potSeed)
@@ -1336,6 +1356,8 @@ public static partial class OracleDump
         error.WriteLine("  airom oracle staff <seed> <level> <first> <count>  using staffs");
         error.WriteLine("  airom oracle spell <seed> <level> <first> <count>  casting spells");
         error.WriteLine("  airom oracle prayer <seed> <level> <first> <count>  reciting prayers");
+        error.WriteLine("  airom oracle inven <seed> <variation>  the inventory screens");
+        error.WriteLine("  airom oracle getitem <seed> <variation>  the prompt that asks which item");
         error.WriteLine("  airom oracle regen <seed> <turns>  regeneration of hit points and mana");
         error.WriteLine("  airom oracle map <seed> <level>  the whole level shrunk to one screen");
         return 2;

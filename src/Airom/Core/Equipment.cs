@@ -283,6 +283,94 @@ public sealed class Equipment
     }
 
     /// <summary>
+    /// Takes something off, and puts it wherever the caller has already made
+    /// room for it. Mirrors takeoff().
+    ///
+    /// The pack slot is passed in rather than worked out here: the caller has
+    /// usually carried the item already, and the letter it landed on is what
+    /// the message reports.
+    /// </summary>
+    /// <param name="slot">The equipment slot being emptied.</param>
+    /// <param name="position">
+    /// Where it went in the pack, or a negative number when it went on the
+    /// floor instead and has no letter to report.
+    /// </param>
+    public void TakeOff(int slot, int position)
+    {
+        InvenType worn = Pack[slot];
+
+        Pack.Unequip(worn.Weight * worn.Number);
+
+        string verb = slot is Inventory.WieldSlot or Inventory.AuxiliarySlot
+            ? "Was wielding "
+            : slot == Inventory.LightSlot ? "Light source was "
+            : "Was wearing ";
+
+        string description = _game.Names.Describe(worn, withArticle: true);
+
+        _display.MessagePrint(position >= 0
+            ? verb + description + " (" + (char)('a' + position) + ")"
+            : verb + description);
+
+        // The spare weapon grants nothing while it is spare, so nothing has to
+        // be taken back from it.
+        if (slot != Inventory.AuxiliarySlot)
+        {
+            ApplyItem(worn, -1);
+        }
+
+        worn.Clear();
+    }
+
+    /// <summary>
+    /// Puts something on the floor. Mirrors inven_drop().
+    ///
+    /// Whatever was already underfoot is destroyed rather than piled on: a
+    /// square holds one thing. Dropping part of a pile leaves the rest carried,
+    /// and dropping something worn takes it off on the way down.
+    /// </summary>
+    /// <param name="slot">A pack slot, or an equipment slot to drop what is worn.</param>
+    /// <param name="all">Whether the whole pile goes, or only one of it.</param>
+    public void Drop(int slot, bool all)
+    {
+        if (_game.Cave[_game.CharacterRow, _game.CharacterColumn].ObjectIndex != 0)
+        {
+            _loop.Movement.DeleteObject(_game.CharacterRow, _game.CharacterColumn);
+        }
+
+        int index = _game.Objects.Allocate();
+        InvenType dropped = _game.Objects[index];
+        InvenType item = Pack[slot];
+
+        dropped.CopyStateFrom(item);
+        _game.Cave[_game.CharacterRow, _game.CharacterColumn].ObjectIndex = index;
+
+        if (slot >= Inventory.WieldSlot)
+        {
+            // Nothing is said here: takeoff() says it instead, and says it
+            // better - "Was wearing" rather than "Dropped".
+            TakeOff(slot, -1);
+        }
+        else
+        {
+            if (all || item.Number == 1)
+            {
+                Pack.DropWhole(slot);
+            }
+            else
+            {
+                dropped.Number = 1;
+                Pack.DropOne(slot);
+            }
+
+            _display.MessagePrint(
+                "Dropped " + _game.Names.Describe(dropped, withArticle: true));
+        }
+
+        Player.Status |= PlayerStatus.WeightChanged;
+    }
+
+    /// <summary>
     /// Checks whether the player is strong enough for what they are carrying and
     /// what they are holding. Mirrors check_strength().
     ///

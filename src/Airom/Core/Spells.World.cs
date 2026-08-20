@@ -860,24 +860,25 @@ public partial class Spells
     // ------------------------------------------------------ what they ask for
     //
     // Three of the effects in this file cannot start until the player has
-    // answered a question. The questions are seams - get_item() and get_com()
-    // belong to the part of misc3.c and io.c that is not ported yet - and they
-    // live here rather than with the scrolls because a spell reaches the same
-    // three functions that a scroll does.
+    // answered a question. They live here rather than with the scrolls because
+    // a spell reaches the same three functions that a scroll does.
 
     /// <summary>
-    /// Asks which carried item to work on. Pending: get_item() from misc3.c.
+    /// Asks which carried item to work on. Mirrors the get_item() call.
     ///
     /// Returning nothing means the player declined, which for a scroll leaves
-    /// the scroll unused.
+    /// the scroll unused. Left overridable so a harness can answer without a
+    /// terminal.
     /// </summary>
-    protected internal virtual int? ChooseItem(string prompt, int first, int last) => null;
+    protected internal virtual int? ChooseItem(string prompt, int first, int last) =>
+        _loop.InventoryScreen.GetItem(prompt, first, last);
 
     /// <summary>
-    /// Asks for a single letter. Pending: get_com() from io.c. Used only by
-    /// genocide.
+    /// Asks for a single letter. Mirrors the get_com() call, and is used only
+    /// by genocide.
     /// </summary>
-    protected internal virtual char? ChooseSymbol(string prompt) => null;
+    protected internal virtual char? ChooseSymbol(string prompt) =>
+        _display.GetCommand(prompt, out char symbol) ? symbol : null;
 
     /// <summary>
     /// Identifies something the player picks. Mirrors ident_spell().

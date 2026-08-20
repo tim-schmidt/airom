@@ -15,7 +15,7 @@ namespace Airom.Core;
 /// one different: it can fail to be used up at all (a cancelled identify leaves
 /// the scroll in the pack), and several of its effects ask the player a question
 /// part-way through. Those questions belong to spells.c and are asked there -
-/// see <see cref="Spells.ChooseItem"/>.
+/// see <see cref="Spells.ChooseItem"/>, which a scroll of identify goes through.
 /// </summary>
 public sealed class Scrolls
 {
@@ -71,6 +71,56 @@ public sealed class Scrolls
         Inventory.HandsSlot,
         Inventory.FeetSlot,
     ];
+
+    /// <summary>
+    /// The read command: asks which scroll, then reads it. Mirrors the front of
+    /// read_scroll().
+    ///
+    /// Everything that could stop it is checked first, in the original's order:
+    /// sight, light, a clear head, something carried at all, and then a scroll
+    /// among it.
+    /// </summary>
+    public void Read()
+    {
+        _loop.FreeTurn = true;
+
+        if (Player.Blind > 0)
+        {
+            _display.MessagePrint("You can't see to read the scroll.");
+            return;
+        }
+
+        if (_loop.Lighting.NoLight())
+        {
+            _display.MessagePrint("You have no light to read by.");
+            return;
+        }
+
+        if (Player.Confused > 0)
+        {
+            _display.MessagePrint("You are too confused to read a scroll.");
+            return;
+        }
+
+        if (Pack.Count == 0)
+        {
+            _display.MessagePrint("You are not carrying anything!");
+            return;
+        }
+
+        if (!Pack.FindRange(ItemCategory.Scroll1, ItemCategory.Scroll2,
+                            out int first, out int last))
+        {
+            _display.MessagePrint("You are not carrying any scrolls!");
+            return;
+        }
+
+        if (_loop.InventoryScreen.GetItem("Read which scroll?", first, last)
+            is int slot)
+        {
+            Read(slot);
+        }
+    }
 
     /// <summary>
     /// Reads the scroll in a pack slot and applies everything it does. Mirrors

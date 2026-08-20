@@ -76,6 +76,7 @@ public class GameLoop
     private Scrolls _scrolls;
     private Devices _devices;
     private Magic _magic;
+    private InventoryScreen _inventoryScreen;
 
     public GameLoop(GameState game, Display display)
     {
@@ -101,6 +102,7 @@ public class GameLoop
         _scrolls = new Scrolls(game, display, this);
         _devices = new Devices(game, display, this);
         _magic = new Magic(game, display, this);
+        _inventoryScreen = new InventoryScreen(game, display, this);
     }
 
     /// <summary>What the player can see, and how the screen hears about it.</summary>
@@ -164,6 +166,13 @@ public class GameLoop
     {
         get => _magic;
         set => _magic = value ?? throw new ArgumentNullException(nameof(value));
+    }
+
+    /// <summary>The inventory screens, and the prompt that asks which item.</summary>
+    public InventoryScreen InventoryScreen
+    {
+        get => _inventoryScreen;
+        set => _inventoryScreen = value ?? throw new ArgumentNullException(nameof(value));
     }
 
     /// <summary>
@@ -449,6 +458,12 @@ public class GameLoop
 
                         _display.Refresh();
                     }
+                    else if (_inventoryScreen.ContinuingCommand is char resumed)
+                    {
+                        // The inventory mode gave the world a turn and is still
+                        // standing open, so it takes the next key itself.
+                        _inventoryScreen.Command(resumed);
+                    }
                     else
                     {
                         _display.MoveCursorRelative(_game.CharacterRow, _game.CharacterColumn);
@@ -602,6 +617,42 @@ public class GameLoop
         else if (command == 'G')
         {
             _magic.GainSpells();
+        }
+        else if (command is 'i' or 'e' or 'd' or 't' or 'w' or 'x')
+        {
+            _inventoryScreen.Command(command);
+        }
+        else if (command == 'm')
+        {
+            _magic.Cast();
+        }
+        else if (command == 'p')
+        {
+            _magic.Pray();
+        }
+        else if (command == 'b')
+        {
+            _magic.ExamineBook();
+        }
+        else if (command == 'q')
+        {
+            _potions.Quaff();
+        }
+        else if (command == 'r')
+        {
+            _scrolls.Read();
+        }
+        else if (command == 'E')
+        {
+            _food.EatCommand();
+        }
+        else if (command == 'a')
+        {
+            _devices.Aim();
+        }
+        else if (command == 'u')
+        {
+            _devices.Use();
         }
         else if (WalkDirection(command) is int walk)
         {

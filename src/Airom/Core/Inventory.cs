@@ -381,6 +381,63 @@ public sealed class Inventory
     }
 
     /// <summary>
+    /// Counts a worn item out of the equipment. Mirrors the two lines takeoff()
+    /// opens with, before it says anything.
+    /// </summary>
+    public void Unequip(int weight)
+    {
+        EquipmentCount--;
+        Weight -= weight;
+        _game.Player.Status |= PlayerStatus.WeightChanged;
+    }
+
+    /// <summary>
+    /// Adds weight without counting anything into the equipment. What wearing
+    /// does to the total before the item has left the pack.
+    /// </summary>
+    public void EquipWeightOnly(int weight)
+    {
+        Weight += weight;
+        _game.Player.Status |= PlayerStatus.WeightChanged;
+    }
+
+    /// <summary>
+    /// Forgets what is carried weighs anything. A safety measure the original
+    /// takes when the last thing is put down, since nothing carried can weigh
+    /// something.
+    /// </summary>
+    public void ClearWeight() => Weight = 0;
+
+    /// <summary>
+    /// Takes a whole pack slot out, whatever is stacked in it. What drop_all
+    /// does in inven_drop().
+    /// </summary>
+    public void DropWhole(int slot)
+    {
+        InvenType item = _items[slot];
+        Weight -= item.Weight * item.Number;
+        Count--;
+
+        for (int i = slot; i < Count; i++)
+        {
+            _items[i].CopyStateFrom(_items[i + 1]);
+        }
+
+        _items[Count].Clear();
+    }
+
+    /// <summary>
+    /// Takes one out of a pack slot and leaves the rest. The other half of
+    /// inven_drop().
+    /// </summary>
+    public void DropOne(int slot)
+    {
+        InvenType item = _items[slot];
+        Weight -= item.Weight;
+        item.Number--;
+    }
+
+    /// <summary>
     /// Takes one item, or one of a pile, out of the pack. Mirrors
     /// inven_destroy().
     /// </summary>

@@ -3681,6 +3681,346 @@ static void dump_magic(const char *mode, unsigned long seed, int level,
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* ------------------------------------------------------------------- inven */
+
+/* The inventory screens, and the prompt that asks which item.
+
+   The real show_inven(), show_equip(), inven_command() and get_item() run, and
+   the whole screen is compared afterwards along with the pack, the equipment
+   and the weight. The layout is the point here: both lists are drawn as far
+   right as the longest line allows, so a description one character longer moves
+   the entire column.
+
+   The character is given the same pack every time - one item of each of eight
+   kinds, picked as the first of its kind in the object table - so the letters
+   and the widths are fixed and only the keys change. */
+
+static int inven_kinds[] = {
+  TV_RING, TV_AMULET, TV_SHIELD, TV_HELM, TV_BOOTS, TV_CLOAK,
+  TV_POTION1, TV_FOOD, TV_SCROLL1, TV_WAND
+};
+
+/* The scripts. The first character is the command inven_command() is called
+   with; the rest are fed to it as keys. */
+static char *inven_scripts[] = {
+  "i\033",              /* list the pack                                  */
+  "e\033",              /* list what is worn                              */
+  "?\033",              /* the help screen                                */
+  "iew\033",            /* both lists, then back out of wearing           */
+  "x\033",              /* swap the wielded weapon with the spare         */
+  "wa\033",             /* wear the first thing that can be worn          */
+  "wA\033",             /* the same, but confirmed first                  */
+  "wAy\033",            /* the same, confirmed                            */
+  "ta\033",             /* take the first worn thing off                  */
+  "da\033",             /* drop the first thing in the pack               */
+  "day\033",            /* drop it, all of it                             */
+  "e d a\033",          /* from the equipment list, throw something off   */
+  "d/a\033",            /* drop, swapped over to the equipment list       */
+  "izz\033",            /* two keys that are not commands at all          */
+  "wz\033",             /* a letter outside the range on offer            */
+  "w*a\033",            /* list what could be worn, then wear it          */
+  "iwawa\033",          /* the list up, then two things worn in a row     */
+  "iwawa\033",          /* the same, with two of the same ring carried    */
+  "itata\033",          /* two things taken off in a row                  */
+  "idaydayd\033"        /* dropped until there is no room left            */
+};
+
+#define INVEN_SCRIPTS 20
+
+static void dump_inven(unsigned long seed, int variation)
+{
+  int i, k;
+  char *script;
+  int rounds;
+
+  header("inven", seed);
+  printf("variation %d\n", variation);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+
+  init_seeds((int32u)seed);
+  pin_player(5);
+  dun_level = 5;
+
+  init_curses();
+  oracle_screen_reset();
+  msg_flag = FALSE;
+
+  generate_cave();
+  cave[char_row][char_col].cptr = 1;
+
+  py.misc.lev = 20;
+  py.misc.expfact = 100;
+  py.misc.hitdie = 10;
+  py.flags.food = 5000;
+
+  for (i = 0; i < 6; i++)
+    {
+      py.stats.max_stat[i] = 18;
+      py.stats.cur_stat[i] = 18;
+      py.stats.mod_stat[i] = 0;
+      set_use_stat(i);
+    }
+
+  (void) memset((char *)object_ident, 0, OBJECT_IDENT_SIZE);
+
+  inven_ctr = 0;
+  inven_weight = 0;
+  equip_ctr = 0;
+
+  invcopy(&inventory[INVEN_WIELD], 30);   /* a stiletto           */
+  invcopy(&inventory[INVEN_AUX], 34);     /* a spare weapon       */
+  invcopy(&inventory[INVEN_BODY], 103);   /* soft leather armor   */
+  invcopy(&inventory[INVEN_LIGHT], 365);  /* a wooden torch       */
+  inventory[INVEN_LIGHT].p1 = 5000;
+  equip_ctr = 4;
+
+  calc_bonuses();
+
+  py.misc.mhp = 500;
+  py.misc.chp = 500;
+
+  player_light = TRUE;
+  panel_row = panel_col = -1;
+  check_view();
+
+  /* One of each kind, the first of its kind in the table, so the pack is the
+     same every time and the letters do not move. */
+  for (k = 0; k < (int)(sizeof(inven_kinds)/sizeof(inven_kinds[0])); k++)
+    {
+      inven_type held;
+
+      for (i = 0; i < MAX_OBJECTS; i++)
+        if (object_list[i].tval == inven_kinds[k])
+          {
+            invcopy(&held, i);
+            (void) inven_carry(&held);
+            break;
+          }
+    }
+
+  /* A second ring for one variation, so that wearing has to take one out of a
+     pile rather than the whole of it. */
+  if (variation == 17)
+    for (i = 0; i < MAX_OBJECTS; i++)
+      if (object_list[i].tval == TV_RING)
+        {
+          inven_type held;
+
+          invcopy(&held, i);
+          (void) inven_carry(&held);
+          break;
+        }
+
+  /* Something on the floor for one variation, so that dropping has to say
+     there is no room. */
+  if (variation == 12)
+    {
+      i = popt();
+      invcopy(&t_list[i], 30);
+      cave[char_row][char_col].tptr = i;
+    }
+
+  msg_flag = FALSE;
+  free_turn_flag = FALSE;
+  doing_inven = 0;
+
+  /* Every other variation shows the weights, which narrows the room left for
+     the descriptions and so moves the whole column. */
+  show_weight_flag = (variation % 2);
+
+  script = inven_scripts[variation % INVEN_SCRIPTS];
+  {
+    char keys[600];
+    int n = 0;
+
+    for (i = 1; script[i]; i++)
+      keys[n++] = script[i];
+    for (i = n; i < 599; i++)
+      keys[i] = (char)27;
+    keys[599] = 0;
+    oracle_feed_keys(keys);
+  }
+
+  /* Called again while it says it is not finished, as the main loop does -
+     the mode gives the world a turn and comes back. */
+  rounds = 0;
+  do
+    {
+      char command = rounds == 0 ? script[0] : (char)doing_inven;
+
+      free_turn_flag = FALSE;
+      inven_command(command);
+
+      printf("round %d free %d doing %d\n", rounds, free_turn_flag ? 1 : 0,
+             (int)doing_inven);
+      printf("  packed %d equipped %d weight %d\n", (int)inven_ctr,
+             (int)equip_ctr, (int)inven_weight);
+
+      for (i = 0; i < inven_ctr; i++)
+        {
+          bigvtype name;
+
+          objdes(name, &inventory[i], TRUE);
+          printf("  pack %d %d %s\n", i, (int)inventory[i].number, name);
+        }
+
+      for (i = INVEN_WIELD; i < INVEN_ARRAY_SIZE; i++)
+        if (inventory[i].tval != TV_NOTHING)
+          {
+            bigvtype name;
+
+            objdes(name, &inventory[i], TRUE);
+            printf("  worn %d %s\n", i, name);
+          }
+
+      printf("  floor %d\n", (int)cave[char_row][char_col].tptr);
+      rounds++;
+    }
+  while (doing_inven && rounds < 4);
+
+  oracle_screen_dump("scr");
+
+  /* The two lists on their own. inven_command() puts the screen back when it
+     leaves, so the layout has to be drawn again to be compared - and the
+     layout is the whole point: one character more in one description moves the
+     entire column. */
+  clear_screen();
+  printf("inven-col %d\n", show_inven(0, inven_ctr - 1, show_weight_flag, 50, CNIL));
+  oracle_screen_dump("list");
+
+  clear_screen();
+  printf("equip-col %d\n", show_equip(show_weight_flag, 50));
+  oracle_screen_dump("worn");
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
+/* get_item() on its own, which is what every command that asks which item goes
+   through. The range and the keys change; the answer and the screen are
+   compared. */
+static char *getitem_scripts[] = {
+  "a",          /* the first slot                                        */
+  "c",          /* the third                                             */
+  "\033",       /* backed out of                                         */
+  "*a",         /* listed first, then chosen                             */
+  "z",          /* outside the range                                     */
+  "A",          /* a capital, which asks first                           */
+  "Ay",         /* a capital, confirmed                                  */
+  "/a",         /* swapped to the equipment list                         */
+  "*/a",        /* listed, then swapped, then chosen                     */
+  "2"           /* picked by its inscription rather than its letter      */
+};
+
+#define GETITEM_SCRIPTS 10
+
+static void dump_getitem(unsigned long seed, int variation)
+{
+  int i, k, chosen, taken;
+  char *script;
+
+  header("getitem", seed);
+  printf("variation %d\n", variation);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+
+  init_seeds((int32u)seed);
+  pin_player(5);
+  dun_level = 5;
+
+  init_curses();
+  oracle_screen_reset();
+  msg_flag = FALSE;
+
+  generate_cave();
+  cave[char_row][char_col].cptr = 1;
+
+  py.misc.lev = 20;
+  py.misc.expfact = 100;
+  py.misc.hitdie = 10;
+  py.flags.food = 5000;
+
+  for (i = 0; i < 6; i++)
+    {
+      py.stats.max_stat[i] = 18;
+      py.stats.cur_stat[i] = 18;
+      py.stats.mod_stat[i] = 0;
+      set_use_stat(i);
+    }
+
+  (void) memset((char *)object_ident, 0, OBJECT_IDENT_SIZE);
+
+  inven_ctr = 0;
+  inven_weight = 0;
+  equip_ctr = 0;
+
+  invcopy(&inventory[INVEN_WIELD], 30);
+  invcopy(&inventory[INVEN_BODY], 103);
+  invcopy(&inventory[INVEN_LIGHT], 365);
+  inventory[INVEN_LIGHT].p1 = 5000;
+  equip_ctr = 3;
+
+  calc_bonuses();
+
+  py.misc.mhp = 500;
+  py.misc.chp = 500;
+
+  player_light = TRUE;
+  panel_row = panel_col = -1;
+  check_view();
+
+  for (k = 0; k < (int)(sizeof(inven_kinds)/sizeof(inven_kinds[0])); k++)
+    for (i = 0; i < MAX_OBJECTS; i++)
+      if (object_list[i].tval == inven_kinds[k])
+        {
+          inven_type held;
+
+          invcopy(&held, i);
+          (void) inven_carry(&held);
+          break;
+        }
+
+  /* An inscription, so that a digit has something to find. */
+  (void) strcpy(inventory[1].inscrip, "2");
+
+  msg_flag = FALSE;
+  free_turn_flag = FALSE;
+
+  script = getitem_scripts[variation % GETITEM_SCRIPTS];
+  {
+    char keys[600];
+    int n = 0;
+
+    for (i = 0; script[i]; i++)
+      keys[n++] = script[i];
+    for (i = n; i < 599; i++)
+      keys[i] = (char)27;
+    keys[599] = 0;
+    oracle_feed_keys(keys);
+  }
+
+  chosen = -1;
+  taken = get_item(&chosen, "Which one?", 0, INVEN_ARRAY_SIZE, CNIL, CNIL);
+
+  /* The slot is only meaningful when something was picked: get_item() writes
+     to it as it goes and leaves whatever it last worked out there, which no
+     caller looks at. */
+  printf("taken %d slot %d free %d\n", taken ? 1 : 0, taken ? chosen : -1,
+         free_turn_flag ? 1 : 0);
+
+  oracle_screen_dump("scr");
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ---------------------------------------------------------------- driver */
 
 
@@ -3723,13 +4063,22 @@ static int usage(void)
           "  oracle wand <seed> <level> <first> <count>  aiming wands\n"
           "  oracle staff <seed> <level> <first> <count>  using staffs\n"
           "  oracle spell <seed> <level> <first> <count>  casting spells\n"
-          "  oracle prayer <seed> <level> <first> <count>  reciting prayers\n");
+          "  oracle prayer <seed> <level> <first> <count>  reciting prayers\n"
+          "  oracle inven <seed> <variation>  the inventory screens\n"
+          "  oracle getitem <seed> <variation>  the prompt that asks which item\n");
   return 2;
 }
 
 int main(int argc, char *argv[])
 {
   use_unix_line_endings();
+
+  /* bell() in io.c writes the bell character straight to file descriptor 1,
+     which is the same stream the dump goes to - and unbuffered, so it lands
+     wherever it likes in the output. Turning the beep off is a player option
+     the real game already has, and it leaves everything else bell() does
+     alone. */
+  sound_beep_flag = FALSE;
 
   /* Most modes take a seed, but the command tables take nothing at all. */
   if (argc < 2)
@@ -3918,6 +4267,18 @@ int main(int argc, char *argv[])
                  (int)strtol(argv[3], NULL, 10),
                  (int)strtol(argv[4], NULL, 10),
                  (int)strtol(argv[5], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "inven") == 0 || strcmp(argv[1], "getitem") == 0)
+    {
+      if (argc != 4)
+        return usage();
+
+      if (strcmp(argv[1], "inven") == 0)
+        dump_inven(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
+      else
+        dump_getitem(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
       return 0;
     }
 

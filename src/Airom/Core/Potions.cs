@@ -41,6 +41,87 @@ public sealed class Potions
     private Spells Spells => _loop.Spells;
 
     /// <summary>
+    /// Drinks something out of the pack. Mirrors quaff(), less the prompting.
+    ///
+    /// Working out what a potion was is worth experience in itself - the only
+    /// experience in the game that comes from understanding rather than from
+    /// killing - and it is divided by the player's level, so a novice learns
+    /// more from the same bottle than a veteran does.
+    /// </summary>
+    public void Drink(int slot)
+    {
+        InvenType potion = _game.Inventory[slot];
+        _loop.FreeTurn = false;
+
+        bool identified = Quaff(potion);
+
+        if (identified)
+        {
+            if (!_game.Knowledge.IsKindKnown(potion))
+            {
+                // Rounded half-way up, which is what the integer division does
+                // with the half level added first.
+                Player.Experience += (potion.Level + (Player.Level >> 1)) / Player.Level;
+                _loop.Levelling.PrintExperience();
+
+                slot = _game.Inventory.Identify(slot, _display);
+                potion = _game.Inventory[slot];
+            }
+        }
+        else if (!_game.Knowledge.IsKindKnown(potion))
+        {
+            _game.Knowledge.MarkTried(potion);
+        }
+
+        _loop.Spells.AddFood(potion.P1);
+        DescribeRemaining(slot);
+        _game.Inventory.Destroy(slot);
+    }
+
+    /// <summary>
+    /// The drink command: asks which potion, then drinks it. Mirrors the front
+    /// of quaff().
+    /// </summary>
+    public void Quaff()
+    {
+        _loop.FreeTurn = true;
+
+        if (_game.Inventory.Count == 0)
+        {
+            _display.MessagePrint("But you are not carrying anything.");
+            return;
+        }
+
+        if (!_game.Inventory.FindRange(ItemCategory.Potion1, ItemCategory.Potion2,
+                                       out int first, out int last))
+        {
+            _display.MessagePrint("You are not carrying any potions.");
+            return;
+        }
+
+        if (_loop.InventoryScreen.GetItem("Quaff which potion?", first, last)
+            is int slot)
+        {
+            Drink(slot);
+        }
+    }
+
+    /// <summary>
+    /// Says what is left of the pile. Mirrors desc_remain(), which counts the
+    /// pile one short so that the last one reads as "no more".
+    /// </summary>
+    private void DescribeRemaining(int slot)
+    {
+        InvenType item = _game.Inventory[slot];
+
+        item.Number--;
+        string description = _game.Names.Describe(item, withArticle: true);
+        item.Number++;
+
+        _display.MessagePrint("You have " + description);
+    }
+
+    /// <summary>
     /// Drinks a potion and applies everything it does. Mirrors the body of
     /// quaff(), less the prompting.
     ///
