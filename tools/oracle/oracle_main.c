@@ -2871,6 +2871,139 @@ static void dump_traps(unsigned long seed, int level, int first, int count)
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* ---------------------------------------------------------------- monsters */
+
+/* The monsters taking their turns.
+
+   A level is generated and left as it was found - monsters, objects and all -
+   and then creatures() is called over and over with the player standing still.
+   Everything the monsters do is compared: where they move, what they open, what
+   they eat, what they breed, what they steal, and what the player learns about
+   them along the way.
+
+   Only creatures with no spells are used. mon_cast_spell() reaches into
+   spells.c, which is not ported, so a spellcaster would draw random numbers on
+   this side that the other side never draws. The monsters that would cast are
+   replaced with ones that would not, from the same depth. */
+static void dump_monsters(unsigned long seed, int level, int turns, int variation)
+{
+  int turn_index, i;
+
+  header("monsters", seed);
+  printf("level %d\n", level);
+  printf("turns %d\n", turns);
+  printf("variation %d\n", variation);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+  pin_player(level);
+  dun_level = (int16)level;
+
+  init_curses();
+  oracle_screen_reset();
+  msg_flag = FALSE;
+
+  generate_cave();
+
+  /* Replace every spellcaster with something from the same table entry range
+     that does not cast, so the comparison stays honest. */
+  for (i = MIN_MONIX; i < mfptr; i++)
+    {
+      int guard = 0;
+
+      while ((c_list[m_list[i].mptr].spells & CS_FREQ) && guard < MAX_CREATURES)
+        {
+          m_list[i].mptr = (int16u)((m_list[i].mptr + 1) % MAX_CREATURES);
+          guard++;
+        }
+
+      m_list[i].hp = (int16)(c_list[m_list[i].mptr].hd[0]
+                             * c_list[m_list[i].mptr].hd[1]);
+      m_list[i].cspeed = (int16)(c_list[m_list[i].mptr].speed - 10);
+    }
+
+  cave[char_row][char_col].cptr = 1;
+  player_light = TRUE;
+
+  py.misc.chp = 2000;
+  py.misc.mhp = 2000;
+  py.flags.food = 7500;
+  py.misc.stl = 3;
+
+  switch (variation)
+    {
+    case 0:
+      break;
+    case 1:
+      /* Asleep to begin with, so the waking rolls are exercised. */
+      for (i = MIN_MONIX; i < mfptr; i++)
+        m_list[i].csleep = 200;
+      break;
+    case 2:
+      /* Aggravated: everything wakes at once and hurries. */
+      py.flags.aggravate = TRUE;
+      break;
+    default:
+      /* Resting, which changes how often a sleeper checks and how many moves a
+         fast monster gets. */
+      py.flags.rest = 30000;
+      py.flags.status |= PY_REST;
+      break;
+    }
+
+  {
+    char script[4000];
+    int n;
+
+    for (n = 0; n < 3999; n++)
+      script[n] = ' ';
+    script[3999] = '\0';
+    oracle_feed_keys(script);
+  }
+
+  panel_row = panel_col = -1;
+  check_view();
+
+  for (turn_index = 0; turn_index < turns; turn_index++)
+    {
+      turn++;
+      creatures(TRUE);
+    }
+
+  printf("monsters %d bred %d\n", (int)(mfptr - MIN_MONIX),
+         (int)mon_tot_mult);
+  printf("chp %d gold %ld packed %d\n", (int)py.misc.chp,
+         (long)py.misc.au, (int)inven_ctr);
+  printf("blind %d confused %d afraid %d poisoned %d paralysis %d\n",
+         (int)py.flags.blind, (int)py.flags.confused, (int)py.flags.afraid,
+         (int)py.flags.poisoned, (int)py.flags.paralysis);
+
+  for (i = MIN_MONIX; i < mfptr; i++)
+    printf("mon %d at %d %d kind %d hp %d sleep %d stun %d conf %d ml %d\n",
+           i, (int)m_list[i].fy, (int)m_list[i].fx, (int)m_list[i].mptr,
+           (int)m_list[i].hp, (int)m_list[i].csleep, (int)m_list[i].stunned,
+           (int)m_list[i].confused, m_list[i].ml ? 1 : 0);
+
+  /* What the fight taught the player about each kind that took part. */
+  for (i = 0; i < MAX_CREATURES; i++)
+    if (c_recall[i].r_cmove || c_recall[i].r_wake || c_recall[i].r_ignore
+        || c_recall[i].r_attacks[0] || c_recall[i].r_kills)
+      printf("recall %d move %lu wake %d ignore %d attacks %d %d %d %d\n",
+             i, (unsigned long)c_recall[i].r_cmove, (int)c_recall[i].r_wake,
+             (int)c_recall[i].r_ignore, (int)c_recall[i].r_attacks[0],
+             (int)c_recall[i].r_attacks[1], (int)c_recall[i].r_attacks[2],
+             (int)c_recall[i].r_attacks[3]);
+
+  printf("objects %d\n", (int)(tcptr - MIN_TRIX));
+
+  oracle_screen_dump("mon");
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ---------------------------------------------------------------- driver */
 
 
@@ -2906,7 +3039,8 @@ static int usage(void)
           "  oracle names <seed> <first> <count>  item descriptions\n"
           "  oracle pickup <seed> <level> <steps> <variation>  carrying things\n"
           "  oracle fight <seed> <level> <creature> <rounds>  hitting things\n"
-          "  oracle traps <seed> <level> <first> <count>  springing traps\n");
+          "  oracle traps <seed> <level> <first> <count>  springing traps\n"
+          "  oracle monsters <seed> <level> <turns> <variation>  monster turns\n");
   return 2;
 }
 
@@ -3076,6 +3210,19 @@ int main(int argc, char *argv[])
           return usage();
         }
       dump_map(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "monsters") == 0)
+    {
+      if (argc != 6)
+        {
+          return usage();
+        }
+      dump_monsters(strtoul(argv[2], NULL, 10),
+                    (int)strtol(argv[3], NULL, 10),
+                    (int)strtol(argv[4], NULL, 10),
+                    (int)strtol(argv[5], NULL, 10));
       return 0;
     }
 

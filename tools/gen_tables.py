@@ -462,7 +462,32 @@ def gen_monsters(moria: Path) -> str:
             )
         )
 
-    lines += ["    };", "}", ""]
+    lines += ["    };", ""]
+
+    # The attacks every creature's damage list indexes into.
+    attacks = _matrix(
+        extract_initialiser(
+            strip_comments(select_branches(text)), "monster_attacks[N_MONS_ATTS]"
+        ),
+        defines,
+        defines["N_MONS_ATTS"],
+        4,
+    )
+    lines += [
+        "    /// <summary>",
+        "    /// The attack table every creature's damage list indexes into. One entry",
+        "    /// carries three separate ideas: how the attack is delivered, what it",
+        "    /// looks like, and the dice it rolls - which is why the same bite can",
+        "    /// belong to a dozen creatures.",
+        "    /// </summary>",
+        "    public static readonly MonsterAttackType[] MonsterAttacks =",
+        "    [",
+    ]
+    for row in attacks:
+        lines.append(
+            "        new({0}, {1}, {2}, {3}),".format(row[0], row[1], row[2], row[3])
+        )
+    lines += ["    ];", "}", ""]
     return "\n".join(lines)
 
 

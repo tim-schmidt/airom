@@ -68,6 +68,8 @@ public class GameLoop
     private Damage _damage;
     private Traps _traps;
     private Doors _doors;
+    private MonsterAi _monsterAi;
+    private MonsterAttack _monsterAttack;
 
     public GameLoop(GameState game, Display display)
     {
@@ -85,6 +87,8 @@ public class GameLoop
         _damage = new Damage(game, display, this);
         _traps = new Traps(game, display, this);
         _doors = new Doors(game, display, this);
+        _monsterAi = new MonsterAi(game, display, this);
+        _monsterAttack = new MonsterAttack(game, display, this);
     }
 
     /// <summary>What the player can see, and how the screen hears about it.</summary>
@@ -113,6 +117,12 @@ public class GameLoop
 
     /// <summary>Opening and closing what is in the way.</summary>
     public Doors Doors => _doors;
+
+    /// <summary>What the monsters do with their turn.</summary>
+    public MonsterAi MonsterAi => _monsterAi;
+
+    /// <summary>What a monster does when it reaches the player.</summary>
+    public MonsterAttack MonsterAttack => _monsterAttack;
 
     /// <summary>
     /// Lights the monsters without moving them, which is what creatures(FALSE)
@@ -1436,11 +1446,9 @@ public class GameLoop
 
     /// <summary>
     /// Lights the player's surroundings and moves the monsters. Mirrors
-    /// creatures(). Pending: creature.c.
+    /// creatures().
     /// </summary>
-    protected virtual void MoveMonsters(bool move)
-    {
-    }
+    protected virtual void MoveMonsters(bool move) => _monsterAi.Creatures(move);
 
     /// <summary>
     /// Recomputes what worn equipment grants. Mirrors calc_bonuses(). Pending:
@@ -1471,19 +1479,14 @@ public class GameLoop
 
     /// <summary>
     /// Frees room in the monster list. Mirrors compact_monsters(). Pending:
-    /// creature.c.
+    /// the compaction itself, which is misc1.c.
     /// </summary>
     protected virtual void CompactMonsters()
     {
     }
 
-    /// <summary>
-    /// Throws the player somewhere else on the level. Mirrors teleport().
-    /// Pending: spells.c.
-    /// </summary>
-    protected virtual void Teleport(int distance)
-    {
-    }
+    /// <summary>Throws the player somewhere else on the level. Mirrors teleport().</summary>
+    protected virtual void Teleport(int distance) => _combat.Teleport(distance);
 
     // ------------------------------------------------------- reading a command
 

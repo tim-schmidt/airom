@@ -54,7 +54,8 @@ Early. The foundations are in place; the game is not yet playable.
 | Traps, chests and doors | Done, verified against the original |
 | Levels, experience and stat changes | Done, verified against the original |
 | The inventory screens and wielding | Not started |
-| Monsters in motion (creature.c) | Not started |
+| Monsters in motion: moving, breeding, waking, attacking | Done, verified against the original |
+| Monster spells and breaths | Not started - waits on spells.c |
 | Inventory and equipment | Not started |
 | Save files | Not started |
 

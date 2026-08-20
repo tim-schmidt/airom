@@ -1072,6 +1072,19 @@ public static partial class OracleDump
                 DumpMap(output, mpSeed, mpLevel);
                 return 0;
 
+            case "monsters":
+                if (arguments.Length != 5
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint mnSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int mnLevel)
+                    || !int.TryParse(arguments[3], CultureInfo.InvariantCulture, out int mnTurns)
+                    || !int.TryParse(arguments[4], CultureInfo.InvariantCulture, out int mnVar))
+                {
+                    return Usage(error);
+                }
+
+                DumpMonsters(output, mnSeed, mnLevel, mnTurns, mnVar);
+                return 0;
+
             case "fight":
                 if (arguments.Length != 5
                     || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint ftSeed)
@@ -1275,6 +1288,7 @@ public static partial class OracleDump
         error.WriteLine("  airom oracle pickup <seed> <level> <steps> <variation>  carrying things");
         error.WriteLine("  airom oracle fight <seed> <level> <creature> <rounds>  hitting things");
         error.WriteLine("  airom oracle traps <seed> <level> <first> <count>  springing traps");
+        error.WriteLine("  airom oracle monsters <seed> <level> <turns> <variation>  monster turns");
         error.WriteLine("  airom oracle regen <seed> <turns>  regeneration of hit points and mana");
         error.WriteLine("  airom oracle map <seed> <level>  the whole level shrunk to one screen");
         return 2;
