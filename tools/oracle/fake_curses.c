@@ -63,6 +63,30 @@ const char *label;
     }
 }
 
+/* The same, but cut at a column, for screens whose right-hand side is drawn by
+   something that is not ported yet. The message line at the top and the status
+   line at the bottom are always whole: they belong to the sidebar, not the map.
+   */
+void oracle_screen_dump_columns(label, width)
+const char *label;
+int width;
+{
+  char line[ORACLE_SCREEN_COLS + 1];
+  int r, c, end, take;
+
+  for (r = 0; r < ORACLE_SCREEN_ROWS; r++)
+    {
+      take = (r == 0 || r == ORACLE_SCREEN_ROWS - 1) ? ORACLE_SCREEN_COLS : width;
+      for (c = 0; c < take; c++)
+        line[c] = oracle_main_screen.cells[r][c];
+      end = take;
+      while (end > 0 && line[end - 1] == ' ')
+        end--;
+      line[end] = '\0';
+      printf("%s %d %s\n", label, r, line);
+    }
+}
+
 WINDOW *initscr()
 {
   oracle_screen_reset();
@@ -185,7 +209,7 @@ const char *s;
    io.c's own inkey() reads through getch(), so feeding the script in here lets
    the real input path run - including its handling of counts, control keys and
    the -more- prompt - rather than being bypassed. */
-static char oracle_keys[256];
+static char oracle_keys[4096];
 static int oracle_key_count = 0;
 static int oracle_key_next = 0;
 
@@ -196,7 +220,7 @@ char *keys;
 
   oracle_key_count = 0;
   oracle_key_next = 0;
-  for (i = 0; keys[i] != '\0' && i < 255; i++)
+  for (i = 0; keys[i] != '\0' && i < 4095; i++)
     oracle_keys[oracle_key_count++] = keys[i];
 }
 
@@ -241,6 +265,14 @@ int getch()
 
   if (oracle_key_next >= oracle_key_count)
     {
+      {
+        int c;
+        char line[81];
+        for (c = 0; c < 80; c++)
+          line[c] = oracle_main_screen.cells[0][c];
+        line[80] = 0;
+        fprintf(stderr, "oracle: message line was [%s]\n", line);
+      }
       fflush(stdout);
       fprintf(stderr, "oracle: input script exhausted\n");
       exit(2);

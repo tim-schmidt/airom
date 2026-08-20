@@ -32,6 +32,17 @@ public sealed class Panel
     /// <inheritdoc cref="Row"/>
     public int Column { get; private set; }
 
+    /// <summary>
+    /// Puts the panel indices out of range, so the next follow is bound to
+    /// recompute. Mirrors dungeon()'s "panel_row = panel_col = -1", which is how
+    /// arriving on a level guarantees the map is drawn.
+    /// </summary>
+    public void Invalidate()
+    {
+        Row = -1;
+        Column = -1;
+    }
+
     /// <summary>Highest panel index in each direction, from the level's size.</summary>
     public int MaxRow { get; private set; }
 
@@ -214,9 +225,23 @@ public sealed partial class Display(GameState game, IScreen screen)
     {
         CaveSquare square = _game.Cave[row, column];
 
-        if (square.MonsterIndex == 1)
+        // The player is left out of a run unless they ask to be drawn, which
+        // makes a long run less flickery.
+        if (square.MonsterIndex == 1 && (!_game.Running || _game.ShowSelfWhileRunning))
         {
             return '@';
+        }
+
+        if ((_game.Player.Status & PlayerStatus.Blind) != 0)
+        {
+            return ' ';
+        }
+
+        // Hallucinating turns one square in twelve into something else
+        // entirely, redrawn differently every time the map is repainted.
+        if (_game.Player.Hallucinating > 0 && _game.Rng.RandInt(12) == 1)
+        {
+            return (char)(_game.Rng.RandInt(95) + 31);
         }
 
         if (square.MonsterIndex > 1 && _game.Monsters[square.MonsterIndex].Visible)

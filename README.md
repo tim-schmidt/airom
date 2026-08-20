@@ -43,6 +43,12 @@ Early. The foundations are in place; the game is not yet playable.
 | Display: panel window and map drawing | Done, verified against the original |
 | Messages, prompts, input handling | Done, verified against the original |
 | Status sidebar (prt_stat_block) | Done, verified against the original |
+| The turn: hunger, regeneration, every timed effect | Done, verified against the original |
+| Command keys, counts and the input loop | Done, verified against the original |
+| Command dispatch (do_command) | Quit, message recall and the map; the rest wait on their subsystems |
+| Lighting and running (moria1.c, moria2.c) | Not started |
+| Monsters in motion (creature.c) | Not started |
+| Inventory and equipment | Not started |
 | Save files | Not started |
 
 ## Building

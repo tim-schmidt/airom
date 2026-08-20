@@ -47,11 +47,18 @@ public sealed class GameState
     /// <summary>Monsters on the current level.</summary>
     public MonsterPool Monsters { get; } = new();
 
+    /// <summary>The character being played.</summary>
+    public Player Player { get; set; } = new();
+
     /// <summary>
     /// The player's own speed modifier, which every monster's speed is measured
     /// against. Zero for a fresh character.
     /// </summary>
-    public int PlayerSpeed { get; set; }
+    public int PlayerSpeed
+    {
+        get => Player.Speed;
+        set => Player.Speed = value;
+    }
 
     /// <summary>
     /// Depth in the dungeon; 0 is the town. Feeds the difficulty of everything
@@ -78,18 +85,43 @@ public sealed class GameState
     /// <summary>
     /// Turns elapsed. The town's day and night alternate in blocks of 5000, so
     /// this decides which one the player walks out into.
+    ///
+    /// It starts at minus one because the loop counts a turn before playing it,
+    /// which makes the first turn of a new game turn zero.
     /// </summary>
-    public int Turn { get; set; }
+    public int Turn { get; set; } = -1;
 
     /// <summary>
     /// The player's race, which decides how each shop owner prices for them.
     /// </summary>
-    public int PlayerRace { get; set; }
+    public int PlayerRace
+    {
+        get => Player.Race;
+        set => Player.Race = value;
+    }
 
     /// <summary>The six town shops.</summary>
     public Stores Stores => _stores ??= new Stores(this);
 
     private Stores? _stores;
+
+    /// <summary>
+    /// Whether the player is running rather than stepping. Umoria's find_flag,
+    /// which the drawing reads as well as the loop.
+    /// </summary>
+    public bool Running { get; set; }
+
+    /// <summary>
+    /// Whether the player is drawn while running. A player option, off by
+    /// default: leaving the character out makes a long run less flickery.
+    /// </summary>
+    public bool ShowSelfWhileRunning { get; set; }
+
+    /// <summary>
+    /// Whether the rogue-like key set is in use. A player option, off by
+    /// default, which decides how a typed key is translated before dispatch.
+    /// </summary>
+    public bool RogueLikeCommands { get; set; }
 
     /// <summary>Whether repeat and rest counts are shown. A player option.</summary>
     public bool DisplayCounts { get; set; } = true;

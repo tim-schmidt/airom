@@ -61,6 +61,31 @@ long *where;
   return 0L;
 }
 
+/* localtime, as the 1989 code expects it: a long rather than a time_t.
+
+   misc1.c's check_time() looks up the hour in the play-hours table, so the
+   answer has to be a real date. It is fixed rather than taken from the clock,
+   for the same reason moria_time is: the oracle has to give the same answer on
+   every run. Noon on a Sunday: the default table closes the working hours of
+   the week, and a Sunday is open all day. */
+struct tm *moria_localtime(where)
+long *where;
+{
+  static struct tm fixed;
+
+  fixed.tm_sec = 0;
+  fixed.tm_min = 0;
+  fixed.tm_hour = 12;
+  fixed.tm_mday = 1;
+  fixed.tm_mon = 0;
+  fixed.tm_year = 90;
+  fixed.tm_wday = 0;
+  fixed.tm_yday = 0;
+  fixed.tm_isdst = 0;
+
+  return &fixed;
+}
+
 /* io.c defines check_input only for the platforms with a poll-style input
    call; the portable build leaves it to the system. Headless there is never
    type-ahead, and returning false also stops dungeon.c's rest loop spinning. */

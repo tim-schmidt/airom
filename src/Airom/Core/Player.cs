@@ -124,6 +124,127 @@ public sealed class Player
 
     /// <summary>Spells waiting to be learned.</summary>
     public int NewSpells { get; set; }
+
+    /// <summary>Experience the character has ever had, which draining cannot lower.</summary>
+    public int MaxExperience { get; set; }
+
+    /// <summary>Fraction of the next experience point, in sixteenths of a thousandth.</summary>
+    public int ExperienceFraction { get; set; }
+
+    /// <summary>Deepest level reached, which is where word of recall returns to.</summary>
+    public int MaxDungeonLevel { get; set; }
+
+    /// <summary>Spell points at full.</summary>
+    public int MaxMana { get; set; }
+
+    /// <summary>
+    /// Fractional hit points, in 1/65536ths. Regeneration is far slower than one
+    /// point a turn, so the remainder has to be carried between turns.
+    /// </summary>
+    public int HitPointFraction { get; set; }
+
+    /// <summary>Fractional spell points, in 1/65536ths.</summary>
+    public int ManaFraction { get; set; }
+
+    public int DisplayedPlusToHit { get; set; }
+
+    public int DisplayedPlusToDamage { get; set; }
+
+    /// <summary>Armour class from equipment alone, as shown.</summary>
+    public int DisplayedToArmourClass { get; set; }
+
+    // ------------------------------------------------------------ conditions
+    //
+    // Umoria's struct flags. Anything counted in turns lives here, along with
+    // the resistances and sustains that equipment grants.
+
+    /// <summary>Food remaining, counted down every turn by <see cref="FoodDigested"/>.</summary>
+    public int Food { get; set; }
+
+    /// <summary>Food burned per turn.</summary>
+    public int FoodDigested { get; set; }
+
+    public int Blind { get; set; }
+
+    public int Confused { get; set; }
+
+    public int Afraid { get; set; }
+
+    public int Poisoned { get; set; }
+
+    /// <summary>Hallucinating, which scrambles what is drawn.</summary>
+    public int Hallucinating { get; set; }
+
+    public int ProtectionFromEvil { get; set; }
+
+    public int Invulnerable { get; set; }
+
+    public int Hero { get; set; }
+
+    public int SuperHero { get; set; }
+
+    public int Blessed { get; set; }
+
+    public int ResistHeat { get; set; }
+
+    public int ResistCold { get; set; }
+
+    public int DetectInvisible { get; set; }
+
+    /// <summary>Turns until word of recall fires.</summary>
+    public int WordOfRecall { get; set; }
+
+    /// <summary>How far warm creatures can be seen without light.</summary>
+    public int SeeInfrared { get; set; }
+
+    public int TimedInfravision { get; set; }
+
+    public int Hasted { get; set; }
+
+    public int Slowed { get; set; }
+
+    /// <summary>Armour class from protection, which is separate from the display value.</summary>
+    public int Protection { get; set; }
+
+    public bool SeeInvisible { get; set; }
+
+    /// <summary>Cursed to teleport at random.</summary>
+    public bool RandomTeleport { get; set; }
+
+    public bool FreeAction { get; set; }
+
+    public bool SlowDigestion { get; set; }
+
+    /// <summary>Cursed to wake and anger monsters.</summary>
+    public bool AggravatesMonsters { get; set; }
+
+    public bool FireResistant { get; set; }
+
+    public bool ColdResistant { get; set; }
+
+    public bool AcidResistant { get; set; }
+
+    public bool Regenerates { get; set; }
+
+    public bool LightResistant { get; set; }
+
+    /// <summary>Feather fall: no damage from falling.</summary>
+    public bool FeatherFall { get; set; }
+
+    public bool SustainStrength { get; set; }
+
+    public bool SustainIntelligence { get; set; }
+
+    public bool SustainWisdom { get; set; }
+
+    public bool SustainConstitution { get; set; }
+
+    public bool SustainDexterity { get; set; }
+
+    public bool SustainCharisma { get; set; }
+
+    /// <summary>Glowing hands: the next blow confuses.</summary>
+    public bool ConfusingTouch { get; set; }
 }
 
 /// <summary>
@@ -493,6 +614,14 @@ public sealed class CharacterCreation(GameState game)
         player.PlusToArmourClass = ArmourBonus(player);
         player.ArmourClass = 0;
 
+        // The displayed values start out as the real ones. They part company
+        // once something unidentified is worn, which is the point of keeping
+        // both.
+        player.DisplayedPlusToDamage = player.PlusToDamage;
+        player.DisplayedPlusToHit = player.PlusToHit;
+        player.DisplayedToArmourClass = player.PlusToArmourClass;
+        player.DisplayedArmourClass = player.ArmourClass + player.DisplayedToArmourClass;
+
         // Constitution must be settled before hit points are worked out.
         player.HitDie += kind.HitDieAdjust;
         player.MaxHitPoints = ConstitutionBonus(player) + player.HitDie;
@@ -646,8 +775,13 @@ public sealed class CharacterCreation(GameState game)
         _ => 8,
     };
 
-    /// <summary>Hit point bonus from constitution. Mirrors con_adj().</summary>
-    private static int ConstitutionBonus(Player player)
+    /// <summary>
+    /// Hit point bonus from constitution. Mirrors con_adj().
+    ///
+    /// Poison damage reads this as well as levelling does, which is why a tough
+    /// character shrugs off a poisoning that would kill a frail one.
+    /// </summary>
+    public static int ConstitutionBonus(Player player)
     {
         int con = player.UseStat[Stat.Constitution];
         return con switch

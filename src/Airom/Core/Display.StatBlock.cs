@@ -134,6 +134,77 @@ public sealed partial class Display
             row,
             column);
 
+    /// <summary>Writes a number right-aligned in six columns. Mirrors prt_int().</summary>
+    private void PrintValue(long value, int row, int column) =>
+        PutBuffer(
+            value.ToString(CultureInfo.InvariantCulture).PadLeft(6), row, column);
+
+    /// <summary>Mirrors prt_level().</summary>
+    public void PrintLevel(Player player)
+    {
+        ArgumentNullException.ThrowIfNull(player);
+        PrintValue(player.Level, 13, StatColumn + 6);
+    }
+
+    /// <summary>Mirrors prt_title().</summary>
+    public void PrintTitle(Player player)
+    {
+        ArgumentNullException.ThrowIfNull(player);
+        PrintField(TitleFor(player), 4, StatColumn);
+    }
+
+    /// <summary>Mirrors prt_cmana().</summary>
+    public void PrintCurrentMana(Player player)
+    {
+        ArgumentNullException.ThrowIfNull(player);
+        PrintValue(player.CurrentMana, 15, StatColumn + 6);
+    }
+
+    /// <summary>Mirrors prt_mhp().</summary>
+    public void PrintMaxHitPoints(Player player)
+    {
+        ArgumentNullException.ThrowIfNull(player);
+        PrintValue(player.MaxHitPoints, 16, StatColumn + 6);
+    }
+
+    /// <summary>Mirrors prt_chp().</summary>
+    public void PrintCurrentHitPoints(Player player)
+    {
+        ArgumentNullException.ThrowIfNull(player);
+        PrintValue(player.CurrentHitPoints, 17, StatColumn + 6);
+    }
+
+    /// <summary>Mirrors prt_pac().</summary>
+    public void PrintArmourClass(Player player)
+    {
+        ArgumentNullException.ThrowIfNull(player);
+        PrintValue(player.DisplayedArmourClass, 19, StatColumn + 6);
+    }
+
+    /// <summary>Mirrors prt_gold().</summary>
+    public void PrintGold(Player player)
+    {
+        ArgumentNullException.ThrowIfNull(player);
+        PrintValue(player.Gold, 20, StatColumn + 6);
+    }
+
+    /// <summary>
+    /// The depth, in feet rather than levels. Mirrors prt_depth().
+    ///
+    /// Fifty feet to a level, which is what makes the numbers sound like a mine
+    /// rather than a list.
+    /// </summary>
+    public void PrintDepth()
+    {
+        int depth = _game.DungeonLevel * 50;
+        Print(
+            depth == 0
+                ? "Town level"
+                : depth.ToString(CultureInfo.InvariantCulture) + " feet",
+            23,
+            65);
+    }
+
     /// <summary>Writes one stat line. Mirrors prt_stat().</summary>
     public void PrintStat(Player player, int stat)
     {

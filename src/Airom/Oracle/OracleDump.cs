@@ -150,6 +150,25 @@ public static partial class OracleDump
                 "row " + y.ToString(CultureInfo.InvariantCulture) + " " + new string(row) + "\n");
         }
 
+        // No monster is placed this early, but the empty block is printed all
+        // the same, so the two dumps line up.
+        int monsterCount = game.Monsters.Count - MonsterPool.FirstIndex;
+        output.Write("monsters " + monsterCount.ToString(CultureInfo.InvariantCulture) + "\n");
+        for (int i = MonsterPool.FirstIndex; i < game.Monsters.Count; i++)
+        {
+            Monster monster = game.Monsters[i];
+            output.Write(string.Join(
+                ' ',
+                "monster",
+                i.ToString(CultureInfo.InvariantCulture),
+                monster.Row.ToString(CultureInfo.InvariantCulture),
+                monster.Column.ToString(CultureInfo.InvariantCulture),
+                monster.CreatureIndex.ToString(CultureInfo.InvariantCulture),
+                monster.HitPoints.ToString(CultureInfo.InvariantCulture),
+                monster.Speed.ToString(CultureInfo.InvariantCulture),
+                monster.Sleep.ToString(CultureInfo.InvariantCulture)) + "\n");
+        }
+
         int objectCount = game.Objects.Count - ObjectPool.FirstIndex;
         output.Write("objects " + objectCount.ToString(CultureInfo.InvariantCulture) + "\n");
         for (int i = ObjectPool.FirstIndex; i < game.Objects.Count; i++)
@@ -371,6 +390,25 @@ public static partial class OracleDump
                 "row " + y.ToString(CultureInfo.InvariantCulture) + " " + new string(line) + "\n");
         }
 
+        // No monster is placed this early, but the empty block is printed all
+        // the same, so the two dumps line up.
+        int monsterCount = game.Monsters.Count - MonsterPool.FirstIndex;
+        output.Write("monsters " + monsterCount.ToString(CultureInfo.InvariantCulture) + "\n");
+        for (int i = MonsterPool.FirstIndex; i < game.Monsters.Count; i++)
+        {
+            Monster monster = game.Monsters[i];
+            output.Write(string.Join(
+                ' ',
+                "monster",
+                i.ToString(CultureInfo.InvariantCulture),
+                monster.Row.ToString(CultureInfo.InvariantCulture),
+                monster.Column.ToString(CultureInfo.InvariantCulture),
+                monster.CreatureIndex.ToString(CultureInfo.InvariantCulture),
+                monster.HitPoints.ToString(CultureInfo.InvariantCulture),
+                monster.Speed.ToString(CultureInfo.InvariantCulture),
+                monster.Sleep.ToString(CultureInfo.InvariantCulture)) + "\n");
+        }
+
         // Every door the tunneller left, with the p1 that separates locked from
         // stuck from broken.
         int objectCount = game.Objects.Count - ObjectPool.FirstIndex;
@@ -487,6 +525,25 @@ public static partial class OracleDump
 
             output.Write(
                 "row " + y.ToString(CultureInfo.InvariantCulture) + " " + new string(line) + "\n");
+        }
+
+        // No monster is placed this early, but the empty block is printed all
+        // the same, so the two dumps line up.
+        int monsterCount = game.Monsters.Count - MonsterPool.FirstIndex;
+        output.Write("monsters " + monsterCount.ToString(CultureInfo.InvariantCulture) + "\n");
+        for (int i = MonsterPool.FirstIndex; i < game.Monsters.Count; i++)
+        {
+            Monster monster = game.Monsters[i];
+            output.Write(string.Join(
+                ' ',
+                "monster",
+                i.ToString(CultureInfo.InvariantCulture),
+                monster.Row.ToString(CultureInfo.InvariantCulture),
+                monster.Column.ToString(CultureInfo.InvariantCulture),
+                monster.CreatureIndex.ToString(CultureInfo.InvariantCulture),
+                monster.HitPoints.ToString(CultureInfo.InvariantCulture),
+                monster.Speed.ToString(CultureInfo.InvariantCulture),
+                monster.Sleep.ToString(CultureInfo.InvariantCulture)) + "\n");
         }
 
         int objectCount = game.Objects.Count - ObjectPool.FirstIndex;
@@ -1015,6 +1072,49 @@ public static partial class OracleDump
                 DumpMap(output, mpSeed, mpLevel);
                 return 0;
 
+            case "hallucinate":
+                if (arguments.Length != 3
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint hlSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int hlLevel))
+                {
+                    return Usage(error);
+                }
+
+                DumpHallucinate(output, hlSeed, hlLevel);
+                return 0;
+
+            case "upkeep":
+                if (arguments.Length != 4
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint upSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int upTurns)
+                    || !int.TryParse(arguments[3], CultureInfo.InvariantCulture, out int upVar))
+                {
+                    return Usage(error);
+                }
+
+                DumpUpkeep(output, upSeed, upTurns, upVar);
+                return 0;
+
+            case "commands":
+                if (arguments.Length != 1)
+                {
+                    return Usage(error);
+                }
+
+                DumpCommands(output);
+                return 0;
+
+            case "regen":
+                if (arguments.Length != 3
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint rgSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int rgTurns))
+                {
+                    return Usage(error);
+                }
+
+                DumpRegen(output, rgSeed, rgTurns);
+                return 0;
+
             case "statblock":
                 if (arguments.Length != 3
                     || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint sbSeed)
@@ -1061,6 +1161,10 @@ public static partial class OracleDump
         error.WriteLine("  airom oracle screen <seed> <level>  the drawn map");
         error.WriteLine("  airom oracle messages <seed>  the message line and its history");
         error.WriteLine("  airom oracle statblock <seed> <variation>  the status sidebar");
+        error.WriteLine("  airom oracle commands  the command translation and count tables");
+        error.WriteLine("  airom oracle upkeep <seed> <turns> <variation>  a turn in the dungeon");
+        error.WriteLine("  airom oracle hallucinate <seed> <level>  the map drawn while hallucinating");
+        error.WriteLine("  airom oracle regen <seed> <turns>  regeneration of hit points and mana");
         error.WriteLine("  airom oracle map <seed> <level>  the whole level shrunk to one screen");
         return 2;
     }

@@ -122,3 +122,4 @@ void probe_build_store(int store_num, int y, int x)
 {
   build_store(store_num, y, x);
 }
+

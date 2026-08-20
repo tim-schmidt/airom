@@ -21,7 +21,7 @@ repo="$(cd "$here/../.." && pwd)"
 
 ORACLE="${ORACLE:-$here/oracle.exe}"
 
-if [[ $# -lt 2 ]]; then
+if [[ $# -lt 1 ]]; then
     echo "usage: compare.sh <mode> <args...>" >&2
     exit 2
 fi

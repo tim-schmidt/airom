@@ -59,6 +59,10 @@ extern void probe_new_spot(int *y, int *x);
 extern void probe_alloc_object(int which_set, int typ, int num);
 extern void probe_alloc_monster(int num, int dis, int slp);
 extern void probe_build_store(int store_num, int y, int x);
+extern char probe_original_commands(char command);
+extern int probe_valid_countcommand(char command);
+extern void probe_regenhp(int percent);
+extern void probe_regenmana(int percent);
 
 /* From oracle_probe_main.c, which reaches the object sort inside main.c. */
 extern void probe_init_t_level(void);
@@ -582,8 +586,8 @@ static void dump_tunnels(unsigned long seed, int level)
 
   free(row);
 
-  /* Every door the tunneller left, with the p1 that separates locked from
-     stuck from broken. */
+  /* No monster is placed this early, but the empty block is printed all the
+     same, so the two dumps line up. */
   printf("monsters %d\n", (int)(mfptr - MIN_MONIX));
   for (i = MIN_MONIX; i < mfptr; i++)
     {
@@ -1290,6 +1294,10 @@ static void dump_character(unsigned long seed, int race_index, int sex, int pcla
   printf("ptodam %d\n", (int)py.misc.ptodam);
   printf("ptoac %d\n", (int)py.misc.ptoac);
   printf("pac %d\n", (int)py.misc.pac);
+  printf("dis_th %d\n", (int)py.misc.dis_th);
+  printf("dis_td %d\n", (int)py.misc.dis_td);
+  printf("dis_tac %d\n", (int)py.misc.dis_tac);
+  printf("dis_ac %d\n", (int)py.misc.dis_ac);
   printf("infra %d\n", (int)py.flags.see_infra);
 
   for (i = 0; i < 6; i++)
@@ -1320,11 +1328,12 @@ static void dump_character(unsigned long seed, int race_index, int sex, int pcla
    glyph for every square rather than returning blanks for the unexplored parts.
    That touches every terrain value, every object and every monster on the
    level. */
-static void dump_screen(unsigned long seed, int level)
+static void dump_screen_at(unsigned long seed, int level, int image,
+                          const char *mode)
 {
   int i, j;
 
-  header("screen", seed);
+  header(mode, seed);
   printf("level %d\n", level);
 
   probe_init_t_level();
@@ -1366,12 +1375,32 @@ static void dump_screen(unsigned long seed, int level)
   printf("char-row %d\n", (int)char_row);
   printf("char-col %d\n", (int)char_col);
 
+  /* Hallucination is set after the level is built, so the map is the same
+     one the plain screen mode draws and only the drawing differs. */
+  py.flags.image = (int16)image;
+
   clear_screen();
   prt_map();
 
   oracle_screen_dump("scr");
 
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
+static void dump_screen(unsigned long seed, int level)
+{
+  dump_screen_at(seed, level, 0, "screen");
+}
+
+/* The same map, drawn by a hallucinating character.
+
+   One square in twelve comes out as something else entirely, and both the
+   roll and the character it picks come from the generator - so a map drawn
+   while hallucinating has to consume exactly the same numbers on both sides,
+   not merely look similar. */
+static void dump_hallucinate(unsigned long seed, int level)
+{
+  dump_screen_at(seed, level, 5, "hallucinate");
 }
 
 /* -------------------------------------------------------------- messages */
@@ -1624,7 +1653,304 @@ static void dump_statblock(unsigned long seed, int variation)
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* ---------------------------------------------------------------- commands */
+
+/* Writes a key the way the dump names it: printable characters as themselves,
+   everything else by its numeric value, since control keys are commands here. */
+static void print_key(char *label, int key)
+{
+  if (key > 32 && key < 127)
+    printf("%s '%c'", label, key);
+  else
+    printf("%s %d", label, key);
+}
+
+/* The command tables: every key through the original-to-rogue translation and
+   the count validity test.
+
+   Two of the translations - walk and tunnel - read a direction before they can
+   answer, because the rogue-like set spells the direction into the command
+   letter. Each key is therefore tried twice: once with a direction waiting, and
+   once with an escape, which is the player abandoning the command. */
+static void dump_commands(void)
+{
+  int key;
+  char keys[4];
+
+  printf("mode commands\n");
+
+  init_curses();
+  oracle_screen_reset();
+
+  rogue_like_commands = FALSE;
+  default_dir = FALSE;
+  command_count = 0;
+
+  for (key = 0; key < 128; key++)
+    {
+      char answered, abandoned;
+
+      keys[0] = '4';
+      keys[1] = '\0';
+      oracle_feed_keys(keys);
+      free_turn_flag = FALSE;
+      answered = probe_original_commands((char)key);
+
+      keys[0] = ESCAPE;
+      keys[1] = '\0';
+      oracle_feed_keys(keys);
+      free_turn_flag = FALSE;
+      abandoned = probe_original_commands((char)key);
+
+      print_key("key", key);
+      print_key(" answered", (int)(unsigned char)answered);
+      print_key(" abandoned", (int)(unsigned char)abandoned);
+      printf(" count %d\n", probe_valid_countcommand((char)key) ? 1 : 0);
+    }
+}
+
+/* --------------------------------------------------------------- regenerate */
+
+/* Hit point and mana regeneration.
+
+   Both carry a fraction in 1/65536ths between turns, because a character
+   regenerates far less than a point a turn. The interesting cases are the
+   carry, the clamp at full, and the overflow guard that a very high maximum
+   would otherwise walk into. */
+static void dump_regen(unsigned long seed, int turns)
+{
+  int i;
+
+  header("regen", seed);
+  printf("turns %d\n", turns);
+
+  init_curses();
+  oracle_screen_reset();
+
+  py.misc.mhp = 250;
+  py.misc.chp = 1;
+  py.misc.chp_frac = 0;
+  py.misc.mana = 90;
+  py.misc.cmana = 0;
+  py.misc.cmana_frac = 0;
+
+  for (i = 0; i < turns; i++)
+    {
+      int percent;
+
+      /* Walk the three food bands and the doubled resting rate, so every
+         regeneration factor the loop can pass in is covered. */
+      switch (i % 4)
+        {
+        case 0: percent = PLAYER_REGEN_NORMAL; break;
+        case 1: percent = PLAYER_REGEN_WEAK; break;
+        case 2: percent = PLAYER_REGEN_FAINT; break;
+        default: percent = PLAYER_REGEN_NORMAL * 2; break;
+        }
+
+      probe_regenhp(percent);
+      probe_regenmana(percent);
+
+      printf("turn %d percent %d chp %d frac %d cmana %d frac %d\n",
+             i, percent, (int)py.misc.chp, (int)py.misc.chp_frac,
+             (int)py.misc.cmana, (int)py.misc.cmana_frac);
+    }
+
+  /* The overflow guard: a maximum beyond a signed short saturates rather than
+     wrapping negative. */
+  py.misc.mhp = MAX_SHORT;
+  py.misc.chp = MAX_SHORT - 1;
+  py.misc.chp_frac = 0;
+  probe_regenhp(PLAYER_REGEN_NORMAL * 2);
+  printf("clamped chp %d frac %d\n", (int)py.misc.chp, (int)py.misc.chp_frac);
+}
+
+/* ------------------------------------------------------------------ upkeep */
+
+/* The turn: what happens to the player between one command and the next.
+
+   The real dungeon() runs here, driven the only way a headless harness can
+   drive it - the character is paralysed for the length of the run, so no
+   command is asked for, and a quit is left in the key script for the turn the
+   paralysis wears off. Every counter therefore ages through the original code
+   rather than through a reimplementation of it.
+
+   The monsters are cleared off the level first. Creature movement is not ported
+   yet, and a monster taking its turn would consume random numbers on this side
+   only. Nothing else about the level is touched. */
+static void dump_upkeep(unsigned long seed, int turns, int variation)
+{
+  char keys[16];
+  int i, j, letter, slot;
+
+  header("upkeep", seed);
+  printf("turns %d\n", turns);
+  printf("variation %d\n", variation);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+
+  init_curses();
+  oracle_screen_reset();
+
+  /* A human warrior, so the character is the same in every variation. */
+  letter = -1;
+  slot = 0;
+  for (j = 0; j < MAX_CLASS; j++)
+    {
+      if (race[0].rtclass & (0x1L << j))
+        {
+          if (j == 0)
+            letter = slot;
+          slot++;
+        }
+    }
+
+  keys[0] = 'a';
+  keys[1] = 'm';
+  keys[2] = ESCAPE;
+  keys[3] = (char)('a' + letter);
+  keys[4] = '\r';
+  keys[5] = ' ';
+  keys[6] = ' ';
+  keys[7] = '\0';
+  oracle_feed_keys(keys);
+
+  create_character();
+  character_generated = 1;
+
+  dun_level = 1;
+  generate_cave();
+
+  /* Empty the monster list, and take the monsters off the map with it. */
+  for (i = 0; i < MAX_HEIGHT; i++)
+    for (j = 0; j < MAX_WIDTH; j++)
+      cave[i][j].cptr = 0;
+  mfptr = MIN_MONIX;
+
+  /* What play_game() does after create_character(), less the starting
+     inventory: the pack is not ported yet, so there is nothing to carry and no
+     light to burn. */
+  py.flags.food = 7500;
+  py.flags.food_digested = 2;
+
+  py.misc.mana = 20;
+  py.misc.cmana = 0;
+  py.misc.cmana_frac = 0;
+  py.misc.chp = 3;
+  py.misc.chp_frac = 0;
+
+  switch (variation)
+    {
+    case 0: break;
+    case 1: py.flags.hero = 5; break;
+    case 2: py.flags.shero = 5; break;
+    case 3: py.flags.blind = 4; break;
+    case 4: py.flags.confused = 4; break;
+    case 5: py.flags.afraid = 4; break;
+    case 6: py.flags.poisoned = 6; break;
+    case 7: py.flags.fast = 3; break;
+    case 8: py.flags.slow = 3; break;
+    case 9: py.flags.invuln = 3; break;
+    case 10: py.flags.blessed = 3; break;
+    case 11:
+      py.flags.protevil = 3;
+      py.flags.resist_heat = 2;
+      py.flags.resist_cold = 2;
+      break;
+    case 12: py.flags.detect_inv = 3; break;
+    case 13: py.flags.tim_infra = 3; break;
+    case 14:
+      /* Hallucinating, but blind with it: a blind character sees nothing, so
+         the drawing never reaches the roll that scrambles a square. The map
+         drawn while hallucinating is compared by the hallucinate mode, which
+         does not need the lighting half of moria1.c to be ported first. */
+      py.flags.image = 3;
+      py.flags.blind = 99;
+      break;
+    case 15: py.flags.food = 1500; break;
+    case 16: py.flags.food = 500; break;
+    case 17: py.flags.food = 100; break;
+    case 18: py.flags.food = -100; break;
+    case 19: py.flags.word_recall = 3; break;
+    case 20:
+      py.flags.rest = 20;
+      py.flags.status |= PY_REST;
+      break;
+    case 21: py.flags.regenerate = TRUE; break;
+    case 22:
+      /* Fear and heroism together: heroism cancels the fear rather than
+         counting it down. */
+      py.flags.afraid = 9;
+      py.flags.hero = 4;
+      break;
+    default:
+      py.flags.status |= PY_SEARCH;
+      break;
+    }
+
+  /* Paralysed for the run, so no command is asked for until it wears off. */
+  py.flags.paralysis = turns;
+
+  /* Quit is ^K in the original key set, then a yes to confirm. The spaces
+     around it answer any -more- the run puts up - a starving character can
+     faint several times over a long run - and do nothing as commands. */
+  {
+    char script[2001];
+    int k;
+
+    for (k = 0; k < 2000; k++)
+      script[k] = ' ';
+    script[200] = CTRL('K');
+    script[201] = 'y';
+    script[2000] = '\0';
+    oracle_feed_keys(script);
+  }
+
+  /* The map is drawn by the lighting half of moria1.c, which is not ported
+     yet, so only the sidebar strip is comparable. Clearing first means what is
+     left there was drawn by the loop rather than before it. */
+  clear_screen();
+
+  dungeon();
+
+  printf("turn %ld\n", (long)turn);
+  printf("status %lu\n", (unsigned long)py.flags.status);
+  printf("chp %d frac %d mhp %d\n", (int)py.misc.chp, (int)py.misc.chp_frac,
+         (int)py.misc.mhp);
+  printf("cmana %d frac %d\n", (int)py.misc.cmana, (int)py.misc.cmana_frac);
+  printf("food %d digested %d\n", (int)py.flags.food,
+         (int)py.flags.food_digested);
+  printf("speed %d\n", (int)py.flags.speed);
+  printf("bth %d bthb %d\n", (int)py.misc.bth, (int)py.misc.bthb);
+  printf("pac %d dis_ac %d\n", (int)py.misc.pac, (int)py.misc.dis_ac);
+  printf("hero %d shero %d blessed %d invuln %d\n", (int)py.flags.hero,
+         (int)py.flags.shero, (int)py.flags.blessed, (int)py.flags.invuln);
+  printf("blind %d confused %d afraid %d poisoned %d\n", (int)py.flags.blind,
+         (int)py.flags.confused, (int)py.flags.afraid, (int)py.flags.poisoned);
+  printf("fast %d slow %d image %d paralysis %d\n", (int)py.flags.fast,
+         (int)py.flags.slow, (int)py.flags.image, (int)py.flags.paralysis);
+  printf("protevil %d heat %d cold %d\n", (int)py.flags.protevil,
+         (int)py.flags.resist_heat, (int)py.flags.resist_cold);
+  printf("detect_inv %d see_inv %d tim_infra %d see_infra %d\n",
+         (int)py.flags.detect_inv, (int)py.flags.see_inv,
+         (int)py.flags.tim_infra, (int)py.flags.see_infra);
+  printf("word_recall %d dun_level %d max_dlv %d\n", (int)py.flags.word_recall,
+         (int)dun_level, (int)py.misc.max_dlv);
+  printf("rest %d\n", (int)py.flags.rest);
+  printf("death %d died_from %s\n", (int)death, died_from);
+  printf("monsters %d\n", (int)(mfptr - MIN_MONIX));
+
+  oracle_screen_dump_columns("up", 13);
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ---------------------------------------------------------------- driver */
+
 
 static int usage(void)
 {
@@ -1646,7 +1972,11 @@ static int usage(void)
           "  oracle screen <seed> <level>  the drawn map\n"
           "  oracle messages <seed>  the message line and its history\n"
           "  oracle map <seed> <level>  the whole level shrunk to one screen\n"
-          "  oracle statblock <seed> <variation>  the status sidebar\n");
+          "  oracle statblock <seed> <variation>  the status sidebar\n"
+          "  oracle commands  the command translation and count tables\n"
+          "  oracle regen <seed> <turns>  hit point and mana regeneration\n"
+          "  oracle upkeep <seed> <turns> <variation>  a turn in the dungeon\n"
+          "  oracle hallucinate <seed> <level>  the map drawn while hallucinating\n");
   return 2;
 }
 
@@ -1654,7 +1984,8 @@ int main(int argc, char *argv[])
 {
   use_unix_line_endings();
 
-  if (argc < 3)
+  /* Most modes take a seed, but the command tables take nothing at all. */
+  if (argc < 2)
     {
       return usage();
     }
@@ -1815,6 +2146,48 @@ int main(int argc, char *argv[])
           return usage();
         }
       dump_map(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "hallucinate") == 0)
+    {
+      if (argc != 4)
+        {
+          return usage();
+        }
+      dump_hallucinate(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "upkeep") == 0)
+    {
+      if (argc != 5)
+        {
+          return usage();
+        }
+      dump_upkeep(strtoul(argv[2], NULL, 10),
+                  (int)strtol(argv[3], NULL, 10),
+                  (int)strtol(argv[4], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "commands") == 0)
+    {
+      if (argc != 2)
+        {
+          return usage();
+        }
+      dump_commands();
+      return 0;
+    }
+
+  if (strcmp(argv[1], "regen") == 0)
+    {
+      if (argc != 4)
+        {
+          return usage();
+        }
+      dump_regen(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
       return 0;
     }
 

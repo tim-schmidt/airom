@@ -24,11 +24,26 @@ public static partial class OracleDump
     /// decided for every square rather than blanks returned for the unexplored
     /// parts.
     /// </summary>
-    public static void DumpScreen(TextWriter output, uint seed, int level)
+    public static void DumpScreen(TextWriter output, uint seed, int level) =>
+        DumpScreenAt(output, seed, level, hallucinating: 0, mode: "screen");
+
+    /// <summary>
+    /// The same map, drawn by a hallucinating character.
+    ///
+    /// One square in twelve comes out as something else entirely, and both the
+    /// roll and the character it picks come from the generator - so a map drawn
+    /// while hallucinating has to consume exactly the same numbers on both
+    /// sides, not merely look similar.
+    /// </summary>
+    public static void DumpHallucinate(TextWriter output, uint seed, int level) =>
+        DumpScreenAt(output, seed, level, hallucinating: 5, mode: "hallucinate");
+
+    private static void DumpScreenAt(
+        TextWriter output, uint seed, int level, int hallucinating, string mode)
     {
         ArgumentNullException.ThrowIfNull(output);
 
-        Header(output, "screen", seed);
+        Header(output, mode, seed);
         output.Write("level " + level.ToString(CultureInfo.InvariantCulture) + "\n");
 
         var game = new GameState();
@@ -80,6 +95,10 @@ public static partial class OracleDump
         Value("panel-col-prt", display.Panel.ColumnOffset);
         Value("char-row", game.CharacterRow);
         Value("char-col", game.CharacterColumn);
+
+        // Hallucination is set after the level is built, so the map is the same
+        // one the plain screen mode draws and only the drawing differs.
+        game.Player.Hallucinating = hallucinating;
 
         display.ClearScreen();
         display.PrintMap();

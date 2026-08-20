@@ -104,7 +104,14 @@ public sealed class MemoryScreen : IScreen
         }
     }
 
-    public bool KeyAvailable => _input.Count > 0;
+    public bool KeyAvailable => TypeAheadVisible && _input.Count > 0;
+
+    /// <summary>
+    /// Whether queued keys count as type-ahead. The oracle turns this off: its
+    /// key script is the player typing on cue, not keys already waiting, and the
+    /// C harness reports no type-ahead at all.
+    /// </summary>
+    public bool TypeAheadVisible { get; set; } = true;
 
     /// <summary>
     /// Returns the next scripted key. Throws when the script runs dry, because
@@ -116,7 +123,17 @@ public sealed class MemoryScreen : IScreen
             : throw new InvalidOperationException(
                 "MemoryScreen ran out of scripted input while the game asked for a key.");
 
-    public void FlushInput() => _input.Clear();
+    /// <summary>
+    /// Discards type-ahead. A script that is not type-ahead survives, which is
+    /// what lets the oracle leave a command waiting for later in the run.
+    /// </summary>
+    public void FlushInput()
+    {
+        if (TypeAheadVisible)
+        {
+            _input.Clear();
+        }
+    }
 
     public void Bell() => BellCount++;
 }

@@ -47,6 +47,17 @@ public sealed partial class Display
     /// </summary>
     public bool MessageWaiting { get; private set; }
 
+    /// <summary>
+    /// Clears the waiting flag without printing. The command loop does this
+    /// before reading a key, so a message the player has already had a chance to
+    /// read does not force a -more- onto the next one.
+    /// </summary>
+    public bool MessageWaitingFlag
+    {
+        get => MessageWaiting;
+        set => MessageWaiting = value;
+    }
+
     /// <summary>Set when a message needs a keypress the caller should not swallow.</summary>
     public int CommandCount { get; set; }
 
@@ -180,6 +191,12 @@ public sealed partial class Display
     /// redraw itself. Mirrors Umoria's screen_change.
     /// </summary>
     public bool ScreenChanged { get; set; }
+
+    /// <summary>
+    /// Whether a key is waiting. Mirrors check_input(), which is what lets a
+    /// keypress interrupt a rest or a run.
+    /// </summary>
+    public bool KeyAvailable => _screen.KeyAvailable;
 
     /// <summary>Discards type-ahead. Mirrors flush().</summary>
     public void FlushInput() => _screen.FlushInput();

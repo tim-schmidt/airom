@@ -92,11 +92,35 @@ divergence.
 | `messages` | The message line: combining, -more- prompting, the history ring | **Verified matching** |
 | `map` | The whole level shrunk to one screen, as the M command shows it | **Verified matching** |
 | `statblock` | The status sidebar: identity, stats, numbers and every condition indicator | **Verified matching** |
+| `commands` | Every key through the original-to-rogue translation and the count table | **Verified matching** |
+| `regen` | Hit point and mana regeneration, fraction carrying and the clamps | **Verified matching** |
+| `upkeep` | **A turn in the dungeon**: the real dungeon() loop, counter by counter | **Verified matching** |
+| `hallucinate` | The map drawn by a hallucinating character, rolls included | **Verified matching** |
 
 `seeds` is the one that will confirm the `reset_seed` quirk against the original
 rather than by inference: `magic_init` shuffles appearances inside a
 `set_seed`/`reset_seed` bracket, and the restore deliberately does not land
 where it started.
+
+## Driving the real dungeon()
+
+`upkeep` runs Umoria's own main loop rather than a reimplementation of it. A
+headless harness cannot type, so the character is paralysed for the length of
+the run - no command is asked for while paralysis lasts - and a quit is left in
+the key script for the turn it wears off. Every counter therefore ages through
+the original code.
+
+Two things are taken off the level first. The monsters are cleared, because
+creature movement is not ported and a monster taking its turn would consume
+random numbers on one side only. And only the sidebar strip of the screen is
+compared, because the map is repainted by the lighting half of `moria1.c`,
+which is not ported either.
+
+That second gap is why the hallucination variation is also blind: drawing a
+square while hallucinating draws a random number, and the missing light-moving
+half would draw a different quantity of them. The `hallucinate` mode covers that
+drawing on its own, by painting one map on each side and comparing both the
+result and the generator state afterwards.
 
 ## Reaching inside generate.c and main.c
 
@@ -108,6 +132,10 @@ no use while the port is being built a layer at a time.
 which reaches the file's statics while leaving the reference tree untouched —
 no patched copy to reconcile later. `generate.c` is excluded from the build's
 file list precisely because it arrives through the probe instead.
+
+`dungeon.c` arrives the same way, through `oracle_probe_dungeon.c`, which needs
+a translation unit of its own: the 1989 headers have no include guards, so
+pulling two game sources into one file redefines every struct in them.
 
 `oracle_probe_main.c` does the same for `main.c`, whose static `init_t_level()`
 builds the depth-sorted object index. That file also defines the game's own
