@@ -40,7 +40,8 @@ Early. The foundations are in place; the game is not yet playable.
 | Character creation | Done, verified against the original |
 
 | Terminal surface | Done — System.Console, no third-party library |
-| Terminal I/O (io.c port) | Not started |
+| Display: panel window and map drawing | Done, verified against the original |
+| Messages, prompts, input handling | Not started |
 | Save files | Not started |
 
 ## Building

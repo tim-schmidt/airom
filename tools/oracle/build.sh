@@ -50,7 +50,9 @@ fi
 # Files replaced by oracle_stubs.c, plus the game's own main().
 # generate.c is excluded because oracle_probe.c #includes it, to reach the
 # statics inside. Compiling both would duplicate every symbol in it.
-EXCLUDE="main.c io.c death.c signals.c files.c help.c generate.c"
+# io.c is now compiled: the fake curses in fake_curses.c records what it draws,
+# so the display is compared against the original rather than a reimplementation.
+EXCLUDE="main.c death.c signals.c files.c help.c generate.c"
 
 sources=()
 for file in "$SRC"/*.c; do
@@ -63,7 +65,7 @@ for file in "$SRC"/*.c; do
 done
 
 here="$(cd "$(dirname "$0")" && pwd)"
-sources+=("$here/oracle_stubs.c" "$here/oracle_probe.c" "$here/oracle_probe_main.c" "$here/oracle_main.c")
+sources+=("$here/fake_curses.c" "$here/oracle_stubs.c" "$here/oracle_probe.c" "$here/oracle_probe_main.c" "$here/oracle_main.c")
 
 echo "compiling ${#sources[@]} files with $CC"
 
@@ -75,6 +77,7 @@ echo "compiling ${#sources[@]} files with $CC"
 # in that header for why -D on its own cannot do it.
 "$CC" -std=gnu89 -w -O1 \
     -include "$here/oracle_shim.h" \
+    -I"$here/fakeunix" \
     -I"$SRC" \
     -o "$OUT" \
     "${sources[@]}"

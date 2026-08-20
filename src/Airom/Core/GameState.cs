@@ -91,6 +91,12 @@ public sealed class GameState
 
     private Stores? _stores;
 
+    /// <summary>
+    /// Whether mineral veins are drawn differently from plain rock. A player
+    /// option, off by default.
+    /// </summary>
+    public bool HighlightSeams { get; set; }
+
     /// <summary>Whether the player has already won, which stops the win monsters respawning.</summary>
     public bool TotalWinner { get; set; }
 

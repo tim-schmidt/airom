@@ -1211,7 +1211,7 @@ static void dump_shops(unsigned long seed, int rounds)
    and build, the hit point curve and the starting money. */
 static void dump_character(unsigned long seed, int race_index, int sex, int pclass)
 {
-  char keys[8];
+  char keys[16];
   int i;
 
   header("character", seed);
@@ -1256,7 +1256,12 @@ static void dump_character(unsigned long seed, int race_index, int sex, int pcla
     keys[1] = sex ? 'm' : 'f';
     keys[2] = ESCAPE;
     keys[3] = (char)('a' + letter);
-    keys[4] = '\0';
+    /* A return for the empty name, then spaces for the closing pause:
+       io.c's own inkey() reads these now, so the whole input path runs. */
+    keys[4] = '\r';
+    keys[5] = ' ';
+    keys[6] = ' ';
+    keys[7] = '\0';
     oracle_feed_keys(keys);
   }
 
@@ -1301,6 +1306,74 @@ static void dump_character(unsigned long seed, int race_index, int sex, int pcla
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* ---------------------------------------------------------------- screen */
+
+/* A drawn map.
+
+   io.c is linked against the recording curses, so this compares the composed
+   screen rather than the cave behind it. What that reaches is the panel
+   arithmetic: prt_map walks the visible window and print() converts each
+   dungeon coordinate into a screen one, which is the part most likely to be off
+   by one and the hardest to see in a grid dump.
+
+   The level is lit and marked as seen throughout, so loc_symbol has to decide a
+   glyph for every square rather than returning blanks for the unexplored parts.
+   That touches every terrain value, every object and every monster on the
+   level. */
+static void dump_screen(unsigned long seed, int level)
+{
+  int i, j;
+
+  header("screen", seed);
+  printf("level %d\n", level);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+  pin_player(level);
+  dun_level = (int16)level;
+
+  (void)initscr();
+  oracle_screen_reset();
+
+  generate_cave();
+
+  /* Light the level and mark it seen, so the map is drawn rather than hidden. */
+  for (i = 0; i < cur_height; i++)
+    for (j = 0; j < cur_width; j++)
+      {
+        cave[i][j].pl = TRUE;
+        cave[i][j].fm = TRUE;
+      }
+
+  /* Every monster visible, so their glyphs are drawn too. */
+  for (i = MIN_MONIX; i < mfptr; i++)
+    m_list[i].ml = TRUE;
+
+  /* The player occupies index 1 of the monster list. */
+  cave[char_row][char_col].cptr = 1;
+
+  (void)get_panel((int)char_row, (int)char_col, TRUE);
+
+  printf("panel-row %d\n", panel_row);
+  printf("panel-col %d\n", panel_col);
+  printf("panel-row-min %d\n", panel_row_min);
+  printf("panel-col-min %d\n", panel_col_min);
+  printf("panel-row-prt %d\n", panel_row_prt);
+  printf("panel-col-prt %d\n", panel_col_prt);
+  printf("char-row %d\n", (int)char_row);
+  printf("char-col %d\n", (int)char_col);
+
+  clear_screen();
+  prt_map();
+
+  oracle_screen_dump("scr");
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ---------------------------------------------------------------- driver */
 
 static int usage(void)
@@ -1319,7 +1392,8 @@ static int usage(void)
           "  oracle populate <seed> <level>  a finished level, less monsters\n"
           "  oracle town <seed> <turn>  the town, less shop restocking\n"
           "  oracle shops <seed> <rounds>  shop owners, stock and prices\n"
-          "  oracle character <seed> <race> <sex> <class>  a rolled character\n");
+          "  oracle character <seed> <race> <sex> <class>  a rolled character\n"
+          "  oracle screen <seed> <level>  the drawn map\n");
   return 2;
 }
 
@@ -1458,6 +1532,16 @@ int main(int argc, char *argv[])
                      (int)strtol(argv[3], NULL, 10),
                      (int)strtol(argv[4], NULL, 10),
                      (int)strtol(argv[5], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "screen") == 0)
+    {
+      if (argc != 4)
+        {
+          return usage();
+        }
+      dump_screen(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
       return 0;
     }
 

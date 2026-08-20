@@ -26,7 +26,6 @@ here in the first place:
 
 | Excluded | Why |
 |---|---|
-| `io.c` | curses, termios, `ioctl` |
 | `death.c` | `setuid`, `flock`, the shared scoreboard |
 | `signals.c` | Unix signal handling |
 | `files.c` | score file and help file I/O |
@@ -89,6 +88,7 @@ divergence.
 | `town` | **The complete town**: shops, doors, stairs, lighting, townsfolk, shop stock | **Verified matching** |
 | `shops` | Shop owners, stock and asking prices across repeated restocks | **Verified matching** |
 | `character` | A rolled character: stats, history, build, hit point curve, money | **Verified matching** |
+| `screen` | The drawn map, composed by the real io.c through the panel arithmetic | **Verified matching** |
 
 `seeds` is the one that will confirm the `reset_seed` quirk against the original
 rather than by inference: `magic_init` shuffles appearances inside a
@@ -111,6 +111,20 @@ builds the depth-sorted object index. That file also defines the game's own
 `main()`, so the probe renames it before including. Reimplementing the sort in
 the harness instead would only have proved that two copies written for this
 project agreed — not that either matched Umoria.
+
+## The recording curses
+
+`io.c` is no longer excluded. It is compiled unchanged against a curses
+replacement in `fake_curses.c` that draws into a 24×80 grid instead of a
+terminal, plus a handful of placeholder Unix headers in `fakeunix/`.
+
+That makes the composed screen as diffable as everything else — which matters
+most for the panel arithmetic, where a dungeon coordinate becomes a screen one.
+Reimplementing `io.c` inside the harness would only have compared two copies
+written for this project.
+
+`inkey()` reads through `getch()`, so scripting the fake `getch` drives the real
+input path rather than bypassing it.
 
 ## Format
 

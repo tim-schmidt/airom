@@ -983,6 +983,17 @@ public static partial class OracleDump
                 DumpCharacter(output, chSeed, chRace, chSex, chClass);
                 return 0;
 
+            case "screen":
+                if (arguments.Length != 3
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint scSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int scLevel))
+                {
+                    return Usage(error);
+                }
+
+                DumpScreen(output, scSeed, scLevel);
+                return 0;
+
             case "cave":
                 if (arguments.Length != 3
                     || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint cvSeed)
@@ -1015,6 +1026,7 @@ public static partial class OracleDump
         error.WriteLine("  airom oracle town <seed> <turn>  the town, less shop restocking");
         error.WriteLine("  airom oracle shops <seed> <rounds>  shop owners, stock and prices");
         error.WriteLine("  airom oracle character <seed> <race> <sex> <class>  a rolled character");
+        error.WriteLine("  airom oracle screen <seed> <level>  the drawn map");
         return 2;
     }
 }

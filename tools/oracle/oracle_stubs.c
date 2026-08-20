@@ -17,9 +17,9 @@
    default promotion. Old-style definitions match, and match what the original
    actually compiled.
 
-   Output stubs are silent. Input stubs abort loudly: nothing in dungeon
-   generation should ever ask for a keypress, so if one does, the run is not
-   measuring what it claims to and should fail rather than hang.
+   io.c is no longer among them: it is compiled against the recording curses in
+   fake_curses.c, so the display is compared against the original rather than a
+   reimplementation.
 
    Copyright (C) 1989-2008 James E. Wilson, Robert A. Koeneke, David J. Grabiner
    Copyright (C) 2026 AIrom contributors
@@ -61,143 +61,28 @@ long *where;
   return 0L;
 }
 
-/* ------------------------------------------------------------------ io.c */
-
-void init_curses() { }
-void moriaterm() { }
-void restore_term() { }
-void put_qio() { }
-void flush() { }
-void clear_screen() { }
-void bell() { }
-void save_screen() { }
-void restore_screen() { }
-void screen_map() { }
-void shell_out() { }
-
-int suspend() { return 0; }
-
-void put_buffer(out_str, row, col)
-char *out_str;
-int row, col;
-{ }
-
-void erase_line(row, col)
-int row, col;
-{ }
-
-void clear_from(row)
-int row;
-{ }
-
-void print(ch, row, col)
-char ch;
-int row, col;
-{ }
-
-void move_cursor_relative(row, col)
-int row, col;
-{ }
-
-void count_msg_print(p)
-char *p;
-{ }
-
-void prt(str_buff, row, col)
-char *str_buff;
-int row, col;
-{ }
-
-void move_cursor(row, col)
-int row, col;
-{ }
-
-void msg_print(str_buff)
-char *str_buff;
-{ }
-
-void pause_line(prt_line)
-int prt_line;
-{ }
-
-void pause_exit(prt_line, delay)
-int prt_line, delay;
-{ }
-
-/* Scripted keystrokes, so the interactive parts of character creation can be
-   driven headlessly. Without this the whole of create.c would be unreachable:
-   race, sex and class are chosen at a prompt, not passed in. */
-static char oracle_keys[64];
-static int oracle_key_count = 0;
-static int oracle_key_next = 0;
-
-void oracle_feed_keys(keys)
-char *keys;
-{
-  int i;
-
-  oracle_key_count = 0;
-  oracle_key_next = 0;
-  for (i = 0; keys[i] != '\0' && i < 63; i++)
-    {
-      oracle_keys[oracle_key_count++] = keys[i];
-    }
-}
-
-char inkey()
-{
-  if (oracle_key_next >= oracle_key_count)
-    {
-      oracle_unexpected("inkey (script exhausted)");
-    }
-  return oracle_keys[oracle_key_next++];
-}
-
-char inkeydir()
-{
-  oracle_unexpected("inkeydir");
-  return 0;
-}
-
-int get_check(prompt)
-char *prompt;
-{
-  oracle_unexpected("get_check");
-  return 0;
-}
-
-int get_com(prompt, command)
-char *prompt;
-char *command;
-{
-  oracle_unexpected("get_com");
-  return 0;
-}
-
-int get_comdir(prompt, command)
-char *prompt;
-char *command;
-{
-  oracle_unexpected("get_comdir");
-  return 0;
-}
-
-/* Character creation asks for a name. Returning false makes it fall back to
-   user_name(), which is fixed, so the result stays reproducible. */
-int get_string(in_str, row, column, slen)
-char *in_str;
-int row, column, slen;
-{
-  in_str[0] = '\0';
-  return 0;
-}
-
-/* Polls for type-ahead. Headless, there never is any, and returning false also
-   stops dungeon.c's rest loop from spinning. */
+/* io.c defines check_input only for the platforms with a poll-style input
+   call; the portable build leaves it to the system. Headless there is never
+   type-ahead, and returning false also stops dungeon.c's rest loop spinning. */
 int check_input(microsec)
 int microsec;
 {
   return 0;
+}
+
+/* --------------------------------------------------------- process control */
+
+/* io.c's shell_out() drops the player to a shell. There is nothing to drop to
+   here, and a fork that succeeded would be worse than one that fails. */
+int fork()
+{
+  return -1;
+}
+
+int wait(status)
+int *status;
+{
+  return -1;
 }
 
 /* ------------------------------------------------------- unix privileges */
