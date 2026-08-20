@@ -268,6 +268,119 @@ public sealed class Inventory
     }
 
     /// <summary>
+    /// Finds the run of slots holding one or two categories of thing. Mirrors
+    /// find_range().
+    ///
+    /// The pack is kept sorted by category, so everything of a kind is in one
+    /// unbroken run and a prompt can be limited to it - "Read which scroll?"
+    /// offers the scrolls and nothing else.
+    /// </summary>
+    /// <returns>Whether anything of either category is carried.</returns>
+    public bool FindRange(int category1, int category2, out int first, out int last)
+    {
+        first = -1;
+        last = -1;
+        bool found = false;
+
+        for (int i = 0; i < Count; i++)
+        {
+            byte category = _items[i].TVal;
+
+            if (!found)
+            {
+                if (category == category1 || category == category2)
+                {
+                    found = true;
+                    first = i;
+                }
+            }
+            else if (category != category1 && category != category2)
+            {
+                last = i - 1;
+                break;
+            }
+        }
+
+        if (found && last == -1)
+        {
+            last = Count - 1;
+        }
+
+        return found;
+    }
+
+    /// <summary>
+    /// Learns what an item is, and merges it with any matching pile already in
+    /// the pack. Mirrors identify() in desc.c.
+    ///
+    /// The merging is what lets a potion bought from a shop and an identical
+    /// one found in the dungeon become one pile once the player knows they are
+    /// the same thing.
+    /// </summary>
+    /// <returns>
+    /// The slot the item ends up in, which is not always the one it started in:
+    /// merging keeps the earlier of the two slots.
+    /// </returns>
+    public int Identify(int slot, Display? display = null)
+    {
+        InvenType item = _items[slot];
+
+        if ((item.Flags & ItemFlags.Cursed) != 0)
+        {
+            ItemKnowledge.AddInscription(item, Identification.Damned);
+        }
+
+        if (_game.Knowledge.IsKindKnown(item))
+        {
+            return slot;
+        }
+
+        _game.Knowledge.LearnKind(item);
+
+        byte category = item.TVal;
+        byte kind = item.SubVal;
+
+        // Only the singly-stacking range can merge: below it every item is
+        // distinct, and above it a pile already stacks by itself.
+        if (kind < ItemCategory.SingleStackMin || kind >= ItemCategory.GroupMin)
+        {
+            return slot;
+        }
+
+        for (int i = 0; i < Count; i++)
+        {
+            InvenType other = _items[i];
+
+            if (other.TVal != category || other.SubVal != kind || i == slot
+                || other.Number + item.Number >= 256)
+            {
+                continue;
+            }
+
+            // The pile is kept in the earlier of the two slots.
+            if (slot > i)
+            {
+                (slot, i) = (i, slot);
+            }
+
+            display?.MessagePrint(
+                "You combine similar objects from the shop and dungeon.");
+
+            _items[slot].Number += _items[i].Number;
+            Count--;
+
+            for (int j = i; j < Count; j++)
+            {
+                _items[j].CopyStateFrom(_items[j + 1]);
+            }
+
+            _items[Count].Clear();
+        }
+
+        return slot;
+    }
+
+    /// <summary>
     /// Takes one item, or one of a pile, out of the pack. Mirrors
     /// inven_destroy().
     /// </summary>

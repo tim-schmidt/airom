@@ -898,6 +898,26 @@ def gen_player(moria):
         ),
     )
 
+    # The names of the spells, which the wands and staffs borrow for the
+    # descriptions of what they fire.
+    body = extract_initialiser(text, "spell_names[62]")
+    values = [c_string(f) for f in split_fields(body) if f]
+    if len(values) != 62:
+        raise SystemExit(
+            "spell_names: parsed {0} entries, expected 62".format(len(values))
+        )
+    _emit_strings(
+        lines,
+        "SpellNames",
+        [
+            "    /// <summary>",
+            "    /// What each spell is called. The first thirty-one are the mage's, the",
+            "    /// rest the priest's. Mirrors spell_names[].",
+            "    /// </summary>",
+        ],
+        values,
+    )
+
     body = extract_initialiser(text, "player_init[MAX_CLASS][5]")
     rows = split_rows(body)
     lines += [

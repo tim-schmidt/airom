@@ -264,6 +264,27 @@ public static partial class GameTables
     ];
 
     /// <summary>
+    /// What each spell is called. The first thirty-one are the mage's, the
+    /// rest the priest's. Mirrors spell_names[].
+    /// </summary>
+    public static readonly string[] SpellNames =
+    [
+        "Magic Missile", "Detect Monsters", "Phase Door", "Light Area", "Cure Light Wounds",
+        "Find Hidden Traps/Doors", "Stinking Cloud", "Confusion", "Lightning Bolt",
+        "Trap/Door Destruction", "Sleep I", "Cure Poison", "Teleport Self", "Remove Curse",
+        "Frost Bolt", "Turn Stone to Mud", "Create Food", "Recharge Item I", "Sleep II",
+        "Polymorph Other", "Identify", "Sleep III", "Fire Bolt", "Slow Monster", "Frost Ball",
+        "Recharge Item II", "Teleport Other", "Haste Self", "Fire Ball", "Word of Destruction",
+        "Genocide", "Detect Evil", "Cure Light Wounds", "Bless", "Remove Fear", "Call Light",
+        "Find Traps", "Detect Doors/Stairs", "Slow Poison", "Blind Creature", "Portal",
+        "Cure Medium Wounds", "Chant", "Sanctuary", "Create Food", "Remove Curse",
+        "Resist Heat and Cold", "Neutralize Poison", "Orb of Draining", "Cure Serious Wounds",
+        "Sense Invisible", "Protection from Evil", "Earthquake", "Sense Surroundings",
+        "Cure Critical Wounds", "Turn Undead", "Prayer", "Dispel Undead", "Heal",
+        "Dispel Evil", "Glyph of Warding", "Holy Word"
+    ];
+
+    /// <summary>
     /// The five items each class starts with, as object table indices.
     /// </summary>
     public static readonly int[][] StartingItems =

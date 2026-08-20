@@ -59,8 +59,9 @@ Early. The foundations are in place; the game is not yet playable.
 | Spell engine: bolts, balls, breaths, and the spells aimed at monsters | Done, verified against the original |
 | Potions and food, and what they do | Done, verified against the original |
 | The cures, the losses and the small comforts from spells.c | Done, verified against the original |
-| Scrolls, wands, staffs and the player's own spells | Not started |
-| The rest of spells.c: detection, enchantment, earthquakes | Not started |
+| Scrolls, wands and staffs, and everything they do | Done, verified against the original |
+| The rest of spells.c: detection, enchantment, earthquakes, destruction | Done, verified against the original |
+| The player's own spellcasting (magic.c, prayer.c) | Not started |
 | Inventory and equipment | Not started |
 | Save files | Not started |
 

@@ -106,6 +106,9 @@ divergence.
 | `traps` | **Every trap in the table**, sprung on a fresh character each | **Verified matching** |
 | `monsters` | **The monsters taking their turns**: moving, breeding, stealing, attacking, casting | **Verified matching** |
 | `potion` | **Every potion and mushroom in the table**, drunk or eaten and compared | **Verified matching** |
+| `scroll` | **Every scroll in the table**, read on a generated level and compared | **Verified matching** |
+| `wand` | **Every wand in the table**, aimed east down a generated level | **Verified matching** |
+| `staff` | **Every staff in the table**, used on a generated level | **Verified matching** |
 
 `seeds` is the one that will confirm the `reset_seed` quirk against the original
 rather than by inference: `magic_init` shuffles appearances inside a
@@ -156,6 +159,29 @@ Two things had to be levelled out to make that comparison mean anything.
 rather than once per item - calling it twice would shuffle an already-shuffled
 table. And what the player knows is forgotten between items, so every potion is
 drunk by someone who has never seen one.
+
+## Driving the real read_scroll(), aim() and use()
+
+These reach much further than a potion does - a scroll can wall the player in, a
+wand can dissolve a corridor, a staff can shake the level apart - so they are
+compared on a freshly generated level rather than in an empty room, and the
+level is dumped as a set of counts beside the player: monsters left standing,
+objects left lying, squares lit, squares marked, squares walled.
+
+They also ask questions part-way through. The C harness answers them with a
+scripted key: `a` picks the first pack slot, `6` points east, `k` is the letter
+fed to a scroll of genocide. Which of those a given item needs is known from its
+flags, so the script is built to match, and the padding is escapes rather than
+spaces - a space answers none of these prompts, so a prompt given one more key
+than the script provides would spin on the padding instead of giving up.
+
+Two subtleties came out of that. Writing a prompt to the message line flushes
+whatever message was waiting there, so a scroll that announces itself before it
+asks loses the announcement to a `-more-` that eats a scripted key; the script
+allows one key for it, and this side's stand-in for the prompt flushes the same
+way. And the character is given a weapon, a suit of armour, a cap and a lit
+torch: without a light nothing can be read at all, and without something worn
+the enchanting and cursing scrolls have nothing to work on.
 
 ## Reaching inside generate.c and main.c
 

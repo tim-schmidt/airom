@@ -3158,6 +3158,254 @@ static void dump_potion(unsigned long seed, int first, int count)
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* ------------------------------------------------------------------ device */
+
+/* Reading scrolls, aiming wands, using staffs.
+
+   Each item in the table is used once by the same character on the same freshly
+   generated level, and everything it did is compared: the player, the level, the
+   monsters left standing, the messages, and the generator.
+
+   These reach further than a potion does - a scroll can wall the player in, a
+   wand can dissolve a corridor - so the level is dumped as a set of counts
+   rather than square by square, with the object and monster totals beside it.
+
+   The real read_scroll(), aim() and use() run, prompting and all. The prompts
+   are answered by a scripted key: "a" picks the first pack slot, "6" points
+   east, and "k" is the letter fed to a scroll of genocide. Which of those a
+   given item needs is known from its flags, so the script is built to match. */
+
+#define SCROLL_IDENTIFY_BIT  0x00000008L
+#define SCROLL_RECHARGE_BIT  0x01000000L
+#define SCROLL_GENOCIDE_BIT  0x02000000L
+
+static void device_script(int tval, int32u flags)
+{
+  char script[600];
+  int n = 0;
+  int i;
+
+  /* The item itself. */
+  script[n++] = (char)'a';
+
+  if (tval == TV_WAND)
+    script[n++] = (char)'6';
+
+  /* These three announce themselves before they ask, and the message waiting on
+     the message line turns the prompt that follows into a -more- first. The
+     escape dismisses that, so the answer lands on the prompt itself. */
+  if (tval == TV_SCROLL1)
+    {
+      if (flags & SCROLL_IDENTIFY_BIT)
+        {
+          script[n++] = (char)27;
+          script[n++] = (char)'a';
+        }
+      if (flags & SCROLL_RECHARGE_BIT)
+        {
+          script[n++] = (char)27;
+          script[n++] = (char)'a';
+        }
+      if (flags & SCROLL_GENOCIDE_BIT)
+        {
+          script[n++] = (char)27;
+          script[n++] = (char)'k';
+        }
+    }
+
+  /* Padded with escapes rather than spaces: a space is not an answer to any of
+     these prompts, so a prompt that asked for one more key than the script
+     provides would spin on the padding instead of giving up. */
+  for (i = n; i < 599; i++)
+    script[i] = (char)27;
+  script[599] = 0;
+
+  oracle_feed_keys(script);
+}
+
+static void dump_device(const char *mode, unsigned long seed, int level,
+                        int first, int count)
+{
+  int which;
+  int wanted1, wanted2;
+
+  if (strcmp(mode, "scroll") == 0)
+    {
+      wanted1 = TV_SCROLL1;
+      wanted2 = TV_SCROLL2;
+    }
+  else if (strcmp(mode, "wand") == 0)
+    {
+      wanted1 = TV_WAND;
+      wanted2 = TV_WAND;
+    }
+  else
+    {
+      wanted1 = TV_STAFF;
+      wanted2 = TV_STAFF;
+    }
+
+  header(mode, seed);
+  printf("level %d\n", level);
+  printf("first %d\n", first);
+  printf("count %d\n", count);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  /* magic_init() shuffles the appearance tables where they stand, so it runs
+     once and only the generator is re-seeded for each item. */
+  init_seeds((int32u)seed);
+  magic_init();
+
+  for (which = first; which < first + count && which < MAX_OBJECTS; which++)
+    {
+      int tval;
+      int i;
+      int lit, marked, walls;
+      inven_type sample;
+
+      tval = object_list[which].tval;
+      if (tval != wanted1 && tval != wanted2)
+        continue;
+
+      init_seeds((int32u)seed);
+      pin_player(level);
+      dun_level = (int16)level;
+
+      init_curses();
+      oracle_screen_reset();
+      msg_flag = FALSE;
+
+      generate_cave();
+      cave[char_row][char_col].cptr = 1;
+
+      /* Someone who can work a device and survive what it wakes. */
+      py.misc.lev = 20;
+      py.misc.expfact = 100;
+      /* No experience to start with: the level is pinned at twenty, and any
+         experience worth a level would be spent gaining it before the scroll
+         was read. */
+      py.misc.exp = 0;
+      py.misc.max_exp = 0;
+      py.misc.hitdie = 10;
+      py.misc.save = 40;
+      py.flags.food = 5000;
+
+      for (i = 0; i < 6; i++)
+        {
+          py.stats.max_stat[i] = 18;
+          py.stats.cur_stat[i] = 18;
+          py.stats.mod_stat[i] = 0;
+          set_use_stat(i);
+        }
+
+      /* Everything the player knows is forgotten between items. */
+      (void) memset((char *)object_ident, 0, OBJECT_IDENT_SIZE);
+
+      /* A weapon, a suit of armour and a light, so the enchanting and cursing
+         scrolls have something to work on and a scroll can be read at all. */
+      inven_ctr = 0;
+      inven_weight = 0;
+      equip_ctr = 0;
+
+      invcopy(&inventory[INVEN_WIELD], 30);   /* a stiletto */
+      invcopy(&inventory[INVEN_BODY], 103);   /* soft leather armor */
+      invcopy(&inventory[INVEN_HEAD], 96);    /* a hard leather cap */
+      invcopy(&inventory[INVEN_LIGHT], 365);  /* a wooden torch */
+      inventory[INVEN_LIGHT].p1 = 5000;
+      equip_ctr = 4;
+
+      /* calc_bonuses() recomputes the hit points from the class and the
+         constitution, so the survivable totals are set after it rather than
+         before. */
+      calc_bonuses();
+
+      py.misc.mhp = 500;
+      py.misc.chp = 500;
+      py.misc.mana = 50;
+      py.misc.cmana = 50;
+
+      player_light = TRUE;
+      panel_row = panel_col = -1;
+      check_view();
+
+      invcopy(&inventory[0], which);
+      /* Charges, so a wand or a staff has something to spend. */
+      if (tval == TV_WAND || tval == TV_STAFF)
+        inventory[0].p1 = 15;
+      inven_ctr = 1;
+      inven_weight = inventory[0].weight;
+
+      /* Cleared here rather than at the top: generating the level and lighting
+         it can leave a message waiting, and a waiting message turns the first
+         message the scroll prints into a -more- prompt that eats a scripted
+         key. */
+      msg_flag = FALSE;
+
+      device_script(tval, object_list[which].flags);
+
+      free_turn_flag = FALSE;
+      new_level_flag = FALSE;
+
+      if (tval == TV_WAND)
+        aim();
+      else if (tval == TV_STAFF)
+        use();
+      else
+        read_scroll();
+
+      lit = 0;
+      marked = 0;
+      walls = 0;
+      for (i = 0; i < cur_height; i++)
+        {
+          int j;
+
+          for (j = 0; j < cur_width; j++)
+            {
+              if (cave[i][j].pl || cave[i][j].tl)
+                lit++;
+              if (cave[i][j].fm)
+                marked++;
+              if (cave[i][j].fval >= MIN_CAVE_WALL)
+                walls++;
+            }
+        }
+
+      printf("item %d tval %d flags %lu\n", which, tval,
+             (unsigned long)object_list[which].flags);
+      printf("  chp %d mana %d exp %ld food %d dlev %d newlev %d free %d\n",
+             (int)py.misc.chp, (int)py.misc.cmana, (long)py.misc.exp,
+             (int)py.flags.food, (int)dun_level, new_level_flag ? 1 : 0,
+             free_turn_flag ? 1 : 0);
+      printf("  at %d %d blind %d conf %d afraid %d prot %d recall %d\n",
+             (int)char_row, (int)char_col, (int)py.flags.blind,
+             (int)py.flags.confused, (int)py.flags.afraid,
+             (int)py.flags.protevil, (int)py.flags.word_recall);
+      printf("  fast %d slow %d blessed %d confmon %d\n",
+             (int)py.flags.fast, (int)py.flags.slow, (int)py.flags.blessed,
+             py.flags.confuse_monster ? 1 : 0);
+      printf("  monsters %d objects %d lit %d marked %d walls %d\n",
+             (int)(mfptr - MIN_MONIX), (int)(tcptr - MIN_TRIX), lit, marked,
+             walls);
+      printf("  wield %d %d %d body %d %d head %d %d\n",
+             (int)inventory[INVEN_WIELD].tohit, (int)inventory[INVEN_WIELD].todam,
+             (int)inventory[INVEN_WIELD].toac, (int)inventory[INVEN_BODY].toac,
+             (int)inventory[INVEN_BODY].flags ? 1 : 0,
+             (int)inventory[INVEN_HEAD].toac,
+             (int)inventory[INVEN_HEAD].flags ? 1 : 0);
+
+      invcopy(&sample, which);
+      printf("  known %d packed %d charges %d message %s\n",
+             known1_p(&sample) ? 1 : 0, (int)inven_ctr,
+             (int)inventory[0].p1, oracle_screen_row(0));
+      printf("  state %lu\n", (unsigned long)get_rnd_seed());
+    }
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ---------------------------------------------------------------- driver */
 
 
@@ -3195,7 +3443,10 @@ static int usage(void)
           "  oracle fight <seed> <level> <creature> <rounds>  hitting things\n"
           "  oracle traps <seed> <level> <first> <count>  springing traps\n"
           "  oracle monsters <seed> <level> <turns> <variation>  monster turns\n"
-          "  oracle potion <seed> <first> <count>  drinking things\n");
+          "  oracle potion <seed> <first> <count>  drinking things\n"
+          "  oracle scroll <seed> <level> <first> <count>  reading scrolls\n"
+          "  oracle wand <seed> <level> <first> <count>  aiming wands\n"
+          "  oracle staff <seed> <level> <first> <count>  using staffs\n");
   return 2;
 }
 
@@ -3365,6 +3616,19 @@ int main(int argc, char *argv[])
           return usage();
         }
       dump_map(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "scroll") == 0 || strcmp(argv[1], "wand") == 0
+      || strcmp(argv[1], "staff") == 0)
+    {
+      if (argc != 6)
+        return usage();
+
+      dump_device(argv[1], strtoul(argv[2], NULL, 10),
+                  (int)strtol(argv[3], NULL, 10),
+                  (int)strtol(argv[4], NULL, 10),
+                  (int)strtol(argv[5], NULL, 10));
       return 0;
     }
 

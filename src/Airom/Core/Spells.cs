@@ -698,14 +698,37 @@ public sealed partial class Spells
     }
 
     /// <summary>
-    /// Throws a monster somewhere else. Mirrors teleport_monster().
+    /// Throws monsters somewhere else. Mirrors teleport_monster().
+    ///
+    /// Unlike the rest of the aimed spells this does not stop at the first
+    /// creature: the square it was standing on is empty once it has gone, so
+    /// the line carries on through everything in it.
     /// </summary>
-    public bool TeleportMonster(int direction, int row, int column) =>
-        AlongBolt(direction, row, column, index =>
+    public bool TeleportMonster(int direction, int row, int column)
+    {
+        bool moved = false;
+        int distance = 0;
+
+        while (true)
         {
-            _loop.MonsterAttack.TeleportAway(index, MonsterAi.MaxSight * 5);
-            return true;
-        });
+            Cave.Move(direction, ref row, ref column);
+            distance++;
+
+            CaveSquare square = Cave[row, column];
+
+            if (distance > BoltRange || square.Feature >= CaveFeature.MinClosedSpace)
+            {
+                return moved;
+            }
+
+            if (square.MonsterIndex > 1)
+            {
+                _game.Monsters[square.MonsterIndex].Sleep = 0;
+                _loop.MonsterAttack.TeleportAway(square.MonsterIndex, MonsterAi.MaxSight);
+                moved = true;
+            }
+        }
+    }
 
     /// <summary>
     /// Brings the player to something. Mirrors teleport_to().

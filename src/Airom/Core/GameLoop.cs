@@ -73,6 +73,8 @@ public class GameLoop
     private Spells _spells;
     private Potions _potions;
     private Food _food;
+    private Scrolls _scrolls;
+    private Devices _devices;
 
     public GameLoop(GameState game, Display display)
     {
@@ -95,6 +97,8 @@ public class GameLoop
         _spells = new Spells(game, display, this);
         _potions = new Potions(game, display, this);
         _food = new Food(game, display, this);
+        _scrolls = new Scrolls(game, display, this);
+        _devices = new Devices(game, display, this);
     }
 
     /// <summary>What the player can see, and how the screen hears about it.</summary>
@@ -138,6 +142,16 @@ public class GameLoop
 
     /// <summary>Eating things.</summary>
     public Food Food => _food;
+
+    /// <summary>Reading scrolls.</summary>
+    public Scrolls Scrolls
+    {
+        get => _scrolls;
+        set => _scrolls = value ?? throw new ArgumentNullException(nameof(value));
+    }
+
+    /// <summary>Aiming wands and using staffs.</summary>
+    public Devices Devices => _devices;
 
     /// <summary>
     /// Lights the monsters without moving them, which is what creatures(FALSE)
