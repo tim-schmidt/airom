@@ -130,7 +130,7 @@ public sealed class Stores(GameState game)
     /// nothing. Shop stock is always fully identified, so for restocking only
     /// the known paths run.
     /// </summary>
-    public static int ItemValue(InvenType item)
+    public int ItemValue(InvenType item)
     {
         ArgumentNullException.ThrowIfNull(item);
 
@@ -141,7 +141,10 @@ public sealed class Stores(GameState game)
             return 0; // nobody knowingly buys a cursed item
         }
 
-        bool known1 = IsKnown1(item);
+        // What the player knows, not merely what is stamped on the item: a
+        // potion whose kind has been learned is worth what it is worth, and one
+        // whose kind is still a mystery is worth the flat price of a mystery.
+        bool known1 = _game.Knowledge.IsKindKnown(item);
         bool known2 = (item.Identification & Identification.Known) != 0;
 
         if ((item.TVal >= ItemCategory.Bow && item.TVal <= ItemCategory.Sword)
@@ -247,42 +250,6 @@ public sealed class Stores(GameState game)
     }
 
     /// <summary>
-    /// Whether the player recognises what kind of thing this is. Mirrors
-    /// known1_p() in desc.c.
-    ///
-    /// Items with no disguise - a sword is visibly a sword - are always known.
-    /// Only the categories with a randomised appearance can be a mystery, and
-    /// anything bought from a shop is known by definition.
-    /// </summary>
-    private static bool IsKnown1(InvenType item)
-    {
-        if (AppearanceGroup(item) < 0)
-        {
-            return true;
-        }
-
-        // Shop stock is identified on the shelf.
-        return (item.Identification & Identification.StoreBought) != 0;
-    }
-
-    /// <summary>
-    /// Which appearance table an item is disguised by, or -1 for none. Mirrors
-    /// object_offset().
-    /// </summary>
-    private static int AppearanceGroup(InvenType item) => item.TVal switch
-    {
-        ItemCategory.Amulet => 0,
-        ItemCategory.Ring => 1,
-        ItemCategory.Staff => 2,
-        ItemCategory.Wand => 3,
-        ItemCategory.Scroll1 or ItemCategory.Scroll2 => 4,
-        ItemCategory.Potion1 or ItemCategory.Potion2 => 5,
-        ItemCategory.Food =>
-            (item.SubVal & (SingleStackMin - 1)) < GameTables.Mushrooms.Length ? 6 : -1,
-        _ => -1,
-    };
-
-    /// <summary>
     /// What the owner will ask. Mirrors sell_price().
     ///
     /// The base value is adjusted by how the owner's race regards the player's,
@@ -380,17 +347,22 @@ public sealed class Stores(GameState game)
     /// Puts an item on the shelves, stacking or inserting to keep the stock
     /// ordered by category. Mirrors store_carry().
     /// </summary>
-    public void Carry(int storeIndex, InvenType item)
+    /// <returns>
+    /// Which line it landed on, or -1 when the shop would not take it at all -
+    /// which the caller needs so it can redraw the right page.
+    /// </returns>
+    public int Carry(int storeIndex, InvenType item)
     {
         ArgumentNullException.ThrowIfNull(item);
 
         if (SellPrice(storeIndex, item, out int cost, out _) <= 0)
         {
-            return;
+            return -1;
         }
 
         Store store = All[storeIndex];
         int slot = 0;
+        int placed = -1;
         bool done = false;
         int arriving = item.Number;
 
@@ -404,6 +376,7 @@ public sealed class Stores(GameState game)
                     && item.SubVal >= SingleStackMin
                     && (item.SubVal < GroupMin || held.P1 == item.P1))
                 {
+                    placed = slot;
                     held.Number = (byte)(held.Number + arriving);
 
                     if (item.SubVal > GroupMin)
@@ -424,6 +397,7 @@ public sealed class Stores(GameState game)
             else if (item.TVal > held.TVal)
             {
                 InsertStock(storeIndex, slot, cost, item);
+                placed = slot;
                 done = true;
             }
 
@@ -434,7 +408,10 @@ public sealed class Stores(GameState game)
         if (!done)
         {
             InsertStock(storeIndex, store.StockCount, cost, item);
+            placed = store.StockCount - 1;
         }
+
+        return placed;
     }
 
     /// <summary>
@@ -504,6 +481,58 @@ public sealed class Stores(GameState game)
             tries++;
         }
         while (tries <= 3);
+    }
+
+    /// <summary>
+    /// Whether the character has haggled well enough here to be given the
+    /// final price without going through it all again. Mirrors
+    /// noneedtobargain().
+    ///
+    /// A shopkeeper remembers how often a deal was struck at their last price
+    /// against how often it was not, and the record has to beat the square root
+    /// of a fiftieth of what is at stake - so a reputation earned over cheap
+    /// items does not carry over to an expensive one.
+    /// </summary>
+    public bool NoNeedToBargain(int storeIndex, int minimumPrice)
+    {
+        Store store = All[storeIndex];
+
+        if (store.GoodBuys == GameLoop.MaxShort)
+        {
+            return true;
+        }
+
+        int record = store.GoodBuys - (3 * store.BadBuys) - 5;
+
+        return record > 0 && (long)record * record > minimumPrice / 50;
+    }
+
+    /// <summary>
+    /// Remembers how a deal was struck. Mirrors updatebargain().
+    ///
+    /// Only deals worth more than nine gold count, so a shopkeeper's opinion
+    /// cannot be built out of trinkets.
+    /// </summary>
+    public void UpdateBargain(int storeIndex, int price, int minimumPrice)
+    {
+        if (minimumPrice <= 9)
+        {
+            return;
+        }
+
+        Store store = All[storeIndex];
+
+        if (price == minimumPrice)
+        {
+            if (store.GoodBuys < GameLoop.MaxShort)
+            {
+                store.GoodBuys++;
+            }
+        }
+        else if (store.BadBuys < GameLoop.MaxShort)
+        {
+            store.BadBuys++;
+        }
     }
 
     /// <summary>

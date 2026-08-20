@@ -222,6 +222,20 @@ public sealed partial class Display
     }
 
     /// <summary>
+    /// Redraws the whole playing screen from nothing. Mirrors draw_cave().
+    ///
+    /// Used where something else has had the screen to itself - a shop, say -
+    /// and there is nothing saved to put back.
+    /// </summary>
+    public void DrawCave(Player player)
+    {
+        ClearScreen();
+        PrintStatBlock(player);
+        PrintMap();
+        PrintDepth();
+    }
+
+    /// <summary>
     /// Draws the whole sidebar. Mirrors prt_stat_block().
     ///
     /// The layout is fixed by row: identity at the top, the six stats, then the

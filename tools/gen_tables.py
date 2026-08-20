@@ -976,6 +976,63 @@ def gen_player(moria):
     return "\n".join(lines)
 
 
+def gen_store(moria):
+    """The shopkeepers' patter, which lives in store2.c rather than tables.c."""
+    text = strip_comments(
+        select_branches(
+            (moria / "source" / "store2.c").read_text(encoding="latin-1")))
+
+    lines = [
+        HEADER.format(source="moria/source/store2.c"),
+        "namespace Airom.Data;",
+        "",
+        "public static partial class GameTables",
+        "{",
+    ]
+
+    wanted = [
+        ("comment1[14]", "ShopkeeperAccepts", 14,
+         "What a shopkeeper says when a price is finally agreed."),
+        ("comment2a[3]", "ShopkeeperFinalAsk", 3,
+         "What a shopkeeper says when their asking price is their last word."
+         " %A1 is the offer and %A2 the asking price."),
+        ("comment2b[16]", "ShopkeeperCounterAsk", 16,
+         "What a shopkeeper says to an offer they mean to haggle over."),
+        ("comment3a[3]", "ShopkeeperFinalOffer", 3,
+         "What a shopkeeper says when their offer for something is final."),
+        ("comment3b[15]", "ShopkeeperCounterOffer", 15,
+         "What a shopkeeper says to a price they mean to haggle down."),
+        ("comment4a[5]", "ShopkeeperLosesTemper", 5,
+         "The first half of being thrown out, paired with"
+         " <see cref=\"ShopkeeperThrowsOut\"/> by index."),
+        ("comment4b[5]", "ShopkeeperThrowsOut", 5,
+         "The second half of being thrown out."),
+        ("comment5[10]", "ShopkeeperInsulted", 10,
+         "What a shopkeeper says to an offer that is not worth answering."),
+        ("comment6[5]", "ShopkeeperMishears", 5,
+         "What a shopkeeper says to an offer that makes no sense at all."),
+    ]
+
+    for declaration, name, expected, doc in wanted:
+        body = extract_initialiser(text, "*" + declaration)
+        values = [c_string(f) for f in split_fields(body) if f]
+
+        if len(values) != expected:
+            raise SystemExit(
+                "{0}: parsed {1} entries, expected {2}".format(
+                    declaration, len(values), expected))
+
+        _emit_strings(
+            lines,
+            name,
+            ["    /// <summary>", "    /// " + doc, "    /// </summary>"],
+            values,
+        )
+
+    lines[-1:] = ["}", ""]
+    return chr(10).join(lines)
+
+
 # ---------------------------------------------------------------- driver
 
 TARGETS = {
@@ -984,6 +1041,7 @@ TARGETS = {
     "src/Airom/Data/GameTables.Names.g.cs": gen_names,
     "src/Airom/Data/GameTables.Misc.g.cs": gen_misc_tables,
     "src/Airom/Data/GameTables.Player.g.cs": gen_player,
+    "src/Airom/Data/GameTables.Store.g.cs": gen_store,
 }
 
 

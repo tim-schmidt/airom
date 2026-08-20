@@ -2648,6 +2648,16 @@ static void dump_fight(unsigned long seed, int level, int creature, int rounds)
   int round, i;
   bigvtype description;
 
+  /* Said rather than crashed: the creature table has no bounds check of its
+     own, and reading past it takes the whole run down with a signal that says
+     nothing about which argument was wrong. */
+  if (creature < 0 || creature >= MAX_CREATURES)
+    {
+      fprintf(stderr, "oracle: creature %d is outside 0..%d\n", creature,
+              MAX_CREATURES - 1);
+      exit(2);
+    }
+
   header("fight", seed);
   printf("level %d\n", level);
   printf("creature %d\n", creature);
@@ -4536,6 +4546,342 @@ static void dump_look(unsigned long seed, int level, int variation)
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* ------------------------------------------------------------------- store */
+
+/* A visit to a shop: the screen, the commands and the haggling.
+
+   The stock is whatever store_init() and two rounds of store_maint() produced,
+   which the shops mode already compares, so what is new here is everything that
+   happens once the player is inside. The whole screen is dumped afterwards
+   along with the gold, the pack, the stock and what the shopkeeper now thinks
+   of the player.
+
+   The scripts are typed exactly as a player would type them: a command, a
+   letter, then offers ending in a return. Padding with escapes is safe here -
+   an escape backs out of whatever is being asked - so a script that runs out
+   part-way simply ends the visit rather than spinning. */
+
+/* The scripts a visit runs, typed exactly as a player would type them: a
+   command, a letter, then offers ending in a return.
+
+   An offer is only worth making if it is near the price, and the price depends
+   on the item, the shopkeeper and the player's charisma - so the numbers are
+   written as markers and worked out at the last moment. Each side works them
+   out with its own arithmetic, so a disagreement about what something is worth
+   shows up as two different scripts and a very loud diff.
+
+     %A  what the shopkeeper opens at, buying
+     %B  the most the player would pay, which is where their haggling starts
+     %C  half way between the two, and %D half way again
+     %O  what the shopkeeper opens at, selling
+     %M  the most the player could hope to be paid
+     %P  half way between those two
+     %L  the letter of the first pack slot this shop will look at
+
+   Padding with escapes is safe - an escape backs out of whatever is being asked
+   - so a script that runs out part-way ends the visit rather than spinning. */
+static char *store_scripts[] = {
+  "",                                  /* walk in and walk out              */
+  "b",                                 /* turn the page                     */
+  "bb",                                /* and turn it back                  */
+  "pa%A\r",                            /* buy at the asking price           */
+  "pa%C\r%A\r",                        /* offer the middle, then the asking */
+  "pa%B\r%C\r%D\r%A\r",                /* three rounds, then take it        */
+  "pa%B\r+1\r\r\r\r\r\r\r\r",          /* haggling upwards by increments    */
+  "pa1\r",                             /* an offer that is an insult        */
+  "pa1\rpa1\rpa1\rpa1\rpa1\rpa1\r",    /* insults until thrown out          */
+  "s%L%O\r",                            /* sell at what is offered           */
+  "s%L%P\r%O\r",                        /* ask the middle, then take it      */
+  "s%L%M\r%P\r%O\r",                    /* start high and come down          */
+  "s%L%M\r-1\r\r\r\r\r\r\r\r",          /* selling down by decrements        */
+  "s%L99999\r",                         /* an asking price out of all reason */
+  "s%L+0\r10\r",                        /* an increment before any offer     */
+  "i",                                 /* the pack commands, from inside    */
+  "z"                                  /* a key that is no command at all   */
+};
+
+#define STORE_SCRIPTS 17
+
+/* Which pack slot the sell command's "a" picks: the first one this shop is
+   willing to look at. */
+static int store_first_sellable(int store_num)
+{
+  int i;
+
+  for (i = 0; i < inven_ctr; i++)
+#ifdef MAC
+    if (store_buy(store_num, inventory[i].tval))
+#else
+    if ((*store_buy[store_num])(inventory[i].tval))
+#endif
+      return i;
+
+  return -1;
+}
+
+/* Fills the markers in a script with the prices they stand for. */
+static void store_fill_script(char *out, const char *script, int store_num)
+{
+  int32 buy_ask, buy_floor, buy_middle, buy_near;
+  int32 sell_open, sell_hope, sell_middle;
+  int sell_slot;
+  int n = 0;
+  int i;
+
+  buy_ask = 1;
+  buy_floor = 1;
+  buy_middle = 1;
+  buy_near = 1;
+  sell_open = 1;
+  sell_hope = 1;
+  sell_middle = 1;
+
+  if (store[store_num].store_ctr > 0)
+    {
+      inven_type wanted;
+      int32 max_sell, min_sell, cost;
+      owner_type *o_ptr = &owners[store[store_num].owner];
+
+      take_one_item(&wanted, &store[store_num].store_inven[0].sitem);
+      cost = sell_price(store_num, &max_sell, &min_sell, &wanted);
+
+      buy_ask = max_sell * chr_adj() / 100;
+      if (buy_ask <= 0)
+        buy_ask = 1;
+
+      buy_floor = cost * (200 - (int)o_ptr->max_inflate) / 100;
+      if (buy_floor <= 0)
+        buy_floor = 1;
+
+      buy_middle = (buy_floor + buy_ask) / 2;
+      buy_near = (buy_middle + buy_ask) / 2;
+    }
+
+  sell_slot = store_first_sellable(store_num);
+  i = sell_slot;
+
+  if (i >= 0)
+    {
+      inven_type offered;
+      int32 cost;
+      owner_type *o_ptr = &owners[store[store_num].owner];
+
+      take_one_item(&offered, &inventory[i]);
+      cost = item_value(&offered);
+
+      if (cost < 1)
+        cost = 1;
+
+      cost = cost * (200 - chr_adj()) / 100;
+      cost = cost * (200 - rgold_adj[o_ptr->owner_race][py.misc.prace]) / 100;
+
+      if (cost < 1)
+        cost = 1;
+
+      sell_hope = cost * o_ptr->max_inflate / 100;
+      sell_open = cost * (200 - (int)o_ptr->max_inflate) / 100;
+
+      if (sell_open < 1)
+        sell_open = 1;
+
+      if (sell_hope < sell_open)
+        sell_hope = sell_open;
+
+      sell_middle = (sell_open + sell_hope) / 2;
+    }
+
+  for (i = 0; script[i]; i++)
+    {
+      int32 value = -1;
+
+      if (script[i] == '%' && script[i + 1] == 'L')
+        {
+          /* A letter rather than a number: which pack slot to offer. */
+          out[n++] = (char)('a' + (sell_slot < 0 ? 0 : sell_slot));
+          i++;
+          continue;
+        }
+
+      if (script[i] == '%')
+        {
+          switch (script[i + 1])
+            {
+            case 'A': value = buy_ask;     break;
+            case 'B': value = buy_floor;   break;
+            case 'C': value = buy_middle;  break;
+            case 'D': value = buy_near;    break;
+            case 'O': value = sell_open;   break;
+            case 'M': value = sell_hope;   break;
+            case 'P': value = sell_middle; break;
+            default:  break;
+            }
+        }
+
+      if (value >= 0)
+        {
+          n += sprintf(out + n, "%ld", (long)value);
+          i++;
+        }
+      else
+        out[n++] = script[i];
+    }
+
+  out[n] = 0;
+}
+
+static void dump_store(unsigned long seed, int store_num, int variation)
+{
+  int i, j;
+  char *script;
+
+  header("store", seed);
+  printf("store %d\n", store_num);
+  printf("variation %d\n", variation);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+  pin_player(0);
+  dun_level = 0;
+
+  /* The doors are locked until the clock has started. */
+  turn = 100;
+
+  probe_tlink();
+  store_init();
+  store_maint();
+  store_maint();
+
+  init_curses();
+  oracle_screen_reset();
+  msg_flag = FALSE;
+
+  generate_cave();
+  cave[char_row][char_col].cptr = 1;
+
+  py.misc.lev = 20;
+  py.misc.expfact = 100;
+  py.misc.au = 5000;
+  py.flags.food = 5000;
+
+  for (i = 0; i < 6; i++)
+    {
+      py.stats.max_stat[i] = 18;
+      py.stats.cur_stat[i] = 18;
+      py.stats.mod_stat[i] = 0;
+      set_use_stat(i);
+    }
+
+  /* The charisma is what every price is worked out from, so it is varied
+     across the scripts rather than pinned. */
+  py.stats.use_stat[A_CHR] = 3 + (variation % 16);
+
+  (void) memset((char *)object_ident, 0, OBJECT_IDENT_SIZE);
+
+  inven_ctr = 0;
+  inven_weight = 0;
+  equip_ctr = 0;
+
+  invcopy(&inventory[INVEN_WIELD], 30);   /* a stiletto */
+  invcopy(&inventory[INVEN_LIGHT], 365);  /* a wooden torch */
+  inventory[INVEN_LIGHT].p1 = 5000;
+  equip_ctr = 2;
+
+  calc_bonuses();
+
+  py.misc.mhp = 500;
+  py.misc.chp = 500;
+
+  /* One of each of a spread of kinds, so that whichever shop is visited has
+     something of the player's it is willing to look at. */
+  {
+    static int kinds[] = {
+      TV_SWORD, TV_SOFT_ARMOR, TV_POTION1, TV_SCROLL1, TV_FOOD, TV_WAND,
+      TV_PRAYER_BOOK, TV_DIGGING, TV_FLASK, TV_AMULET
+    };
+
+    for (j = 0; j < (int)(sizeof(kinds)/sizeof(kinds[0])); j++)
+      for (i = 0; i < MAX_OBJECTS; i++)
+        if (object_list[i].tval == kinds[j])
+          {
+            inven_type held;
+
+            invcopy(&held, i);
+            (void) inven_carry(&held);
+            break;
+          }
+  }
+
+  msg_flag = FALSE;
+  free_turn_flag = FALSE;
+
+  script = store_scripts[variation % STORE_SCRIPTS];
+
+  {
+    char filled[256];
+    char keys[2001];
+    int n = 0;
+
+    store_fill_script(filled, script, store_num);
+    /* Printed with the returns spelled out, so the line stays readable and a
+       diff points at the offer rather than at a carriage return. */
+    printf("script ");
+    for (i = 0; filled[i]; i++)
+      {
+        if (filled[i] == '\r')
+          printf("<cr>");
+        else
+          putchar(filled[i]);
+      }
+    printf("\n");
+
+    for (i = 0; filled[i]; i++)
+      keys[n++] = filled[i];
+    for (i = n; i < 2000; i++)
+      keys[i] = (char)27;
+    keys[2000] = 0;
+    oracle_feed_keys(keys);
+  }
+
+  enter_store(store_num);
+
+  {
+    store_type *s = &store[store_num];
+
+    printf("gold %ld packed %d weight %d\n", (long)py.misc.au, (int)inven_ctr,
+           (int)inven_weight);
+    printf("owner %d insults %d good %d bad %d open %ld\n", (int)s->owner,
+           (int)s->insult_cur, (int)s->good_buy, (int)s->bad_buy,
+           (long)s->store_open);
+    printf("stock %d\n", (int)s->store_ctr);
+
+    for (j = 0; j < s->store_ctr; j++)
+      {
+        inven_type *it = &s->store_inven[j].sitem;
+
+        printf("  line %d %d %d %d %d %ld %ld %d %d %d\n", j,
+               (int)it->index, (int)it->tval, (int)it->subval,
+               (int)it->number, (long)it->cost,
+               (long)s->store_inven[j].scost, (int)it->p1, (int)it->name2,
+               (int)it->ident);
+      }
+
+    for (j = 0; j < inven_ctr; j++)
+      {
+        bigvtype name;
+
+        objdes(name, &inventory[j], TRUE);
+        printf("  pack %d %d %s\n", j, (int)inventory[j].number, name);
+      }
+  }
+
+  oracle_screen_dump("scr");
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ---------------------------------------------------------------- driver */
 
 
@@ -4582,7 +4928,8 @@ static int usage(void)
           "  oracle inven <seed> <variation>  the inventory screens\n"
           "  oracle getitem <seed> <variation>  the prompt that asks which item\n"
           "  oracle moria4 <seed> <level> <variation>  digging, disarming, bashing, throwing\n"
-          "  oracle look <seed> <level> <variation>  the cone of peripheral vision\n");
+          "  oracle look <seed> <level> <variation>  the cone of peripheral vision\n"
+          "  oracle store <seed> <store> <variation>  a visit to a shop\n");
   return 2;
 }
 
@@ -4812,6 +5159,17 @@ int main(int argc, char *argv[])
         dump_look(strtoul(argv[2], NULL, 10),
                   (int)strtol(argv[3], NULL, 10),
                   (int)strtol(argv[4], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "store") == 0)
+    {
+      if (argc != 5)
+        return usage();
+
+      dump_store(strtoul(argv[2], NULL, 10),
+                 (int)strtol(argv[3], NULL, 10),
+                 (int)strtol(argv[4], NULL, 10));
       return 0;
     }
 

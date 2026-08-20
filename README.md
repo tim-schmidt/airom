@@ -45,7 +45,7 @@ Early. The foundations are in place; the game is not yet playable.
 | Status sidebar (prt_stat_block) | Done, verified against the original |
 | The turn: hunger, regeneration, every timed effect | Done, verified against the original |
 | Command keys, counts and the input loop | Done, verified against the original |
-| Command dispatch (do_command) | Everything but the shops, the character sheet, spiking a door, the help files and saving |
+| Command dispatch (do_command) | Everything but the character sheet, spiking a door, the help files and saving |
 | Lighting: the lamp, lit rooms, what is remembered | Done, verified against the original |
 | Walking, running and searching | Done, verified against the original |
 | Item naming (objdes) and what the player knows | Done, verified against the original |
@@ -65,6 +65,7 @@ Early. The foundations are in place; the game is not yet playable.
 | Learning spells, mana and the spell list (misc3.c) | Done, verified against the original |
 | Digging, disarming, bashing and throwing (moria4.c) | Done, verified against the original |
 | Looking around, with peripheral vision | Done, verified against the original |
+| The shops: stock, prices and haggling (store1.c, store2.c) | Done, verified against the original |
 | Save files | Not started |
 
 ## Building

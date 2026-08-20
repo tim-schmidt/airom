@@ -305,6 +305,68 @@ public class Stats
     }
 
     /// <summary>
+    /// What a shopkeeper thinks of the character, as a percentage of the base
+    /// price. Mirrors chr_adj().
+    ///
+    /// Below a hundred is a discount and above it a mark-up, so a charming
+    /// character pays less and a repellent one pays a third more. It is applied
+    /// to both halves of a deal, which is why charisma is worth more to a
+    /// merchant than to a fighter.
+    /// </summary>
+    public static int CharismaAdjust(Player player)
+    {
+        ArgumentNullException.ThrowIfNull(player);
+
+        int charisma = player.UseStat[Stat.Charisma];
+
+        if (charisma > 117)
+        {
+            return 90;
+        }
+
+        if (charisma > 107)
+        {
+            return 92;
+        }
+
+        if (charisma > 87)
+        {
+            return 94;
+        }
+
+        if (charisma > 67)
+        {
+            return 96;
+        }
+
+        if (charisma > 18)
+        {
+            return 98;
+        }
+
+        return charisma switch
+        {
+            18 => 100,
+            17 => 101,
+            16 => 102,
+            15 => 103,
+            14 => 104,
+            13 => 106,
+            12 => 108,
+            11 => 110,
+            10 => 112,
+            9 => 114,
+            8 => 116,
+            7 => 118,
+            6 => 120,
+            5 => 122,
+            4 => 125,
+            3 => 130,
+            _ => 100,
+        };
+    }
+
+    /// <summary>
     /// Works out how many spells the character should know and how much mana
     /// they have. Mirrors the calc_spells()/calc_mana() pair, which the
     /// original always calls together.

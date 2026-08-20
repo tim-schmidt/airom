@@ -80,6 +80,7 @@ public class GameLoop
     private Tunnelling _tunnelling;
     private Looking _looking;
     private Throwing _throwing;
+    private StoreScreen _storeScreen;
 
     public GameLoop(GameState game, Display display)
     {
@@ -109,6 +110,7 @@ public class GameLoop
         _tunnelling = new Tunnelling(game, display, this);
         _looking = new Looking(game, display, this);
         _throwing = new Throwing(game, display, this);
+        _storeScreen = new StoreScreen(game, display, this);
     }
 
     /// <summary>What the player can see, and how the screen hears about it.</summary>
@@ -193,6 +195,9 @@ public class GameLoop
 
     /// <summary>Throwing and firing.</summary>
     public Throwing Throwing => _throwing;
+
+    /// <summary>Being in a shop: the screen, the commands and the haggling.</summary>
+    public StoreScreen StoreScreen => _storeScreen;
 
     /// <summary>
     /// Lights the monsters without moving them, which is what creatures(FALSE)

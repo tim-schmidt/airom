@@ -91,6 +91,18 @@ public static partial class OracleDump
     /// </summary>
     public static void DumpFight(TextWriter output, uint seed, int level, int creature, int rounds)
     {
+        // Said rather than thrown: the creature table has no bounds check of
+        // its own, and an index past it produces a stack trace that says
+        // nothing about which argument was wrong.
+        if (creature < 0 || creature >= GameTables.CreatureList.Length)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(creature), creature,
+                "creature is outside 0.."
+                    + (GameTables.CreatureList.Length - 1)
+                        .ToString(CultureInfo.InvariantCulture));
+        }
+
         ArgumentNullException.ThrowIfNull(output);
 
         Header(output, "fight", seed);

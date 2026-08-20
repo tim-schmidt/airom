@@ -240,7 +240,7 @@ public class StoreTests
         item.Cost = 500;
         item.Identification = Identification.Damned;
 
-        Assert.Equal(0, Stores.ItemValue(item));
+        Assert.Equal(0, Shops(1, 0).Stores.ItemValue(item));
     }
 
     /// <summary>
@@ -257,7 +257,7 @@ public class StoreTests
         item.Cost = 9999;
         item.Identification = 0;
 
-        Assert.Equal(45, Stores.ItemValue(item));
+        Assert.Equal(45, Shops(1, 0).Stores.ItemValue(item));
     }
 
     /// <summary>
@@ -273,6 +273,6 @@ public class StoreTests
         item.ToHit = -1;
         item.Identification = Identification.Known;
 
-        Assert.Equal(0, Stores.ItemValue(item));
+        Assert.Equal(0, Shops(1, 0).Stores.ItemValue(item));
     }
 }

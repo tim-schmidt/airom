@@ -115,6 +115,7 @@ divergence.
 | `getitem` | **Ten runs of the prompt that asks which item** | **Verified matching** |
 | `moria4` | **Ten scripted arrangements**: digging, disarming, bashing, throwing | **Verified matching** |
 | `look` | **Eighteen looks**, every direction with and without mineral veins | **Verified matching** |
+| `store` | **Seventeen scripted visits** through each of the six shops | **Verified matching** |
 
 `seeds` is the one that will confirm the `reset_seed` quirk against the original
 rather than by inference: `magic_init` shuffles appearances inside a
@@ -255,6 +256,29 @@ nothing. Both sides clear a patch of floor, put an object two and four squares
 out in each of the eight directions, set mineral veins five out, and place a
 creature. The same trick makes the digging and bashing comparable: whether there
 is rubble next to the player is otherwise a matter of luck.
+
+## Scripts that have to know the price
+
+A shop is haggled with, not bought from, and an offer only means anything if it
+is near the price. The price depends on the item, the shopkeeper's race, their
+opinion of the player and the player's charisma - so a script of fixed numbers
+either overshoots every time or insults the shopkeeper every time, and proves
+nothing either way. The first set of scripts here did exactly that: they matched
+perfectly and never once closed a deal.
+
+So the offers are written as markers - what the shopkeeper opens at, the most
+the player would pay, the middle of the two - and each side fills them in with
+its own arithmetic just before typing them. The filled script is printed as part
+of the dump. That makes the test stronger rather than weaker: a disagreement
+about what something is worth shows up as two different scripts and a diff that
+starts at the first line.
+
+It was exactly that which found the pricing bug. AIrom's item_value() decided
+whether the player recognised something by looking only at the store-bought
+flag on the item, never at what the player had actually learned - so a potion
+they had identified was still priced as a mystery. Shop stock is store-bought by
+definition, so the older shops mode could not see it; only selling something of
+the player's own does.
 
 ## Reaching inside generate.c and main.c
 

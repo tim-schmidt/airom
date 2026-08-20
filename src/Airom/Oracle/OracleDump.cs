@@ -1142,6 +1142,28 @@ public static partial class OracleDump
 
                 return 0;
 
+            case "store":
+                if (arguments.Length != 4
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint shopSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int stStore)
+                    || !int.TryParse(arguments[3], CultureInfo.InvariantCulture, out int stVariation))
+                {
+                    return Usage(error);
+                }
+
+                if (stStore < 0 || stStore >= StoreSets.StoreCount)
+                {
+                    error.WriteLine(
+                        "airom: store " + stStore.ToString(CultureInfo.InvariantCulture)
+                        + " is outside 0.."
+                        + (StoreSets.StoreCount - 1).ToString(CultureInfo.InvariantCulture));
+
+                    return 2;
+                }
+
+                DumpStore(output, shopSeed, stStore, stVariation);
+                return 0;
+
             case "potion":
                 if (arguments.Length != 4
                     || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint potSeed)
@@ -1175,6 +1197,20 @@ public static partial class OracleDump
                     || !int.TryParse(arguments[4], CultureInfo.InvariantCulture, out int ftRounds))
                 {
                     return Usage(error);
+                }
+
+                if (ftCreature < 0 || ftCreature >= GameTables.CreatureList.Length)
+                {
+                    // Said rather than thrown: an index past the creature table
+                    // is a mistyped argument, and a stack trace says nothing
+                    // about which one was wrong.
+                    error.WriteLine(
+                        "airom: creature " + ftCreature.ToString(CultureInfo.InvariantCulture)
+                        + " is outside 0.."
+                        + (GameTables.CreatureList.Length - 1)
+                            .ToString(CultureInfo.InvariantCulture));
+
+                    return 2;
                 }
 
                 DumpFight(output, ftSeed, ftLevel, ftCreature, ftRounds);
@@ -1381,6 +1417,7 @@ public static partial class OracleDump
         error.WriteLine("  airom oracle getitem <seed> <variation>  the prompt that asks which item");
         error.WriteLine("  airom oracle moria4 <seed> <level> <variation>  digging, disarming, bashing, throwing");
         error.WriteLine("  airom oracle look <seed> <level> <variation>  the cone of peripheral vision");
+        error.WriteLine("  airom oracle store <seed> <store> <variation>  a visit to a shop");
         error.WriteLine("  airom oracle regen <seed> <turns>  regeneration of hit points and mana");
         error.WriteLine("  airom oracle map <seed> <level>  the whole level shrunk to one screen");
         return 2;

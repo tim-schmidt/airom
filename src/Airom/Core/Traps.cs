@@ -516,8 +516,8 @@ public sealed class Traps
     }
 
     /// <summary>
-    /// Pending: the shops are store1.c and store2.c, which are not ported.
+    /// Walking into a shop. The doorway is an object like any other, which is
+    /// why entering one arrives through the same path a trap does.
     /// </summary>
-    private void EnterStore(int which) =>
-        _display.MessagePrint("The shops are not ported yet.");
+    private void EnterStore(int which) => _loop.StoreScreen.Enter(which);
 }
