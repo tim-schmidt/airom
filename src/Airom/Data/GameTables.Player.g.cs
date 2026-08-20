@@ -182,6 +182,62 @@ public static partial class GameTables
     };
 
     /// <summary>
+    /// What a character of each class is called at each level, indexed
+    /// [class][level - 1]. The rank shown beside the race and class.
+    /// </summary>
+    public static readonly string[][] ClassTitles =
+    [
+        ["Rookie", "Private", "Soldier", "Mercenary", "Veteran(1st)", "Veteran(2nd)",
+            "Veteran(3rd)", "Warrior(1st)", "Warrior(2nd)", "Warrior(3rd)", "Warrior(4th)",
+            "Swordsman-1", "Swordsman-2", "Swordsman-3", "Hero", "Swashbuckler", "Myrmidon",
+            "Champion-1", "Champion-2", "Champion-3", "Superhero", "Knight", "Superior Knt",
+            "Gallant Knt", "Knt Errant", "Guardian Knt", "Baron", "Duke", "Lord (1st)",
+            "Lord (2nd)", "Lord (3rd)", "Lord (4th)", "Lord (5th)", "Lord (6th)", "Lord (7th)",
+            "Lord (8th)", "Lord (9th)", "Lord Gallant", "Lord Keeper", "Lord Noble"],
+        ["Novice", "Apprentice", "Trickster-1", "Trickster-2", "Trickster-3", "Cabalist-1",
+            "Cabalist-2", "Cabalist-3", "Visionist", "Phantasmist", "Shadowist", "Spellbinder",
+            "Illusionist", "Evoker (1st)", "Evoker (2nd)", "Evoker (3rd)", "Evoker (4th)",
+            "Conjurer", "Theurgist", "Thaumaturge", "Magician", "Enchanter", "Warlock",
+            "Sorcerer", "Necromancer", "Mage (1st)", "Mage (2nd)", "Mage (3rd)", "Mage (4th)",
+            "Mage (5th)", "Wizard (1st)", "Wizard (2nd)", "Wizard (3rd)", "Wizard (4th)",
+            "Wizard (5th)", "Wizard (6th)", "Wizard (7th)", "Wizard (8th)", "Wizard (9th)",
+            "Wizard Lord"],
+        ["Believer", "Acolyte(1st)", "Acolyte(2nd)", "Acolyte(3rd)", "Adept (1st)",
+            "Adept (2nd)", "Adept (3rd)", "Priest (1st)", "Priest (2nd)", "Priest (3rd)",
+            "Priest (4th)", "Priest (5th)", "Priest (6th)", "Priest (7th)", "Priest (8th)",
+            "Priest (9th)", "Curate (1st)", "Curate (2nd)", "Curate (3rd)", "Curate (4th)",
+            "Curate (5th)", "Curate (6th)", "Curate (7th)", "Curate (8th)", "Curate (9th)",
+            "Canon (1st)", "Canon (2nd)", "Canon (3rd)", "Canon (4th)", "Canon (5th)",
+            "Low Lama", "Lama-1", "Lama-2", "Lama-3", "High Lama", "Great Lama", "Patriarch",
+            "High Priest", "Great Priest", "Noble Priest"],
+        ["Vagabond", "Footpad", "Cutpurse", "Robber", "Burglar", "Filcher", "Sharper",
+            "Magsman", "Common Rogue", "Rogue (1st)", "Rogue (2nd)", "Rogue (3rd)",
+            "Rogue (4th)", "Rogue (5th)", "Rogue (6th)", "Rogue (7th)", "Rogue (8th)",
+            "Rogue (9th)", "Master Rogue", "Expert Rogue", "Senior Rogue", "Chief Rogue",
+            "Prime Rogue", "Low Thief", "Thief (1st)", "Thief (2nd)", "Thief (3rd)",
+            "Thief (4th)", "Thief (5th)", "Thief (6th)", "Thief (7th)", "Thief (8th)",
+            "Thief (9th)", "High Thief", "Master Thief", "Executioner", "Low Assassin",
+            "Assassin", "High Assassin", "Guildsmaster"],
+        ["Runner (1st)", "Runner (2nd)", "Runner (3rd)", "Strider (1st)", "Strider (2nd)",
+            "Strider (3rd)", "Scout (1st)", "Scout (2nd)", "Scout (3rd)", "Scout (4th)",
+            "Scout (5th)", "Courser (1st)", "Courser (2nd)", "Courser (3rd)", "Courser (4th)",
+            "Courser (5th)", "Tracker (1st)", "Tracker (2nd)", "Tracker (3rd)",
+            "Tracker (4th)", "Tracker (5th)", "Tracker (6th)", "Tracker (7th)",
+            "Tracker (8th)", "Tracker (9th)", "Guide (1st)", "Guide (2nd)", "Guide (3rd)",
+            "Guide (4th)", "Guide (5th)", "Guide (6th)", "Guide (7th)", "Guide (8th)",
+            "Guide (9th)", "Pathfinder-1", "Pathfinder-2", "Pathfinder-3", "Ranger",
+            "High Ranger", "Ranger Lord"],
+        ["Gallant", "Keeper (1st)", "Keeper (2nd)", "Keeper (3rd)", "Keeper (4th)",
+            "Keeper (5th)", "Keeper (6th)", "Keeper (7th)", "Keeper (8th)", "Keeper (9th)",
+            "Protector-1", "Protector-2", "Protector-3", "Protector-4", "Protector-5",
+            "Protector-6", "Protector-7", "Protector-8", "Defender-1", "Defender-2",
+            "Defender-3", "Defender-4", "Defender-5", "Defender-6", "Defender-7", "Defender-8",
+            "Warder (1st)", "Warder (2nd)", "Warder (3rd)", "Warder (4th)", "Warder (5th)",
+            "Warder (6th)", "Warder (7th)", "Warder (8th)", "Warder (9th)", "Guardian",
+            "Chevalier", "Justiciar", "Paladin", "High Lord"],
+    ];
+
+    /// <summary>
     /// The five items each class starts with, as object table indices.
     /// </summary>
     public static readonly int[][] StartingItems =

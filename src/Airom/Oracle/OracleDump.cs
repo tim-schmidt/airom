@@ -1015,6 +1015,17 @@ public static partial class OracleDump
                 DumpMap(output, mpSeed, mpLevel);
                 return 0;
 
+            case "statblock":
+                if (arguments.Length != 3
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint sbSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int sbVar))
+                {
+                    return Usage(error);
+                }
+
+                DumpStatBlock(output, sbSeed, sbVar);
+                return 0;
+
             case "cave":
                 if (arguments.Length != 3
                     || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint cvSeed)
@@ -1049,6 +1060,7 @@ public static partial class OracleDump
         error.WriteLine("  airom oracle character <seed> <race> <sex> <class>  a rolled character");
         error.WriteLine("  airom oracle screen <seed> <level>  the drawn map");
         error.WriteLine("  airom oracle messages <seed>  the message line and its history");
+        error.WriteLine("  airom oracle statblock <seed> <variation>  the status sidebar");
         error.WriteLine("  airom oracle map <seed> <level>  the whole level shrunk to one screen");
         return 2;
     }

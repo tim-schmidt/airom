@@ -91,6 +91,18 @@ public sealed class GameState
 
     private Stores? _stores;
 
+    /// <summary>Whether repeat and rest counts are shown. A player option.</summary>
+    public bool DisplayCounts { get; set; } = true;
+
+    /// <summary>Whether wizard mode is active, which forfeits the score.</summary>
+    public bool Wizard { get; set; }
+
+    /// <summary>
+    /// Why the score will not count: 1 resurrected, 2 wizard, 4 duplicate.
+    /// Mirrors Umoria's noscore.
+    /// </summary>
+    public int NoScore { get; set; }
+
     /// <summary>Whether the terminal bell sounds. A player option, on by default.</summary>
     public bool SoundEnabled { get; set; } = true;
 

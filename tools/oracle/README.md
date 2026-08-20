@@ -91,6 +91,7 @@ divergence.
 | `screen` | The drawn map, composed by the real io.c through the panel arithmetic | **Verified matching** |
 | `messages` | The message line: combining, -more- prompting, the history ring | **Verified matching** |
 | `map` | The whole level shrunk to one screen, as the M command shows it | **Verified matching** |
+| `statblock` | The status sidebar: identity, stats, numbers and every condition indicator | **Verified matching** |
 
 `seeds` is the one that will confirm the `reset_seed` quirk against the original
 rather than by inference: `magic_init` shuffles appearances inside a

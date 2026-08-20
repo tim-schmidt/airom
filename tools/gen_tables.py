@@ -754,6 +754,41 @@ def gen_player(moria):
         ],
     )
 
+    # The class titles are a class-by-level grid of strings.
+    body = extract_initialiser(text, "player_title[MAX_CLASS][MAX_PLAYER_LEVEL]")
+    rows = split_rows(body)
+    if len(rows) != defines["MAX_CLASS"]:
+        raise SystemExit(
+            "player_title: parsed {0} rows, MAX_CLASS is {1}".format(
+                len(rows), defines["MAX_CLASS"]
+            )
+        )
+
+    lines += [
+        "    /// <summary>",
+        "    /// What a character of each class is called at each level, indexed",
+        "    /// [class][level - 1]. The rank shown beside the race and class.",
+        "    /// </summary>",
+        "    public static readonly string[][] ClassTitles =",
+        "    [",
+    ]
+    for row in rows:
+        titles = [c_string(f) for f in split_fields(row) if f]
+        if len(titles) != defines["MAX_PLAYER_LEVEL"]:
+            raise SystemExit(
+                "player_title row: expected {0} titles, got {1}".format(
+                    defines["MAX_PLAYER_LEVEL"], len(titles)
+                )
+            )
+        line = "        ["
+        for title in titles:
+            if len(line) + len(title) + 2 > 96:
+                lines.append(line.rstrip())
+                line = "            "
+            line += title + ", "
+        lines.append(line.rstrip().rstrip(",") + "],")
+    lines += ["    ];", ""]
+
     body = extract_initialiser(text, "player_init[MAX_CLASS][5]")
     rows = split_rows(body)
     lines += [

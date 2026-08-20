@@ -100,6 +100,30 @@ public sealed class Player
     /// whole curve up front so that levelling cannot be re-rolled by reloading.
     /// </summary>
     public int[] HitPointsByLevel { get; } = new int[MaxLevel];
+
+    /// <summary>Experience earned. Umoria's exp.</summary>
+    public int Experience { get; set; }
+
+    /// <summary>Spell points available now.</summary>
+    public int CurrentMana { get; set; }
+
+    /// <summary>Armour class as shown, which includes the magical bonus.</summary>
+    public int DisplayedArmourClass { get; set; }
+
+    /// <summary>Conditions the player is under; see <see cref="PlayerStatus"/>.</summary>
+    public uint Status { get; set; }
+
+    /// <summary>Speed adjustment. Positive is slower, which reads backwards but is Umoria's.</summary>
+    public int Speed { get; set; }
+
+    /// <summary>Turns left paralysed.</summary>
+    public int Paralysis { get; set; }
+
+    /// <summary>Turns left resting, or negative to rest until something happens.</summary>
+    public int Rest { get; set; }
+
+    /// <summary>Spells waiting to be learned.</summary>
+    public int NewSpells { get; set; }
 }
 
 /// <summary>

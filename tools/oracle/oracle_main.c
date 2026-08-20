@@ -1472,6 +1472,158 @@ static void dump_map(unsigned long seed, int level)
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* ------------------------------------------------------------- statblock */
+
+/* The status sidebar, for a rolled character under a set of conditions.
+
+   Each condition owns a column range along the bottom two lines, so they can be
+   redrawn as they come and go. The interesting parts are the ones that interact:
+   weak outranks hungry, paralysis outranks resting, searching overwrites a
+   repeat count, and searching is discounted from the speed before deciding
+   whether there is anything to say about it. */
+static void dump_statblock(unsigned long seed, int variation)
+{
+  char keys[16];
+  int letter, slot, j;
+
+  header("statblock", seed);
+  printf("variation %d\n", variation);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+
+  init_curses();
+  oracle_screen_reset();
+
+  /* A human warrior, so the character is the same in every variation. */
+  letter = -1;
+  slot = 0;
+  for (j = 0; j < MAX_CLASS; j++)
+    {
+      if (race[0].rtclass & (0x1L << j))
+        {
+          if (j == 0)
+            letter = slot;
+          slot++;
+        }
+    }
+
+  keys[0] = 'a';
+  keys[1] = 'm';
+  keys[2] = ESCAPE;
+  keys[3] = (char)('a' + letter);
+  keys[4] = '\r';
+  keys[5] = ' ';
+  keys[6] = ' ';
+  keys[7] = '\0';
+  oracle_feed_keys(keys);
+
+  create_character();
+  character_generated = 1;
+
+  py.misc.exp = 12345;
+  py.misc.cmana = 7;
+  py.misc.dis_ac = 14;
+  py.misc.au = 4321;
+
+  switch (variation)
+    {
+    case 0:
+      break;
+    case 1:
+      py.flags.status |= PY_HUNGRY;
+      break;
+    case 2:
+      py.flags.status |= (PY_WEAK | PY_HUNGRY);
+      break;
+    case 3:
+      py.flags.status |= (PY_BLIND | PY_CONFUSED | PY_FEAR | PY_POISONED);
+      break;
+    case 4:
+      py.flags.status |= PY_SEARCH;
+      break;
+    case 5:
+      py.flags.status |= PY_REST;
+      py.flags.rest = 42;
+      break;
+    case 6:
+      py.flags.status |= PY_REST;
+      py.flags.rest = -1;
+      break;
+    case 7:
+      py.flags.paralysis = 5;
+      py.flags.status |= PY_REST;
+      break;
+    case 8:
+      command_count = 17;
+      break;
+    case 9:
+      command_count = 17;
+      py.flags.status |= PY_SEARCH;
+      break;
+    case 10:
+      py.flags.speed = 2;
+      break;
+    case 11:
+      py.flags.speed = -3;
+      break;
+    case 12:
+      py.flags.speed = 1;
+      py.flags.status |= PY_SEARCH;
+      break;
+    case 13:
+      py.flags.new_spells = 2;
+      break;
+    case 14:
+      total_winner = TRUE;
+      break;
+    case 15:
+      noscore |= 0x2;
+      wizard = TRUE;
+      break;
+    case 16:
+      /* The whole range cnv_stat has to write, including the 18/100 that is the
+         only three digit remainder. */
+      py.stats.use_stat[0] = 3;
+      py.stats.use_stat[1] = 18;
+      py.stats.use_stat[2] = 19;
+      py.stats.use_stat[3] = 18 + 22;
+      py.stats.use_stat[4] = 18 + 99;
+      py.stats.use_stat[5] = 18 + 100;
+      break;
+    case 17:
+      py.misc.lev = 0;
+      break;
+    case 18:
+      py.misc.lev = MAX_PLAYER_LEVEL;
+      break;
+    case 19:
+      py.misc.lev = MAX_PLAYER_LEVEL + 1;
+      break;
+    default:
+      py.misc.lev = MAX_PLAYER_LEVEL + 1;
+      py.misc.male = FALSE;
+      break;
+    }
+
+  clear_screen();
+  prt_stat_block();
+
+  oracle_screen_dump("stat");
+
+  /* Only the bits the sidebar itself reads or writes: the rest are requests to
+     recompute something, raised here by carrying the starting inventory. */
+  printf("status %lu\n",
+         (unsigned long)(py.flags.status
+                         & (PY_HUNGRY | PY_WEAK | PY_BLIND | PY_CONFUSED | PY_FEAR
+                            | PY_POISONED | PY_SEARCH | PY_REST | PY_STUDY
+                            | PY_REPEAT)));
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ---------------------------------------------------------------- driver */
 
 static int usage(void)
@@ -1493,7 +1645,8 @@ static int usage(void)
           "  oracle character <seed> <race> <sex> <class>  a rolled character\n"
           "  oracle screen <seed> <level>  the drawn map\n"
           "  oracle messages <seed>  the message line and its history\n"
-          "  oracle map <seed> <level>  the whole level shrunk to one screen\n");
+          "  oracle map <seed> <level>  the whole level shrunk to one screen\n"
+          "  oracle statblock <seed> <variation>  the status sidebar\n");
   return 2;
 }
 
@@ -1662,6 +1815,16 @@ int main(int argc, char *argv[])
           return usage();
         }
       dump_map(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "statblock") == 0)
+    {
+      if (argc != 4)
+        {
+          return usage();
+        }
+      dump_statblock(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
       return 0;
     }
 
