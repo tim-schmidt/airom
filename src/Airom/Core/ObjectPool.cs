@@ -62,6 +62,36 @@ public sealed class InvenType : IItemAttributes
     /// <summary>What the player has learned about this item.</summary>
     public byte Identification { get; set; }
 
+    /// <summary>
+    /// Copies another item's current state, enchantments and all. CopyFrom only
+    /// stamps the table template, which is not the same thing once an item has
+    /// been enchanted or partly used.
+    /// </summary>
+    public void CopyStateFrom(InvenType other)
+    {
+        ArgumentNullException.ThrowIfNull(other);
+
+        Index = other.Index;
+        SpecialName = other.SpecialName;
+        Inscription = other.Inscription;
+        Flags = other.Flags;
+        TVal = other.TVal;
+        DisplayChar = other.DisplayChar;
+        P1 = other.P1;
+        Cost = other.Cost;
+        SubVal = other.SubVal;
+        Number = other.Number;
+        Weight = other.Weight;
+        ToHit = other.ToHit;
+        ToDam = other.ToDam;
+        Ac = other.Ac;
+        ToAc = other.ToAc;
+        DamageDice = other.DamageDice;
+        DamageSides = other.DamageSides;
+        Level = other.Level;
+        Identification = other.Identification;
+    }
+
     /// <summary>Resets to the blank_treasure state Umoria clears the list to.</summary>
     public void Clear()
     {

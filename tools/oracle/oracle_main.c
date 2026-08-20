@@ -1040,6 +1040,8 @@ static void dump_town(unsigned long seed, long turn_count)
   probe_mlink();
   probe_blank_cave();
 
+  store_init();
+
   cur_height = SCREEN_HEIGHT;
   cur_width = SCREEN_WIDTH;
 
@@ -1086,7 +1088,10 @@ static void dump_town(unsigned long seed, long turn_count)
       probe_alloc_monster(MIN_MALLOC_TD, 3, TRUE);
     }
 
-  /* store_maint() would run here. */
+  store_maint();
+
+  for (i = 0; i < MAX_STORES; i++)
+    printf("shop %d %d %d\n", i, (int)store[i].owner, (int)store[i].store_ctr);
 
   printf("height %d\n", (int)cur_height);
   printf("width %d\n", (int)cur_width);
@@ -1137,6 +1142,63 @@ static void dump_town(unsigned long seed, long turn_count)
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* ----------------------------------------------------------------- shops */
+
+/* The six shops: their owners, their stock and their asking prices.
+
+   store_init hands out owners and empties the shelves; store_maint then turns
+   the stock over, selling some off and taking some in. Repeating the
+   maintenance simulates the shops changing across several visits to town,
+   which is where the interesting behaviour is - a shop that only ever filled
+   up would look the same after the first pass. */
+static void dump_shops(unsigned long seed, int rounds)
+{
+  int i, j, r;
+
+  header("shops", seed);
+  printf("rounds %d\n", rounds);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+  pin_player(0);
+  dun_level = 0;
+
+  probe_tlink();
+
+  store_init();
+
+  for (i = 0; i < MAX_STORES; i++)
+    printf("owner %d %d\n", i, (int)store[i].owner);
+
+  for (r = 0; r < rounds; r++)
+    {
+      store_maint();
+      printf("round %d state %lu\n", r, (unsigned long)get_rnd_seed());
+
+      for (i = 0; i < MAX_STORES; i++)
+        {
+          store_type *s = &store[i];
+          printf("store %d %d %d\n", r, i, (int)s->store_ctr);
+
+          for (j = 0; j < s->store_ctr; j++)
+            {
+              inven_type *it = &s->store_inven[j].sitem;
+              printf("stock %d %d %d %d %d %d %d %ld %ld %d %d %d\n",
+                     r, i, j,
+                     (int)it->index, (int)it->tval, (int)it->subval,
+                     (int)it->number, (long)it->cost,
+                     (long)s->store_inven[j].scost,
+                     (int)it->p1, (int)it->name2, (int)it->ident);
+            }
+        }
+    }
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ---------------------------------------------------------------- driver */
 
 static int usage(void)
@@ -1153,7 +1215,8 @@ static int usage(void)
           "  oracle picks <seed> <level> <count>  object sort and get_obj_num\n"
           "  oracle enchanted <seed> <level> <count>  magic_treasure\n"
           "  oracle populate <seed> <level>  a finished level, less monsters\n"
-          "  oracle town <seed> <turn>  the town, less shop restocking\n");
+          "  oracle town <seed> <turn>  the town, less shop restocking\n"
+          "  oracle shops <seed> <rounds>  shop owners, stock and prices\n");
   return 2;
 }
 
@@ -1269,6 +1332,16 @@ int main(int argc, char *argv[])
           return usage();
         }
       dump_town(strtoul(argv[2], NULL, 10), strtol(argv[3], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "shops") == 0)
+    {
+      if (argc != 4)
+        {
+          return usage();
+        }
+      dump_shops(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
       return 0;
     }
 

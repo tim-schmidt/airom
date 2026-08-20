@@ -86,7 +86,8 @@ divergence.
 | `populate` | A complete level: terrain, every object on it, and every monster | **Verified matching** |
 | `seeds` | `init_seeds` chain, `magic_init`, the shuffled appearance tables | **Verified matching** |
 | `cave` | **A complete dungeon level**: every room type, terrain, lighting, monsters, objects | **Verified matching** |
-| `town` | The town: shops, doors, stairs, lighting, townsfolk (less shop restocking) | **Verified matching** |
+| `town` | **The complete town**: shops, doors, stairs, lighting, townsfolk, shop stock | **Verified matching** |
+| `shops` | Shop owners, stock and asking prices across repeated restocks | **Verified matching** |
 
 `seeds` is the one that will confirm the `reset_seed` quirk against the original
 rather than by inference: `magic_init` shuffles appearances inside a

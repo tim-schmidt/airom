@@ -143,8 +143,8 @@ public sealed partial class DungeonGenerator
     /// and few people are about; by night only the buildings are lit and twice
     /// as many are, which is what makes the town worth leaving before dark.
     ///
-    /// store_maint() is not ported yet, so shop inventories are not restocked.
-    /// Everything up to that point is complete.
+    /// The shops restock last, which is why their stock differs between visits
+    /// while the buildings do not.
     /// </summary>
     public void GenerateTown()
     {
@@ -192,5 +192,7 @@ public sealed partial class DungeonGenerator
             night ? TownMonstersNight : TownMonstersDay,
             minimumDistance: 3,
             asleep: true);
+
+        _game.Stores.Maintain();
     }
 }

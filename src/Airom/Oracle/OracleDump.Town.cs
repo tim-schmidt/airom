@@ -11,11 +11,10 @@ namespace Airom.Oracle;
 public static partial class OracleDump
 {
     /// <summary>
-    /// The town, less the shop restocking.
+    /// The town, complete.
     ///
-    /// town_gen ends by calling store_maint, which is not ported yet, so both
-    /// sides stop short of it. Everything that makes the map is compared: the
-    /// six shops, their doors, the stairs, the lighting and the townsfolk.
+    /// Everything is compared: the six shops and their doors, the stairs, the
+    /// lighting, the townsfolk, and the stock each shop restocks with.
     /// </summary>
     /// <param name="turn">
     /// Turns elapsed, which decides day or night. The clock alternates in blocks
@@ -38,6 +37,7 @@ public static partial class OracleDump
         game.Monsters.Reset();
         game.Cave.Resize(DungeonGenerator.TownHeight, DungeonGenerator.TownWidth);
         game.Cave.Blank();
+        game.Stores.Initialise();
 
         new DungeonGenerator(game).GenerateTown();
 
@@ -45,6 +45,17 @@ public static partial class OracleDump
         output.Write("char-row " + game.CharacterRow.ToString(CultureInfo.InvariantCulture) + "\n");
         output.Write("char-col " + game.CharacterColumn.ToString(CultureInfo.InvariantCulture) + "\n");
         output.Write("phase " + ((1 & (turn / 5000)) != 0 ? "night" : "day") + "\n");
+
+        for (int i = 0; i < game.Stores.All.Length; i++)
+        {
+            Store shop = game.Stores.All[i];
+            output.Write(string.Join(
+                ' ',
+                "shop",
+                i.ToString(CultureInfo.InvariantCulture),
+                shop.Owner.ToString(CultureInfo.InvariantCulture),
+                shop.StockCount.ToString(CultureInfo.InvariantCulture)) + "\n");
+        }
         output.Write("height " + cave.Height.ToString(CultureInfo.InvariantCulture) + "\n");
         output.Write("width " + cave.Width.ToString(CultureInfo.InvariantCulture) + "\n");
 

@@ -959,6 +959,17 @@ public static partial class OracleDump
                 DumpTown(output, twSeed, twTurn);
                 return 0;
 
+            case "shops":
+                if (arguments.Length != 3
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint shSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int shRounds))
+                {
+                    return Usage(error);
+                }
+
+                DumpShops(output, shSeed, shRounds);
+                return 0;
+
             case "cave":
                 if (arguments.Length != 3
                     || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint cvSeed)
@@ -989,6 +1000,7 @@ public static partial class OracleDump
         error.WriteLine("  airom oracle enchanted <seed> <level> <count>  magic_treasure");
         error.WriteLine("  airom oracle populate <seed> <level>  a finished level, less monsters");
         error.WriteLine("  airom oracle town <seed> <turn>  the town, less shop restocking");
+        error.WriteLine("  airom oracle shops <seed> <rounds>  shop owners, stock and prices");
         return 2;
     }
 }

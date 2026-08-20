@@ -81,6 +81,16 @@ public sealed class GameState
     /// </summary>
     public int Turn { get; set; }
 
+    /// <summary>
+    /// The player's race, which decides how each shop owner prices for them.
+    /// </summary>
+    public int PlayerRace { get; set; }
+
+    /// <summary>The six town shops.</summary>
+    public Stores Stores => _stores ??= new Stores(this);
+
+    private Stores? _stores;
+
     /// <summary>Whether the player has already won, which stops the win monsters respawning.</summary>
     public bool TotalWinner { get; set; }
 
