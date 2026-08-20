@@ -100,6 +100,8 @@ divergence.
 | `walk` | **Steps**: move_char over a scripted path, walls and searching included | **Verified matching** |
 | `run` | **A run**: the whole find algorithm, path dumped square by square | **Verified matching** |
 | `search` | Finding traps, secret doors and the trap on a chest | **Verified matching** |
+| `names` | **Every item in the table named eight ways**, known and unknown | **Verified matching** |
+| `pickup` | Walking over things and carrying them: the purse, the pack, the weight | **Verified matching** |
 
 `seeds` is the one that will confirm the `reset_seed` quirk against the original
 rather than by inference: `magic_init` shuffles appearances inside a
@@ -119,7 +121,8 @@ ported and a monster taking its turn would consume random numbers on one side
 only. Everything else - the whole screen included - is compared.
 
 `walk`, `run` and `search` strip the level of monsters and loose objects
-first. Monsters would move on the C side only, since `creature.c` is not
+first; `pickup` keeps the objects and strips only the monsters and the traps,
+since `hit_trap()` is not ported. Monsters would move on the C side only, since `creature.c` is not
 ported; objects would be picked up on the C side only, since `carry()` needs
 the inventory, and picking one up prints a message and changes the pack. The
 `search` mode then puts back exactly what it wants to find - one of each trap,

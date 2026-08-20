@@ -2393,6 +2393,243 @@ static void dump_search(unsigned long seed, int level, int rounds, int chance)
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* ------------------------------------------------------------------- names */
+
+/* Naming things.
+
+   objdes() builds every item name in the game, and what it can say depends on
+   what the player knows: an unidentified wand is named by its metal, the same
+   wand once identified by what it does, and either may carry a count, an
+   article, dice, bonuses, charges and a brace of guesses at the end.
+
+   Every object in the table is named four ways - unknown, kind known,
+   enchantment known, both - and again as a pile rather than one, so the
+   pluralising and the article are covered too. The scrolls are the reason this
+   has to run after magic_init(): their titles are made of shuffled syllables. */
+static void dump_names(unsigned long seed, int first, int count)
+{
+  int i, variation;
+  bigvtype description;
+  inven_type item;
+
+  header("names", seed);
+  printf("first %d\n", first);
+  printf("count %d\n", count);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+
+  init_curses();
+  oracle_screen_reset();
+
+  for (i = first; i < first + count && i < MAX_OBJECTS; i++)
+    {
+      for (variation = 0; variation < 8; variation++)
+        {
+          int16 offset;
+
+          invcopy(&item, i);
+
+          /* Something worth printing in every field: a pile of four, an
+             enchantment, plusses and a name that only shows once identified. */
+          if (variation & 4)
+            {
+              item.number = 4;
+              item.tohit = 7;
+              item.todam = -3;
+              item.toac = 2;
+              item.p1 = 5;
+              item.name2 = SN_SD;
+              item.ident |= ID_MAGIK;
+            }
+
+          /* Forget everything about this kind, then learn back what the
+             variation calls for. */
+          if ((offset = object_offset(&item)) >= 0)
+            {
+              int slot = (offset << 6) + (item.subval & (ITEM_SINGLE_STACK_MIN - 1));
+              object_ident[slot] = 0;
+              if (variation & 1)
+                object_ident[slot] |= OD_KNOWN1;
+              else
+                object_ident[slot] |= OD_TRIED;
+            }
+
+          if (variation & 2)
+            item.ident |= ID_KNOWN2;
+
+          objdes(description, &item, TRUE);
+          printf("%d %d full %s\n", i, variation, description);
+
+          objdes(description, &item, FALSE);
+          printf("%d %d bare %s\n", i, variation, description);
+        }
+    }
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
+/* ------------------------------------------------------------------ pickup */
+
+/* Walking over things and picking them up.
+
+   The walk mode strips the level bare; this one leaves the objects where they
+   fell, so every step onto one runs carry(): the gold into the purse, the rest
+   into the pack, with the weight and the sorting that follow.
+
+   The traps are taken off first. hit_trap() belongs to moria3.c and is not
+   ported, so a trap would fire on the C side only. */
+static void strip_traps(void)
+{
+  int i, j;
+
+  for (i = 0; i < MAX_HEIGHT; i++)
+    for (j = 0; j < MAX_WIDTH; j++)
+      {
+        cave[i][j].cptr = 0;
+
+        if (cave[i][j].tptr != 0)
+          {
+            int t = t_list[cave[i][j].tptr].tval;
+
+            if (t == TV_INVIS_TRAP || t == TV_VIS_TRAP || t == TV_STORE_DOOR)
+              cave[i][j].tptr = 0;
+          }
+      }
+
+  mfptr = MIN_MONIX;
+}
+
+static void dump_pickup(unsigned long seed, int level, int steps, int variation)
+{
+  int step, i;
+  bigvtype description;
+
+  header("pickup", seed);
+  printf("level %d\n", level);
+  printf("steps %d\n", steps);
+  printf("variation %d\n", variation);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+  pin_player(level);
+  dun_level = (int16)level;
+
+  init_curses();
+  oracle_screen_reset();
+
+  generate_cave();
+  strip_traps();
+
+  cave[char_row][char_col].cptr = 1;
+
+  /* A scripted walk wanders in a small circle, so what it finds is left to
+     chance. Ring the player with things instead: gold, a weapon, armour, a
+     potion, a scroll, food, a wand, and a pile of pebbles that has to stack. */
+  {
+    static int ring[8] = { 399, 74, 91, 222, 173, 163, 293, 82 };
+    int i, j, k = 0;
+
+    for (i = char_row - 1; i <= char_row + 1; i++)
+      for (j = char_col - 1; j <= char_col + 1; j++)
+        {
+          int slot;
+
+          if (i == char_row && j == char_col)
+            continue;
+          if (cave[i][j].fval > MAX_OPEN_SPACE)
+            {
+              k++;
+              continue;
+            }
+
+          slot = popt();
+          invcopy(&t_list[slot], ring[k]);
+          if (ring[k] == 399)
+            t_list[slot].cost = 250;
+          if (ring[k] == 82)
+            t_list[slot].number = 12;
+          cave[i][j].tptr = (int8u)slot;
+          k++;
+        }
+  }
+
+  /* Strong enough to carry a good deal, so the weight limit is reached by
+     picking things up rather than by starting encumbered. */
+  py.stats.cur_stat[A_STR] = 16;
+  py.stats.max_stat[A_STR] = 16;
+  py.stats.use_stat[A_STR] = 16;
+  py.misc.wt = 150;
+  py.misc.fos = 1;
+  py.misc.srh = 40;
+  player_light = TRUE;
+
+  switch (variation)
+    {
+    case 0:
+      break;
+    case 1:
+      /* Ask before picking anything up, and answer yes to everything. */
+      prompt_carry_flag = TRUE;
+      break;
+    case 2:
+      /* A weakling, who reaches the weight limit almost at once. */
+      py.stats.cur_stat[A_STR] = 3;
+      py.stats.max_stat[A_STR] = 3;
+      py.stats.use_stat[A_STR] = 3;
+      py.misc.wt = 80;
+      break;
+    default:
+      /* Walk over everything without picking any of it up. */
+      break;
+    }
+
+  /* Spaces answer the -more- prompts and the pickup questions alike; a "y"
+     would be needed for a no, and yes is what these variations want. */
+  {
+    char script[2001];
+    int n;
+
+    for (n = 0; n < 2000; n++)
+      script[n] = (n % 2) ? 'y' : ' ';
+    script[2000] = '\0';
+    oracle_feed_keys(script);
+  }
+
+  panel_row = panel_col = -1;
+  check_view();
+
+  for (step = 0; step < steps; step++)
+    {
+      free_turn_flag = FALSE;
+      move_char(walk_script[step % 8], variation == 3 ? FALSE : TRUE);
+      printf("step %d at %d %d free %d\n", step, (int)char_row,
+             (int)char_col, free_turn_flag ? 1 : 0);
+    }
+
+  printf("gold %ld weight %d count %d burden %d\n", (long)py.misc.au,
+         inven_weight, inven_ctr, pack_heavy);
+
+  for (i = 0; i < inven_ctr; i++)
+    {
+      objdes(description, &inventory[i], TRUE);
+      printf("pack %d %d %d %s\n", i, (int)inventory[i].number,
+             (int)inventory[i].weight, description);
+    }
+
+  oracle_screen_dump("pick");
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+
+  prompt_carry_flag = FALSE;
+}
+
 /* ---------------------------------------------------------------- driver */
 
 
@@ -2424,7 +2661,9 @@ static int usage(void)
           "  oracle light <seed> <level> <steps> <variation>  a walk, lit\n"
           "  oracle walk <seed> <level> <steps> <variation>  scripted steps\n"
           "  oracle run <seed> <level> <direction> <variation>  one run\n"
-          "  oracle search <seed> <level> <rounds> <chance>  finding what is hidden\n");
+          "  oracle search <seed> <level> <rounds> <chance>  finding what is hidden\n"
+          "  oracle names <seed> <first> <count>  item descriptions\n"
+          "  oracle pickup <seed> <level> <steps> <variation>  carrying things\n");
   return 2;
 }
 
@@ -2594,6 +2833,31 @@ int main(int argc, char *argv[])
           return usage();
         }
       dump_map(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "pickup") == 0)
+    {
+      if (argc != 6)
+        {
+          return usage();
+        }
+      dump_pickup(strtoul(argv[2], NULL, 10),
+                  (int)strtol(argv[3], NULL, 10),
+                  (int)strtol(argv[4], NULL, 10),
+                  (int)strtol(argv[5], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "names") == 0)
+    {
+      if (argc != 5)
+        {
+          return usage();
+        }
+      dump_names(strtoul(argv[2], NULL, 10),
+                 (int)strtol(argv[3], NULL, 10),
+                 (int)strtol(argv[4], NULL, 10));
       return 0;
     }
 

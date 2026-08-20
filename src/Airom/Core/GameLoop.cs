@@ -61,6 +61,8 @@ public class GameLoop
     private readonly Display _display;
     private readonly Lighting _lighting;
     private Movement _movement;
+    private Equipment _equipment;
+    private Stats _stats;
 
     public GameLoop(GameState game, Display display)
     {
@@ -71,6 +73,8 @@ public class GameLoop
         _display = display;
         _lighting = new Lighting(game, display);
         _movement = new Movement(game, display, this);
+        _equipment = new Equipment(game, display, this);
+        _stats = new Stats(game, display, this);
     }
 
     /// <summary>What the player can see, and how the screen hears about it.</summary>
@@ -78,6 +82,12 @@ public class GameLoop
 
     /// <summary>Walking, running and searching.</summary>
     public Movement Movement => _movement;
+
+    /// <summary>What worn equipment does for the player.</summary>
+    public Equipment Equipment => _equipment;
+
+    /// <summary>The six stats and the arithmetic that moves them.</summary>
+    public Stats Stats => _stats;
 
     private Player Player => _game.Player;
 
@@ -1400,14 +1410,13 @@ public class GameLoop
     /// With nothing worn there is nothing to grant, so the one thing this can
     /// still do correctly is take back what only equipment could have given.
     /// </summary>
-    protected virtual void RecalculateBonuses() => Player.SeeInvisible = false;
+    protected virtual void RecalculateBonuses() => _equipment.Recalculate();
 
     /// <summary>
     /// Checks whether the player can still carry what they are carrying. Mirrors
     /// check_strength(). Pending: the inventory.
     /// </summary>
-    protected virtual void CheckStrength() =>
-        Player.Status &= ~PlayerStatus.WeightChanged;
+    protected virtual void CheckStrength() => _equipment.CheckStrength();
 
     /// <summary>
     /// Looks over what the player is carrying for an enchantment they have not

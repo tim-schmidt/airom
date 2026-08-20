@@ -6,6 +6,7 @@
 // Copyright (C) 2026 AIrom contributors
 // Licensed under the GNU General Public License v3 or later. See LICENSE.
 
+using System.Globalization;
 using Airom.Data;
 
 namespace Airom.Core;
@@ -766,10 +767,110 @@ public class Movement
 
     /// <summary>
     /// Picks up, or steps over, whatever is on the floor here. Mirrors carry().
-    /// Pending: the inventory.
+    ///
+    /// Gold goes straight into the purse. Anything else is offered, with two
+    /// questions the player may have asked for: whether to pick it up at all,
+    /// and whether to exceed the weight limit doing so. Stepping onto a trap is
+    /// not a pickup at all, and springs it instead.
     /// </summary>
     protected virtual void Carry(int row, int column, bool pickUp)
     {
+        CaveSquare square = _game.Cave[row, column];
+        InvenType item = _game.Objects[square.ObjectIndex];
+        int category = item.TVal;
+
+        if (category > ItemCategory.MaxPickUp)
+        {
+            if (category is ItemCategory.InvisibleTrap or ItemCategory.VisibleTrap
+                or ItemCategory.StoreDoor)
+            {
+                HitTrap(row, column);
+            }
+
+            return;
+        }
+
+        EndFind();
+
+        if (category == ItemCategory.Gold)
+        {
+            Player.Gold += item.Cost;
+
+            string found = "You have found "
+                + item.Cost.ToString(CultureInfo.InvariantCulture)
+                + " gold pieces worth of " + _game.Names.Describe(item, withArticle: true);
+
+            _display.PrintGold(Player);
+            DeleteObject(row, column);
+            _display.MessagePrint(found);
+            return;
+        }
+
+        if (!_game.Inventory.HasRoomFor(item))
+        {
+            _display.MessagePrint(
+                "You can't carry " + _game.Names.Describe(item, withArticle: true));
+            return;
+        }
+
+        if (pickUp && _game.PromptBeforeCarrying)
+        {
+            pickUp = _display.GetCheck("Pick up " + AsQuestion(item));
+        }
+
+        if (pickUp && !_game.Inventory.CanCarryWithoutSlowing(item))
+        {
+            pickUp = _display.GetCheck(
+                "Exceed your weight limit to pick up " + AsQuestion(item));
+        }
+
+        if (!pickUp)
+        {
+            return;
+        }
+
+        int slot = _game.Inventory.Carry(item);
+
+        _display.MessagePrint(
+            "You have " + _game.Names.Describe(_game.Inventory[slot], withArticle: true)
+            + " (" + (char)(slot + 'a') + ")");
+
+        DeleteObject(row, column);
+    }
+
+    /// <summary>
+    /// The description with its full stop turned into a question mark, which is
+    /// how the original asks about an item without describing it twice.
+    /// </summary>
+    private string AsQuestion(InvenType item)
+    {
+        string described = _game.Names.Describe(item, withArticle: true);
+        return described.Length == 0 ? described : described[..^1] + "?";
+    }
+
+    /// <summary>
+    /// Takes an object off the floor. Mirrors delete_object().
+    ///
+    /// A square that was blocked by what stood on it becomes ordinary corridor
+    /// again, which is how clearing rubble opens a way through.
+    /// </summary>
+    /// <returns>Whether the square is one the player can see.</returns>
+    public bool DeleteObject(int row, int column)
+    {
+        CaveSquare square = _game.Cave[row, column];
+
+        if (square.Feature == CaveFeature.BlockedFloor)
+        {
+            square.Feature = CaveFeature.CorridorFloor;
+        }
+
+        _game.Objects.Release(square.ObjectIndex, _game.Cave);
+        square.ObjectIndex = 0;
+        square.FieldMark = false;
+
+        _lighting.LightSpot(row, column);
+
+        return square.PermanentLight || square.TemporaryLight || square.FieldMark;
     }
 
     /// <summary>

@@ -1072,6 +1072,31 @@ public static partial class OracleDump
                 DumpMap(output, mpSeed, mpLevel);
                 return 0;
 
+            case "pickup":
+                if (arguments.Length != 5
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint pickSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int pickLevel)
+                    || !int.TryParse(arguments[3], CultureInfo.InvariantCulture, out int pickSteps)
+                    || !int.TryParse(arguments[4], CultureInfo.InvariantCulture, out int pickVar))
+                {
+                    return Usage(error);
+                }
+
+                DumpPickup(output, pickSeed, pickLevel, pickSteps, pickVar);
+                return 0;
+
+            case "names":
+                if (arguments.Length != 4
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint nmSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int nmFirst)
+                    || !int.TryParse(arguments[3], CultureInfo.InvariantCulture, out int nmCount))
+                {
+                    return Usage(error);
+                }
+
+                DumpNames(output, nmSeed, nmFirst, nmCount);
+                return 0;
+
             case "search":
                 if (arguments.Length != 5
                     || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint srSeed)
@@ -1220,6 +1245,8 @@ public static partial class OracleDump
         error.WriteLine("  airom oracle walk <seed> <level> <steps> <variation>  scripted steps");
         error.WriteLine("  airom oracle run <seed> <level> <direction> <variation>  one run");
         error.WriteLine("  airom oracle search <seed> <level> <rounds> <chance>  finding what is hidden");
+        error.WriteLine("  airom oracle names <seed> <first> <count>  item descriptions");
+        error.WriteLine("  airom oracle pickup <seed> <level> <steps> <variation>  carrying things");
         error.WriteLine("  airom oracle regen <seed> <turns>  regeneration of hit points and mana");
         error.WriteLine("  airom oracle map <seed> <level>  the whole level shrunk to one screen");
         return 2;

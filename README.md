@@ -48,7 +48,10 @@ Early. The foundations are in place; the game is not yet playable.
 | Command dispatch (do_command) | Movement, quit, message recall and the map; the rest wait on their subsystems |
 | Lighting: the lamp, lit rooms, what is remembered | Done, verified against the original |
 | Walking, running and searching | Done, verified against the original |
-| Combat, traps and the inventory | Not started |
+| Item naming (objdes) and what the player knows | Done, verified against the original |
+| The pack: carrying, stacking, weight, equipment bonuses | Done, verified against the original |
+| Combat and traps | Not started |
+| The inventory screens and wielding | Not started |
 | Monsters in motion (creature.c) | Not started |
 | Inventory and equipment | Not started |
 | Save files | Not started |

@@ -701,7 +701,7 @@ public sealed class CharacterCreation(GameState game)
     // -------------------------------------------------------- stat bonuses
 
     /// <summary>Damage bonus from strength. Mirrors todam_adj().</summary>
-    private static int DamageBonus(Player player) => player.UseStat[Stat.Strength] switch
+    internal static int DamageBonus(Player player) => player.UseStat[Stat.Strength] switch
     {
         < 4 => -2,
         < 5 => -1,
@@ -715,7 +715,7 @@ public sealed class CharacterCreation(GameState game)
     };
 
     /// <summary>To-hit bonus from dexterity and strength together. Mirrors tohit_adj().</summary>
-    private static int HitBonus(Player player)
+    internal static int HitBonus(Player player)
     {
         int total = player.UseStat[Stat.Dexterity] switch
         {
@@ -744,7 +744,7 @@ public sealed class CharacterCreation(GameState game)
     }
 
     /// <summary>Armour class bonus from dexterity. Mirrors toac_adj().</summary>
-    private static int ArmourBonus(Player player) => player.UseStat[Stat.Dexterity] switch
+    internal static int ArmourBonus(Player player) => player.UseStat[Stat.Dexterity] switch
     {
         < 4 => -4,
         4 => -3,

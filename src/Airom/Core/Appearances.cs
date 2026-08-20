@@ -24,6 +24,9 @@ public sealed class Appearances
     /// <summary>Umoria's MAX_TITLES: how many scroll titles are made up.</summary>
     public const int TitleCount = 45;
 
+    /// <summary>How many mushroom appearances there are. Umoria's MAX_MUSH.</summary>
+    public const int MushroomCount = 22;
+
     /// <summary>
     /// Scroll titles are stored in a char[10] in the C, so nine characters plus
     /// a terminator is the most that survives.

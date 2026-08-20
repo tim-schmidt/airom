@@ -573,6 +573,41 @@ def gen_names(moria: Path) -> str:
             )
         _emit_strings(lines, cs_name, doc, values)
 
+    # The names an enchantment adds to an item - "of Slay Dragon", "of Westernesse"
+    # - live in treasure.c beside the objects rather than in tables.c.
+    treasure = strip_comments(
+        select_branches(
+            (moria / "source" / "treasure.c").read_text(encoding="latin-1")
+        )
+    )
+    body = extract_initialiser(treasure, "special_names[SN_ARRAY_SIZE]")
+    # The first entry is a null pointer rather than a string: nothing is added
+    # to the name of an item with no enchantment.
+    values = [
+        '""' if f.strip() == "CNIL" else c_string(f)
+        for f in split_fields(body)
+        if f
+    ]
+    expected = defines["SN_ARRAY_SIZE"]
+    if len(values) != expected:
+        raise SystemExit(
+            "special_names: parsed {0} entries, SN_ARRAY_SIZE is {1}".format(
+                len(values), expected
+            )
+        )
+    _emit_strings(
+        lines,
+        "SpecialNames",
+        [
+            "    /// <summary>",
+            "    /// What an enchantment adds to an item's name, indexed by its",
+            "    /// <see cref=\"SpecialName\"/>. The first entry is the empty string, so an",
+            "    /// unenchanted item indexes it harmlessly.",
+            "    /// </summary>",
+        ],
+        values,
+    )
+
     lines[-1:] = ["}", ""]
     return "\n".join(lines)
 

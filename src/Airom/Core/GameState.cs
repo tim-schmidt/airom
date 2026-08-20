@@ -50,6 +50,19 @@ public sealed class GameState
     /// <summary>The character being played.</summary>
     public Player Player { get; set; } = new();
 
+    /// <summary>What the player is carrying and wearing.</summary>
+    public Inventory Inventory => _inventory ??= new Inventory(this);
+
+    private Inventory? _inventory;
+
+    /// <summary>What the player has worked out about the kinds of item they have met.</summary>
+    public ItemKnowledge Knowledge { get; } = new();
+
+    /// <summary>How every item in the game is named.</summary>
+    public ItemNames Names => _names ??= new ItemNames(Appearances, Knowledge);
+
+    private ItemNames? _names;
+
     /// <summary>
     /// The player's own speed modifier, which every monster's speed is measured
     /// against. Zero for a fresh character.
@@ -133,6 +146,13 @@ public sealed class GameState
     /// default: leaving the character out makes a long run less flickery.
     /// </summary>
     public bool ShowSelfWhileRunning { get; set; }
+
+    /// <summary>
+    /// Whether picking something up is confirmed first. A player option, off by
+    /// default: the prompt is for people who would rather not fill their pack
+    /// with everything they walk over.
+    /// </summary>
+    public bool PromptBeforeCarrying { get; set; }
 
     /// <summary>
     /// Whether a run cuts a known corner rather than going the long way round. A

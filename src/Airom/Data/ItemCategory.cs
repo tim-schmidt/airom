@@ -96,4 +96,22 @@ public static class ItemCategory
 
     /// <summary>Highest category drawn on the map as a feature.</summary>
     public const byte MaxVisible = 110;
+
+    /// <summary>
+    /// Items with a subval below this never stack. From this value up to
+    /// <see cref="GroupMin"/> they stack singly - a wand at a time - and above
+    /// it they pile up, like arrows.
+    /// </summary>
+    public const byte SingleStackMin = 64;
+
+    /// <summary>Subvals at or above this stack in piles. Umoria's ITEM_GROUP_MIN.</summary>
+    public const byte GroupMin = 192;
+
+    /// <summary>
+    /// The last subval that still stacks one at a time. It is the same number as
+    /// <see cref="GroupMin"/>: taking one from a pile and taking a whole pile
+    /// meet here.
+    /// </summary>
+    public const byte SingleStackMax = 192;
 }
+

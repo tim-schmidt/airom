@@ -94,4 +94,23 @@ public static partial class GameTables
         "ulk", "um", "un", "uni", "ur", "val", "viv", "vly", "vom", "wah", "wed", "werg",
         "wex", "whon", "wun", "x", "yerg", "yp", "zun"
     ];
+
+    /// <summary>
+    /// What an enchantment adds to an item's name, indexed by its
+    /// <see cref="SpecialName"/>. The first entry is the empty string, so an
+    /// unenchanted item indexes it harmlessly.
+    /// </summary>
+    public static readonly string[] SpecialNames =
+    [
+        "", "(R)", "(RA)", "(RF)", "(RC)", "(RL)", "(HA)", "(DF)", "(SA)", "(SD)", "(SE)",
+        "(SU)", "(FT)", "(FB)", "of Free Action", "of Slaying", "of Clumsiness", "of Weakness",
+        "of Slow Descent", "of Speed", "of Stealth", "of Slowness", "of Noise",
+        "of Great Mass", "of Intelligence", "of Wisdom", "of Infra-Vision", "of Might",
+        "of Lordliness", "of the Magi", "of Beauty", "of Seeing", "of Regeneration",
+        "of Stupidity", "of Dullness", "of Blindness", "of Timidness", "of Teleportation",
+        "of Ugliness", "of Protection", "of Irritation", "of Vulnerability", "of Enveloping",
+        "of Fire", "of Slay Evil", "of Dragon Slaying", "(Empty)", "(Locked)",
+        "(Poison Needle)", "(Gas Trap)", "(Explosion Device)", "(Summoning Runes)",
+        "(Multiple Traps)", "(Disarmed)", "(Unlocked)", "of Slay Animal"
+    ];
 }

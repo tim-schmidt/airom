@@ -180,10 +180,28 @@ public sealed partial class Display(GameState game, IScreen screen)
     }
 
     /// <summary>Blanks from a column to the end of its row. Mirrors erase_line().</summary>
-    public void EraseLine(int row, int column) => _screen.EraseLine(row, column);
+    public void EraseLine(int row, int column)
+    {
+        // Wiping the message line has to let the player read what is on it
+        // first, or a message could vanish before it was ever seen.
+        if (row == MessageLine && MessageWaiting)
+        {
+            MessagePrint(null);
+        }
+
+        _screen.EraseLine(row, column);
+    }
 
     /// <summary>Blanks the whole screen. Mirrors clear_screen().</summary>
-    public void ClearScreen() => _screen.Clear();
+    public void ClearScreen()
+    {
+        if (MessageWaiting)
+        {
+            MessagePrint(null);
+        }
+
+        _screen.Clear();
+    }
 
     /// <summary>Blanks a row and everything below it. Mirrors clear_from().</summary>
     public void ClearFrom(int row) => _screen.ClearFrom(row);
@@ -193,7 +211,7 @@ public sealed partial class Display(GameState game, IScreen screen)
     /// </summary>
     public void Print(string text, int row, int column)
     {
-        _screen.EraseLine(row, column);
+        EraseLine(row, column);
         PutBuffer(text, row, column);
     }
 
