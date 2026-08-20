@@ -115,3 +115,10 @@ void probe_alloc_monster(int num, int dis, int slp)
 {
   alloc_monster(num, dis, slp);
 }
+
+/* town_gen calls store_maint at the very end, which is not ported yet, so the
+   comparison replays town_gen's body up to that point instead of calling it. */
+void probe_build_store(int store_num, int y, int x)
+{
+  build_store(store_num, y, x);
+}

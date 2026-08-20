@@ -35,6 +35,9 @@ Early. The foundations are in place; the game is not yet playable.
 | Level population (objects and monsters) | Done, verified against the original |
 | Vault and cross rooms, summoning | Done, verified against the original |
 | **Complete dungeon levels (cave_gen)** | **Done, verified against the original** |
+| Win monsters (depth 50+) | Done, verified against the original |
+| The town map | Done, verified against the original |
+| Shop inventories (store_maint) | Not started |
 
 | Terminal surface | Done — System.Console, no third-party library |
 | Terminal I/O (io.c port) | Not started |

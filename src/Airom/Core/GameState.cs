@@ -75,6 +75,15 @@ public sealed class GameState
     /// <inheritdoc cref="CharacterRow"/>
     public int CharacterColumn { get; set; } = -1;
 
+    /// <summary>
+    /// Turns elapsed. The town's day and night alternate in blocks of 5000, so
+    /// this decides which one the player walks out into.
+    /// </summary>
+    public int Turn { get; set; }
+
+    /// <summary>Whether the player has already won, which stops the win monsters respawning.</summary>
+    public bool TotalWinner { get; set; }
+
     /// <summary>Turns freshly generated items into specific enchanted ones.</summary>
     public Enchantment Enchantment => _enchantment ??= new Enchantment(this);
 

@@ -58,6 +58,7 @@ extern void probe_place_stairs(int typ, int num, int walls);
 extern void probe_new_spot(int *y, int *x);
 extern void probe_alloc_object(int which_set, int typ, int num);
 extern void probe_alloc_monster(int num, int dis, int slp);
+extern void probe_build_store(int store_num, int y, int x);
 
 /* From oracle_probe_main.c, which reaches the object sort inside main.c. */
 extern void probe_init_t_level(void);
@@ -1009,6 +1010,133 @@ static void dump_populate(unsigned long seed, int level)
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* ------------------------------------------------------------------ town */
+
+/* The town, less the shop restocking.
+
+   town_gen ends by calling store_maint, which is not ported yet, so this
+   replays town_gen's body up to that point rather than calling it. Everything
+   that makes the map - the six shops, their doors, the stairs, the lighting and
+   the townsfolk - is compared. */
+static void dump_town(unsigned long seed, long turn_count)
+{
+  int i, j, k, l, m, cy, cx;
+  int rooms[6];
+  char *row;
+
+  header("town", seed);
+  printf("turn %ld\n", turn_count);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+  pin_player(0);
+  dun_level = 0;
+  turn = (int32)turn_count;
+
+  probe_tlink();
+  probe_mlink();
+  probe_blank_cave();
+
+  cur_height = SCREEN_HEIGHT;
+  cur_width = SCREEN_WIDTH;
+
+  set_seed(town_seed);
+  for (i = 0; i < 6; i++)
+    rooms[i] = i;
+  l = 6;
+  for (i = 0; i < 2; i++)
+    for (j = 0; j < 3; j++)
+      {
+        k = randint(l) - 1;
+        probe_build_store(rooms[k], i, j);
+        for (m = k; m < l - 1; m++)
+          rooms[m] = rooms[m + 1];
+        l--;
+      }
+
+  probe_fill_cave(DARK_FLOOR);
+  probe_place_boundary();
+  probe_place_stairs(2, 1, 0);
+  reset_seed();
+
+  probe_new_spot(&cy, &cx);
+  char_row = (int16)cy;
+  char_col = (int16)cx;
+  printf("char-row %d\n", cy);
+  printf("char-col %d\n", cx);
+
+  if (0x1 & (turn / 5000))
+    {
+      printf("phase night\n");
+      for (i = 0; i < cur_height; i++)
+        for (j = 0; j < cur_width; j++)
+          if (cave[i][j].fval != DARK_FLOOR)
+            cave[i][j].pl = TRUE;
+      probe_alloc_monster(MIN_MALLOC_TN, 3, TRUE);
+    }
+  else
+    {
+      printf("phase day\n");
+      for (i = 0; i < cur_height; i++)
+        for (j = 0; j < cur_width; j++)
+          cave[i][j].pl = TRUE;
+      probe_alloc_monster(MIN_MALLOC_TD, 3, TRUE);
+    }
+
+  /* store_maint() would run here. */
+
+  printf("height %d\n", (int)cur_height);
+  printf("width %d\n", (int)cur_width);
+
+  row = (char *)malloc((size_t)cur_width + 1);
+  if (row == NULL)
+    {
+      fprintf(stderr, "oracle: out of memory\n");
+      exit(2);
+    }
+
+  for (i = 0; i < cur_height; i++)
+    {
+      for (j = 0; j < cur_width; j++)
+        row[j] = feature_char((int)cave[i][j].fval);
+      row[cur_width] = '\0';
+      printf("row %d %s\n", i, row);
+    }
+
+  for (i = 0; i < cur_height; i++)
+    {
+      for (j = 0; j < cur_width; j++)
+        row[j] = cave[i][j].pl ? 'L' : '.';
+      row[cur_width] = '\0';
+      printf("lit %d %s\n", i, row);
+    }
+
+  free(row);
+
+  printf("monsters %d\n", (int)(mfptr - MIN_MONIX));
+  for (i = MIN_MONIX; i < mfptr; i++)
+    {
+      monster_type *m2 = &m_list[i];
+      printf("monster %d %d %d %d %d %d\n",
+             i, (int)m2->fy, (int)m2->fx, (int)m2->mptr,
+             (int)m2->hp, (int)m2->csleep);
+    }
+
+  printf("objects %d\n", (int)(tcptr - MIN_TRIX));
+  for (i = MIN_TRIX; i < tcptr; i++)
+    printf("object %d %d %d\n", i, (int)t_list[i].index, (int)t_list[i].tval);
+
+  for (i = 0; i < cur_height; i++)
+    for (j = 0; j < cur_width; j++)
+      if (cave[i][j].tptr != 0)
+        printf("at %d %d %d\n", i, j, (int)cave[i][j].tptr);
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ---------------------------------------------------------------- driver */
 
 static int usage(void)
@@ -1024,7 +1152,8 @@ static int usage(void)
           "  oracle stairs <seed> <level>  the whole terrain half of cave_gen\n"
           "  oracle picks <seed> <level> <count>  object sort and get_obj_num\n"
           "  oracle enchanted <seed> <level> <count>  magic_treasure\n"
-          "  oracle populate <seed> <level>  a finished level, less monsters\n");
+          "  oracle populate <seed> <level>  a finished level, less monsters\n"
+          "  oracle town <seed> <turn>  the town, less shop restocking\n");
   return 2;
 }
 
@@ -1130,6 +1259,16 @@ int main(int argc, char *argv[])
           return usage();
         }
       dump_populate(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "town") == 0)
+    {
+      if (argc != 4)
+        {
+          return usage();
+        }
+      dump_town(strtoul(argv[2], NULL, 10), strtol(argv[3], NULL, 10));
       return 0;
     }
 

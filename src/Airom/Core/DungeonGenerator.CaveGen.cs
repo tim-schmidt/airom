@@ -132,5 +132,10 @@ public sealed partial class DungeonGenerator
             asleep: true);
 
         PopulateLevel(allocLevel);
+
+        if (_game.DungeonLevel >= WinMonsterDepth)
+        {
+            PlaceWinMonster();
+        }
     }
 }
