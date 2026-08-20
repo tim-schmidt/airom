@@ -181,6 +181,13 @@ public sealed partial class Display
         PrintValue(player.DisplayedArmourClass, 19, StatColumn + 6);
     }
 
+    /// <summary>The experience, without the levelling that prt_experience() does first.</summary>
+    public void PrintExperienceValue(Player player)
+    {
+        ArgumentNullException.ThrowIfNull(player);
+        PrintValue(player.Experience, 14, StatColumn + 6);
+    }
+
     /// <summary>Mirrors prt_gold().</summary>
     public void PrintGold(Player player)
     {

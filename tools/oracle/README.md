@@ -102,6 +102,8 @@ divergence.
 | `search` | Finding traps, secret doors and the trap on a chest | **Verified matching** |
 | `names` | **Every item in the table named eight ways**, known and unknown | **Verified matching** |
 | `pickup` | Walking over things and carrying them: the purse, the pack, the weight | **Verified matching** |
+| `fight` | **Hitting things**: every blow, every kill, the drops and the memory | **Verified matching** |
+| `traps` | **Every trap in the table**, sprung on a fresh character each | **Verified matching** |
 
 `seeds` is the one that will confirm the `reset_seed` quirk against the original
 rather than by inference: `magic_init` shuffles appearances inside a
@@ -145,9 +147,10 @@ which reaches the file's statics while leaving the reference tree untouched —
 no patched copy to reconcile later. `generate.c` is excluded from the build's
 file list precisely because it arrives through the probe instead.
 
-`dungeon.c` arrives the same way, through `oracle_probe_dungeon.c`, which needs
-a translation unit of its own: the 1989 headers have no include guards, so
-pulling two game sources into one file redefines every struct in them.
+`dungeon.c` and `moria3.c` arrive the same way, through
+`oracle_probe_dungeon.c` and `oracle_probe_moria3.c`. Each needs a translation
+unit of its own: the 1989 headers have no include guards, so pulling two game
+sources into one file redefines every struct in them.
 
 `oracle_probe_main.c` does the same for `main.c`, whose static `init_t_level()`
 builds the depth-sorted object index. That file also defines the game's own

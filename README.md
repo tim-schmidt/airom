@@ -50,7 +50,9 @@ Early. The foundations are in place; the game is not yet playable.
 | Walking, running and searching | Done, verified against the original |
 | Item naming (objdes) and what the player knows | Done, verified against the original |
 | The pack: carrying, stacking, weight, equipment bonuses | Done, verified against the original |
-| Combat and traps | Not started |
+| Combat: blows, criticals, kills and their rewards | Done, verified against the original |
+| Traps, chests and doors | Done, verified against the original |
+| Levels, experience and stat changes | Done, verified against the original |
 | The inventory screens and wielding | Not started |
 | Monsters in motion (creature.c) | Not started |
 | Inventory and equipment | Not started |

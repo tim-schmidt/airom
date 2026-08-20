@@ -58,6 +58,9 @@ public sealed class GameState
     /// <summary>What the player has worked out about the kinds of item they have met.</summary>
     public ItemKnowledge Knowledge { get; } = new();
 
+    /// <summary>What the player has learned about the kinds of creature.</summary>
+    public MonsterMemories Memories { get; } = new();
+
     /// <summary>How every item in the game is named.</summary>
     public ItemNames Names => _names ??= new ItemNames(Appearances, Knowledge);
 

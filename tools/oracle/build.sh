@@ -48,11 +48,12 @@ EOF
 fi
 
 # Files replaced by oracle_stubs.c, plus the game's own main().
-# generate.c and dungeon.c are excluded because oracle_probe.c #includes them,
-# to reach the statics inside. Compiling both would duplicate every symbol.
+# generate.c, dungeon.c and moria3.c are excluded because the probes #include
+# them, to reach the statics inside. Compiling both would duplicate every
+# symbol.
 # io.c is now compiled: the fake curses in fake_curses.c records what it draws,
 # so the display is compared against the original rather than a reimplementation.
-EXCLUDE="main.c death.c signals.c files.c help.c generate.c dungeon.c"
+EXCLUDE="main.c death.c signals.c files.c help.c generate.c dungeon.c moria3.c"
 
 sources=()
 for file in "$SRC"/*.c; do
@@ -65,7 +66,7 @@ for file in "$SRC"/*.c; do
 done
 
 here="$(cd "$(dirname "$0")" && pwd)"
-sources+=("$here/fake_curses.c" "$here/oracle_stubs.c" "$here/oracle_probe.c" "$here/oracle_probe_dungeon.c" "$here/oracle_probe_main.c" "$here/oracle_main.c")
+sources+=("$here/fake_curses.c" "$here/oracle_stubs.c" "$here/oracle_probe.c" "$here/oracle_probe_dungeon.c" "$here/oracle_probe_moria3.c" "$here/oracle_probe_main.c" "$here/oracle_main.c")
 
 echo "compiling ${#sources[@]} files with $CC"
 

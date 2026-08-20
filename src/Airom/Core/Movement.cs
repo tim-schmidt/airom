@@ -873,19 +873,9 @@ public class Movement
         return square.PermanentLight || square.TemporaryLight || square.FieldMark;
     }
 
-    /// <summary>
-    /// Springs a trap. Mirrors hit_trap(). Pending: moria3.c and the spell
-    /// effects it leans on.
-    /// </summary>
-    protected virtual void HitTrap(int row, int column)
-    {
-    }
+    /// <summary>Springs a trap. Mirrors hit_trap().</summary>
+    protected virtual void HitTrap(int row, int column) => _loop.Traps.HitTrap(row, column);
 
-    /// <summary>
-    /// Attacks whatever is on a square. Mirrors py_attack(). Pending: the combat
-    /// half of moria3.c.
-    /// </summary>
-    protected virtual void PlayerAttack(int row, int column)
-    {
-    }
+    /// <summary>Attacks whatever is on a square. Mirrors py_attack().</summary>
+    protected virtual void PlayerAttack(int row, int column) => _loop.Combat.Attack(row, column);
 }

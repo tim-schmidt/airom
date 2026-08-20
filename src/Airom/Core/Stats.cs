@@ -48,6 +48,55 @@ public class Stats
     /// <summary>Armour class bonus from dexterity. Mirrors toac_adj().</summary>
     public static int ArmourBonus(Player player) => CharacterCreation.ArmourBonus(player);
 
+    /// <summary>
+    /// The general adjustment a stat gives, from nothing at three to seven at
+    /// the very top. Mirrors stat_adj().
+    ///
+    /// This is the one every other roll reaches for: saving throws, picking
+    /// locks, learning spells. The bands are wide at the bottom and narrow at
+    /// the top, so the first few points matter more than the last few.
+    /// </summary>
+    public static int Adjustment(Player player, int stat)
+    {
+        ArgumentNullException.ThrowIfNull(player);
+
+        return player.UseStat[stat] switch
+        {
+            > 117 => 7,
+            > 107 => 6,
+            > 87 => 5,
+            > 67 => 4,
+            > 17 => 3,
+            > 14 => 2,
+            > 7 => 1,
+            _ => 0,
+        };
+    }
+
+    /// <summary>
+    /// The adjustment to disarming from dexterity. Mirrors todis_adj().
+    /// </summary>
+    public static int DisarmBonus(Player player)
+    {
+        ArgumentNullException.ThrowIfNull(player);
+
+        return player.UseStat[Stat.Dexterity] switch
+        {
+            < 4 => -8,
+            4 => -6,
+            5 => -4,
+            6 => -2,
+            7 => -1,
+            < 13 => 0,
+            < 16 => 1,
+            < 18 => 2,
+            < 59 => 4,
+            < 94 => 5,
+            < 117 => 6,
+            _ => 8,
+        };
+    }
+
     private Player Player => _game.Player;
 
     /// <summary>

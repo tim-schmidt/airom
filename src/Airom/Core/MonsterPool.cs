@@ -46,6 +46,23 @@ public sealed class Monster
     public int Confused { get; set; }
 
     /// <summary>Resets to the blank_monster state Umoria clears the list to.</summary>
+    /// <summary>Copies another monster's whole state into this one.</summary>
+    public void CopyStateFrom(Monster other)
+    {
+        ArgumentNullException.ThrowIfNull(other);
+
+        CreatureIndex = other.CreatureIndex;
+        HitPoints = other.HitPoints;
+        Sleep = other.Sleep;
+        Speed = other.Speed;
+        Row = other.Row;
+        Column = other.Column;
+        DistanceToPlayer = other.DistanceToPlayer;
+        Visible = other.Visible;
+        Stunned = other.Stunned;
+        Confused = other.Confused;
+    }
+
     public void Clear()
     {
         CreatureIndex = 0;
@@ -114,6 +131,85 @@ public sealed class MonsterPool
     /// a silently missing monster would diverge from the original with no
     /// visible symptom.
     /// </summary>
+    /// <summary>
+    /// Which monster creatures() is part way through, or -1 when nothing is
+    /// scanning. Mirrors hack_monptr, which the original calls a horrible hack
+    /// and which decides whether a death can be finished at once.
+    /// </summary>
+    public int ScanIndex { get; set; } = -1;
+
+    /// <summary>
+    /// How many monsters have been bred on this level, which is what stops a
+    /// breeder filling it. Umoria's mon_tot_mult.
+    /// </summary>
+    public int BredCount { get; set; }
+
+    /// <summary>
+    /// Removes a monster outright. Mirrors delete_monster().
+    ///
+    /// The last monster in the list is moved down into the hole, so the list
+    /// stays packed - which is why the square it came from has to be repointed.
+    /// </summary>
+    public void Delete(int index, Cave cave, Lighting lighting)
+    {
+        ArgumentNullException.ThrowIfNull(cave);
+        ArgumentNullException.ThrowIfNull(lighting);
+
+        MarkDead(index, cave, lighting);
+        Compact(index, cave);
+    }
+
+    /// <summary>
+    /// Takes a monster off the map without removing its record. Mirrors
+    /// fix1_delete_monster().
+    ///
+    /// creatures() scans the list as it runs, and deleting an entry from under
+    /// it would give another monster two turns, so a death that happens during
+    /// the scan is done in two halves.
+    /// </summary>
+    public void MarkDead(int index, Cave cave, Lighting lighting)
+    {
+        ArgumentNullException.ThrowIfNull(cave);
+        ArgumentNullException.ThrowIfNull(lighting);
+
+        Monster monster = _monsters[index];
+
+        // Forced negative so the monster is certainly dead: something that has
+        // just been eaten may still have hit points.
+        monster.HitPoints = -1;
+        cave[monster.Row, monster.Column].MonsterIndex = 0;
+
+        if (monster.Visible)
+        {
+            lighting.LightSpot(monster.Row, monster.Column);
+        }
+
+        if (BredCount > 0)
+        {
+            BredCount--;
+        }
+    }
+
+    /// <summary>
+    /// Closes the hole a dead monster left. Mirrors fix2_delete_monster().
+    /// </summary>
+    public void Compact(int index, Cave cave)
+    {
+        ArgumentNullException.ThrowIfNull(cave);
+
+        int last = Count - 1;
+
+        if (index != last)
+        {
+            Monster moved = _monsters[last];
+            cave[moved.Row, moved.Column].MonsterIndex = index;
+            _monsters[index].CopyStateFrom(moved);
+        }
+
+        _monsters[last].Clear();
+        Count--;
+    }
+
     public int Allocate()
     {
         if (Count == Capacity)

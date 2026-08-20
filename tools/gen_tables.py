@@ -824,6 +824,55 @@ def gen_player(moria):
         lines.append(line.rstrip().rstrip(",") + "],")
     lines += ["    ];", ""]
 
+    # How much experience each level costs, before the class multiplier.
+    body = extract_initialiser(text, "player_exp[MAX_PLAYER_LEVEL]")
+    values = [str(c_number(f, defines)) for f in split_fields(body) if f]
+    if len(values) != defines["MAX_PLAYER_LEVEL"]:
+        raise SystemExit(
+            "player_exp: parsed {0} entries, MAX_PLAYER_LEVEL is {1}".format(
+                len(values), defines["MAX_PLAYER_LEVEL"]
+            )
+        )
+    lines += [
+        "    /// <summary>",
+        "    /// Experience needed for each level, before the class multiplier is",
+        "    /// applied. Mirrors player_exp[].",
+        "    /// </summary>",
+        "    public static readonly int[] PlayerExperience =",
+        "    [",
+    ]
+    line = "        "
+    for value in values:
+        piece = value + ", "
+        if len(line) + len(piece) > 96:
+            lines.append(line.rstrip())
+            line = "        "
+        line += piece
+    lines.append(line.rstrip().rstrip(","))
+    lines += ["    ];", ""]
+
+    # What each class gains per level at fighting, shooting, using a device,
+    # disarming and saving. In player.c rather than tables.c, like the rest of
+    # the player data.
+    _emit_matrix(
+        lines,
+        "ClassLevelAdjust",
+        "short",
+        [
+            "    /// <summary>",
+            "    /// What each class gains per level, in the five things a level improves:",
+            "    /// fighting, shooting, using a magical device, disarming, and saving",
+            "    /// throws. Mirrors class_level_adj[][].",
+            "    /// </summary>",
+        ],
+        _matrix(
+            extract_initialiser(text, "class_level_adj[MAX_CLASS][MAX_LEV_ADJ]"),
+            defines,
+            defines["MAX_CLASS"],
+            defines["MAX_LEV_ADJ"],
+        ),
+    )
+
     body = extract_initialiser(text, "player_init[MAX_CLASS][5]")
     rows = split_rows(body)
     lines += [

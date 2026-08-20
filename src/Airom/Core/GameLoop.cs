@@ -63,6 +63,11 @@ public class GameLoop
     private Movement _movement;
     private Equipment _equipment;
     private Stats _stats;
+    private Combat _combat;
+    private Levelling _levelling;
+    private Damage _damage;
+    private Traps _traps;
+    private Doors _doors;
 
     public GameLoop(GameState game, Display display)
     {
@@ -75,6 +80,11 @@ public class GameLoop
         _movement = new Movement(game, display, this);
         _equipment = new Equipment(game, display, this);
         _stats = new Stats(game, display, this);
+        _combat = new Combat(game, display, this);
+        _levelling = new Levelling(game, display, this);
+        _damage = new Damage(game, display, this);
+        _traps = new Traps(game, display, this);
+        _doors = new Doors(game, display, this);
     }
 
     /// <summary>What the player can see, and how the screen hears about it.</summary>
@@ -88,6 +98,27 @@ public class GameLoop
 
     /// <summary>The six stats and the arithmetic that moves them.</summary>
     public Stats Stats => _stats;
+
+    /// <summary>Hitting things, and what happens when they die.</summary>
+    public Combat Combat => _combat;
+
+    /// <summary>Experience, levels and hit points.</summary>
+    public Levelling Levelling => _levelling;
+
+    /// <summary>The elements, and what they do to a person and their belongings.</summary>
+    public Damage Damage => _damage;
+
+    /// <summary>Traps and chests.</summary>
+    public Traps Traps => _traps;
+
+    /// <summary>Opening and closing what is in the way.</summary>
+    public Doors Doors => _doors;
+
+    /// <summary>
+    /// Lights the monsters without moving them, which is what creatures(FALSE)
+    /// is for. Public so the parts that relight the level can ask for it.
+    /// </summary>
+    public void LightMonsters() => MoveMonsters(false);
 
     private Player Player => _game.Player;
 
@@ -507,6 +538,14 @@ public class GameLoop
             _display.ReadKey();
             _display.RestoreScreen();
             FreeTurn = true;
+        }
+        else if (command == 'o')
+        {
+            _doors.OpenObject();
+        }
+        else if (command == 'c')
+        {
+            _doors.CloseObject();
         }
         else if (WalkDirection(command) is int walk)
         {

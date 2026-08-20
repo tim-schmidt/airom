@@ -76,6 +76,35 @@ public sealed class Inventory
     /// <summary>Whether the wielded weapon is too heavy. Umoria's weapon_heavy.</summary>
     public bool WeaponTooHeavy { get; internal set; }
 
+    /// <summary>How many things are worn or wielded. Umoria's equip_ctr.</summary>
+    public int EquipmentCount { get; internal set; }
+
+    /// <summary>
+    /// Spends one of a wielded pile of missiles: they are swung as a weapon and
+    /// used up as they are. Mirrors the weight bookkeeping inside py_attack().
+    /// </summary>
+    public void SpendWielded(int weight)
+    {
+        Weight -= weight;
+        _game.Player.Status |= PlayerStatus.WeightChanged;
+
+        if (this[WieldSlot].Number == 0)
+        {
+            EquipmentCount--;
+        }
+    }
+
+    /// <summary>
+    /// Counts a newly worn or wielded item into the equipment. The item itself
+    /// is written into its slot by the caller, as the original does.
+    /// </summary>
+    public void EquipWielded(int weight)
+    {
+        EquipmentCount++;
+        Weight += weight;
+        _game.Player.Status |= PlayerStatus.WeightChanged;
+    }
+
     /// <summary>Empties the pack and the worn slots alike.</summary>
     public void Reset()
     {
@@ -85,6 +114,7 @@ public sealed class Inventory
         }
 
         Count = 0;
+        EquipmentCount = 0;
         Weight = 0;
         PackBurden = 0;
         WeaponTooHeavy = false;

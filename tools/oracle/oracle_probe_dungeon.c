@@ -35,3 +35,8 @@ int percent;
 {
   regenmana(percent);
 }
+
+/* hit_trap is static in moria3.c, not dungeon.c, and moria3.c is linked rather
+   than included - so the trap mode reaches it the way a step onto one does,
+   through carry(), which move_char() calls. Standing the player on the trap and
+   walking them onto their own square springs it. */

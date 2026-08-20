@@ -238,6 +238,32 @@ public static partial class GameTables
     ];
 
     /// <summary>
+    /// Experience needed for each level, before the class multiplier is
+    /// applied. Mirrors player_exp[].
+    /// </summary>
+    public static readonly int[] PlayerExperience =
+    [
+        10, 25, 45, 70, 100, 140, 200, 280, 380, 500, 650, 850, 1100, 1400, 1800, 2300, 2900,
+        3600, 4400, 5400, 6800, 8400, 10200, 12500, 17500, 25000, 35000, 50000, 75000, 100000,
+        150000, 200000, 300000, 400000, 500000, 750000, 1500000, 2500000, 5000000, 10000000
+    ];
+
+    /// <summary>
+    /// What each class gains per level, in the five things a level improves:
+    /// fighting, shooting, using a magical device, disarming, and saving
+    /// throws. Mirrors class_level_adj[][].
+    /// </summary>
+    public static readonly short[][] ClassLevelAdjust =
+    [
+        [4, 4, 2, 2, 3],
+        [2, 2, 4, 3, 3],
+        [2, 2, 4, 3, 3],
+        [3, 4, 3, 4, 3],
+        [3, 4, 3, 3, 3],
+        [3, 3, 3, 2, 3],
+    ];
+
+    /// <summary>
     /// The five items each class starts with, as object table indices.
     /// </summary>
     public static readonly int[][] StartingItems =

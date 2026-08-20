@@ -63,6 +63,9 @@ extern char probe_original_commands(char command);
 extern int probe_valid_countcommand(char command);
 extern void probe_regenhp(int percent);
 extern void probe_regenmana(int percent);
+extern void probe_hit_trap(int y, int x);
+extern void probe_carry(int y, int x, int pickup);
+extern const char *oracle_screen_row(int row);
 
 /* From oracle_probe_main.c, which reaches the object sort inside main.c. */
 extern void probe_init_t_level(void);
@@ -2630,6 +2633,244 @@ static void dump_pickup(unsigned long seed, int level, int steps, int variation)
   prompt_carry_flag = FALSE;
 }
 
+/* ------------------------------------------------------------------- fight */
+
+/* Hitting things until they stop moving.
+
+   A monster is put beside the player and attacked over and over. Every blow is
+   three rolls - whether it lands, how hard, and whether it was good enough to
+   count for extra - and a kill runs monster_death() as well, which rolls again
+   for what was being carried. All of it is dumped, along with the experience,
+   the pack and the monster memory the fight wrote. */
+static void dump_fight(unsigned long seed, int level, int creature, int rounds)
+{
+  int round, i;
+  bigvtype description;
+
+  header("fight", seed);
+  printf("level %d\n", level);
+  printf("creature %d\n", creature);
+  printf("rounds %d\n", rounds);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+  dun_level = (int16)level;
+
+  init_curses();
+  oracle_screen_reset();
+
+  /* A rolled character rather than a pinned one: the class level tables, the
+     stats and the hit dice all feed the arithmetic being compared. */
+  {
+    char keys[16];
+    int letter = -1;
+    int slot = 0;
+    int j;
+
+    for (j = 0; j < MAX_CLASS; j++)
+      if (race[0].rtclass & (0x1L << j))
+        {
+          if (j == 0)
+            letter = slot;
+          slot++;
+        }
+
+    keys[0] = 'a';
+    keys[1] = 'm';
+    keys[2] = ESCAPE;
+    keys[3] = (char)('a' + letter);
+    keys[4] = '\r';
+    keys[5] = ' ';
+    keys[6] = ' ';
+    keys[7] = '\0';
+    oracle_feed_keys(keys);
+    create_character();
+    character_generated = 1;
+  }
+
+  /* The rolling leaves its own labels on the screen; what is compared is what
+     the fight draws. */
+  clear_screen();
+  msg_flag = FALSE;
+
+  py.flags.food = 7500;
+  py.flags.food_digested = 2;
+
+  generate_cave();
+  strip_traps();
+
+  cave[char_row][char_col].cptr = 1;
+  player_light = TRUE;
+
+  /* A weapon worth swinging: a long sword that slays dragons, so tot_dam has
+     something to multiply and the monster memory has something to learn. */
+  {
+    int slot = INVEN_WIELD;
+
+    invcopy(&inventory[slot], 34);
+    inventory[slot].flags |= TR_SLAY_DRAGON;
+    inventory[slot].tohit = 3;
+    inventory[slot].todam = 2;
+    known2(&inventory[slot]);
+    equip_ctr++;
+    inven_weight += inventory[slot].weight;
+    py_bonuses(&inventory[slot], 1);
+    calc_bonuses();
+  }
+
+  /* Spaces to answer the -more- prompts a long fight puts up. */
+  {
+    char script[4000];
+    int n;
+
+    for (n = 0; n < 3999; n++)
+      script[n] = ' ';
+    script[3999] = '\0';
+    oracle_feed_keys(script);
+  }
+
+  panel_row = panel_col = -1;
+  check_view();
+
+  for (round = 0; round < rounds; round++)
+    {
+      int y = char_row;
+      int x = char_col;
+      int placed = FALSE;
+
+      /* Put one beside the player, in the first open square. */
+      for (i = 1; i <= 9 && !placed; i++)
+        {
+          int ty = y;
+          int tx = x;
+
+          if (i == 5)
+            continue;
+          if (!mmove(i, &ty, &tx))
+            continue;
+          if (cave[ty][tx].fval > MAX_OPEN_SPACE || cave[ty][tx].cptr != 0)
+            continue;
+
+          if (place_monster(ty, tx, creature, FALSE))
+            {
+              m_list[cave[ty][tx].cptr].ml = TRUE;
+              py_attack(ty, tx);
+              placed = TRUE;
+            }
+        }
+
+      printf("round %d placed %d exp %ld lev %d mfptr %d\n", round, placed,
+             (long)py.misc.exp, (int)py.misc.lev, (int)(mfptr - MIN_MONIX));
+    }
+
+  printf("chp %d mhp %d gold %ld\n", (int)py.misc.chp, (int)py.misc.mhp,
+         (long)py.misc.au);
+  printf("memory kills %d cmove %lu cdefense %d\n",
+         (int)c_recall[creature].r_kills,
+         (unsigned long)c_recall[creature].r_cmove,
+         (int)c_recall[creature].r_cdefense);
+  printf("objects %d\n", (int)(tcptr - MIN_TRIX));
+
+  for (i = MIN_TRIX; i < tcptr; i++)
+    {
+      objdes(description, &t_list[i], TRUE);
+      printf("dropped %d %s\n", i, description);
+    }
+
+  oracle_screen_dump("fight");
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
+/* ------------------------------------------------------------------- traps */
+
+/* Standing on things that bite.
+
+   Every trap in the table is sprung in turn, on a fresh character each time, so
+   one that kills does not stop the rest. What is compared is the damage, the
+   conditions it left behind, and what it did to the level around it. */
+static void dump_traps(unsigned long seed, int level, int first, int count)
+{
+  int which;
+
+  header("traps", seed);
+  printf("level %d\n", level);
+  printf("first %d\n", first);
+  printf("count %d\n", count);
+
+  for (which = first; which < first + count && which < MAX_TRAP; which++)
+    {
+      int slot;
+
+      probe_init_t_level();
+      probe_init_m_level();
+
+      init_seeds((int32u)seed);
+      magic_init();
+      dun_level = (int16)level;
+      pin_player(level);
+
+      init_curses();
+      oracle_screen_reset();
+
+      /* The screen is wiped between traps but msg_flag is a global, so without
+         this the next trap's message would be run onto a line that has already
+         been cleared. Each trap starts with a clean message line. */
+      msg_flag = FALSE;
+
+      generate_cave();
+      strip_traps();
+
+      cave[char_row][char_col].cptr = 1;
+      player_light = TRUE;
+
+      py.misc.chp = 200;
+      py.misc.mhp = 200;
+      py.flags.food = 7500;
+
+      {
+        char script[2001];
+        int n;
+
+        for (n = 0; n < 2000; n++)
+          script[n] = ' ';
+        script[2000] = '\0';
+        oracle_feed_keys(script);
+      }
+
+      panel_row = panel_col = -1;
+      check_view();
+
+      /* The trap goes under the player, which is where a sprung one always
+         is. */
+      slot = popt();
+      invcopy(&t_list[slot], OBJ_TRAP_LIST + which);
+      cave[char_row][char_col].tptr = (int8u)slot;
+
+      probe_hit_trap((int)char_row, (int)char_col);
+
+      printf("trap %d chp %d dun %d newlevel %d teleport %d\n", which,
+             (int)py.misc.chp, (int)dun_level, new_level_flag ? 1 : 0,
+             teleport_flag ? 1 : 0);
+      printf("  blind %d confused %d poisoned %d paralysis %d slow %d\n",
+             (int)py.flags.blind, (int)py.flags.confused,
+             (int)py.flags.poisoned, (int)py.flags.paralysis,
+             (int)py.flags.slow);
+      printf("  str %d con %d objects %d monsters %d\n",
+             (int)py.stats.cur_stat[A_STR], (int)py.stats.cur_stat[A_CON],
+             (int)(tcptr - MIN_TRIX), (int)(mfptr - MIN_MONIX));
+      printf("  message %s\n", oracle_screen_row(0));
+
+      new_level_flag = FALSE;
+      teleport_flag = FALSE;
+    }
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ---------------------------------------------------------------- driver */
 
 
@@ -2663,7 +2904,9 @@ static int usage(void)
           "  oracle run <seed> <level> <direction> <variation>  one run\n"
           "  oracle search <seed> <level> <rounds> <chance>  finding what is hidden\n"
           "  oracle names <seed> <first> <count>  item descriptions\n"
-          "  oracle pickup <seed> <level> <steps> <variation>  carrying things\n");
+          "  oracle pickup <seed> <level> <steps> <variation>  carrying things\n"
+          "  oracle fight <seed> <level> <creature> <rounds>  hitting things\n"
+          "  oracle traps <seed> <level> <first> <count>  springing traps\n");
   return 2;
 }
 
@@ -2833,6 +3076,32 @@ int main(int argc, char *argv[])
           return usage();
         }
       dump_map(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "fight") == 0)
+    {
+      if (argc != 6)
+        {
+          return usage();
+        }
+      dump_fight(strtoul(argv[2], NULL, 10),
+                 (int)strtol(argv[3], NULL, 10),
+                 (int)strtol(argv[4], NULL, 10),
+                 (int)strtol(argv[5], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "traps") == 0)
+    {
+      if (argc != 6)
+        {
+          return usage();
+        }
+      dump_traps(strtoul(argv[2], NULL, 10),
+                 (int)strtol(argv[3], NULL, 10),
+                 (int)strtol(argv[4], NULL, 10),
+                 (int)strtol(argv[5], NULL, 10));
       return 0;
     }
 
