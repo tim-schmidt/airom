@@ -59,6 +59,7 @@ public class GameLoop
 
     private readonly GameState _game;
     private readonly Display _display;
+    private readonly Lighting _lighting;
 
     public GameLoop(GameState game, Display display)
     {
@@ -67,7 +68,11 @@ public class GameLoop
 
         _game = game;
         _display = display;
+        _lighting = new Lighting(game, display);
     }
+
+    /// <summary>What the player can see, and how the screen hears about it.</summary>
+    public Lighting Lighting => _lighting;
 
     private Player Player => _game.Player;
 
@@ -91,8 +96,15 @@ public class GameLoop
         set => _game.Running = value;
     }
 
-    /// <summary>Whether the player is carrying a lit light source.</summary>
-    public bool PlayerLight { get; set; }
+    /// <summary>
+    /// Whether the player is carrying a lit light source. Lives with the rest of
+    /// the shared state because the lighting reads it too.
+    /// </summary>
+    public bool PlayerLight
+    {
+        get => _game.PlayerLight;
+        set => _game.PlayerLight = value;
+    }
 
     /// <summary>What killed the player, recorded for the tombstone.</summary>
     public string DiedFrom { get; set; } = string.Empty;
@@ -581,13 +593,54 @@ public class GameLoop
     }
 
     /// <summary>
-    /// Burns a turn of lamp oil, and reports it running low or out.
+    /// Burns a turn of lamp oil, and reports it running low or out. Mirrors the
+    /// light block at the top of dungeon()'s loop.
     ///
-    /// Pending: the inventory is not ported, so there is no light source to burn
-    /// yet.
+    /// The warning that the light is growing faint is a one-in-five chance per
+    /// turn over the last forty, so it comes as a nagging reminder rather than a
+    /// single notice that could be missed.
+    ///
+    /// Pending: the fuel belongs to the lamp, which needs the inventory; until
+    /// then it is held on the game state.
     /// </summary>
     protected virtual void BurnLight()
     {
+        if (_game.PlayerLight)
+        {
+            if (_game.LightFuel > 0)
+            {
+                _game.LightFuel--;
+
+                if (_game.LightFuel == 0)
+                {
+                    _game.PlayerLight = false;
+                    _display.MessagePrint("Your light has gone out!");
+                    Disturb(false, true);
+
+                    // Unlight the creatures.
+                    MoveMonsters(false);
+                }
+                else if (_game.LightFuel < 40 && _game.Rng.RandInt(5) == 1
+                         && Player.Blind < 1)
+                {
+                    Disturb(false, false);
+                    _display.MessagePrint("Your light is growing faint.");
+                }
+            }
+            else
+            {
+                _game.PlayerLight = false;
+                Disturb(false, true);
+                MoveMonsters(false);
+            }
+        }
+        else if (_game.LightFuel > 0)
+        {
+            _game.LightFuel--;
+            _game.PlayerLight = true;
+            Disturb(false, true);
+            MoveMonsters(false);
+        }
     }
 
     /// <summary>
@@ -1501,18 +1554,6 @@ public class GameLoop
     /// <summary>
     /// Redraws what the player can see from where they stand. Mirrors
     /// check_view().
-    ///
-    /// The map is only repainted when the view actually moved to another panel,
-    /// which is what keeps a step inside the same screenful cheap.
-    ///
-    /// Pending: moving the light source and lighting a room on entry are in the
-    /// lighting half of moria1.c, which is not ported.
     /// </summary>
-    protected virtual void CheckView()
-    {
-        if (_display.Panel.Follow(_game.CharacterRow, _game.CharacterColumn, force: false))
-        {
-            _display.PrintMap();
-        }
-    }
+    protected virtual void CheckView() => _lighting.CheckView();
 }

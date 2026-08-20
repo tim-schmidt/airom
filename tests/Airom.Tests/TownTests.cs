@@ -226,7 +226,7 @@ public class TownTests
         game.Cave.Resize(GameState.DungeonHeight, GameState.DungeonWidth);
         game.Cave.Blank();
 
-        new DungeonGenerator(game).GenerateCave();
+        new DungeonGenerator(game).CarveCave();
         return game;
     }
 
@@ -296,7 +296,7 @@ public class TownTests
         game.Cave.Resize(GameState.DungeonHeight, GameState.DungeonWidth);
         game.Cave.Blank();
 
-        new DungeonGenerator(game).GenerateCave();
+        new DungeonGenerator(game).CarveCave();
 
         Assert.False(HasWinMonster(game));
     }

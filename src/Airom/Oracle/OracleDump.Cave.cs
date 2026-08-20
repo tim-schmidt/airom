@@ -39,7 +39,7 @@ public static partial class OracleDump
         game.Cave.Resize(GameState.DungeonHeight, GameState.DungeonWidth);
         game.Cave.Blank();
 
-        new DungeonGenerator(game).GenerateCave();
+        new DungeonGenerator(game).CarveCave();
 
         Cave cave = game.Cave;
         output.Write("height " + cave.Height.ToString(CultureInfo.InvariantCulture) + "\n");

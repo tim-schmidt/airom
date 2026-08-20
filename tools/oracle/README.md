@@ -96,6 +96,7 @@ divergence.
 | `regen` | Hit point and mana regeneration, fraction carrying and the clamps | **Verified matching** |
 | `upkeep` | **A turn in the dungeon**: the real dungeon() loop, counter by counter | **Verified matching** |
 | `hallucinate` | The map drawn by a hallucinating character, rolls included | **Verified matching** |
+| `light` | **A walk, lit**: what the player sees as they move, step by step | **Verified matching** |
 
 `seeds` is the one that will confirm the `reset_seed` quirk against the original
 rather than by inference: `magic_init` shuffles appearances inside a
@@ -110,17 +111,15 @@ the run - no command is asked for while paralysis lasts - and a quit is left in
 the key script for the turn it wears off. Every counter therefore ages through
 the original code.
 
-Two things are taken off the level first. The monsters are cleared, because
-creature movement is not ported and a monster taking its turn would consume
-random numbers on one side only. And only the sidebar strip of the screen is
-compared, because the map is repainted by the lighting half of `moria1.c`,
-which is not ported either.
+The monsters are cleared off the level first, because creature movement is not
+ported and a monster taking its turn would consume random numbers on one side
+only. Everything else - the whole screen included - is compared.
 
-That second gap is why the hallucination variation is also blind: drawing a
-square while hallucinating draws a random number, and the missing light-moving
-half would draw a different quantity of them. The `hallucinate` mode covers that
-drawing on its own, by painting one map on each side and comparing both the
-result and the generator state afterwards.
+`light` covers what a stationary character never reaches. `move_char()` belongs
+to `moria2.c` and is not ported, so the walk is done in the harness itself: it
+picks a square, moves the player record, and tells the lighting about it, which
+is the sequence `move_char()` uses. Each variation takes a different path
+through `move_light()` - lamp, blind, no lamp at all, and running.
 
 ## Reaching inside generate.c and main.c
 

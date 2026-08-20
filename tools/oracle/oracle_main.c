@@ -1863,14 +1863,7 @@ static void dump_upkeep(unsigned long seed, int turns, int variation)
       break;
     case 12: py.flags.detect_inv = 3; break;
     case 13: py.flags.tim_infra = 3; break;
-    case 14:
-      /* Hallucinating, but blind with it: a blind character sees nothing, so
-         the drawing never reaches the roll that scrambles a square. The map
-         drawn while hallucinating is compared by the hallucinate mode, which
-         does not need the lighting half of moria1.c to be ported first. */
-      py.flags.image = 3;
-      py.flags.blind = 99;
-      break;
+    case 14: py.flags.image = 3; break;
     case 15: py.flags.food = 1500; break;
     case 16: py.flags.food = 500; break;
     case 17: py.flags.food = 100; break;
@@ -1887,8 +1880,19 @@ static void dump_upkeep(unsigned long seed, int turns, int variation)
       py.flags.afraid = 9;
       py.flags.hero = 4;
       break;
-    default:
+    case 23:
       py.flags.status |= PY_SEARCH;
+      break;
+    case 24:
+      /* A lit lamp with plenty of oil: the player carries their own light, so
+         every step lights the squares around them. */
+      inventory[INVEN_LIGHT].p1 = 400;
+      player_light = TRUE;
+      break;
+    default:
+      /* A lamp about to run dry: it warns while it lasts, then goes out. */
+      inventory[INVEN_LIGHT].p1 = 12;
+      player_light = TRUE;
       break;
     }
 
@@ -1910,9 +1914,8 @@ static void dump_upkeep(unsigned long seed, int turns, int variation)
     oracle_feed_keys(script);
   }
 
-  /* The map is drawn by the lighting half of moria1.c, which is not ported
-     yet, so only the sidebar strip is comparable. Clearing first means what is
-     left there was drawn by the loop rather than before it. */
+  /* Cleared so that what is left on the screen was drawn by the loop rather
+     than by the character creation before it. */
   clear_screen();
 
   dungeon();
@@ -1944,8 +1947,144 @@ static void dump_upkeep(unsigned long seed, int turns, int variation)
   printf("death %d died_from %s\n", (int)death, died_from);
   printf("monsters %d\n", (int)(mfptr - MIN_MONIX));
 
-  oracle_screen_dump_columns("up", 13);
+  oracle_screen_dump("up");
 
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
+/* ------------------------------------------------------------------- light */
+
+/* The eight directions, in the order the walk tries them. Numbered as the
+   number pad is, so the table reads the same on both sides. */
+static int light_dir_row[8] = { 0, 1, 0, -1, 1, 1, -1, -1 };
+static int light_dir_col[8] = { 1, 0, -1, 0, 1, -1, 1, -1 };
+
+/* The lighting: what the player can see, one step at a time.
+
+   The player is walked along a fixed path - each step takes the first direction
+   that is not a wall - and the screen is dumped after every one. That exercises
+   the parts a stationary character never reaches: the block behind the player
+   going dark, walls becoming permanently known, objects being noticed as the
+   light passes over them, and a room lighting as its doorway is stepped into.
+
+   move_char() belongs to moria2.c and is not ported, so the walk is done here:
+   the square is picked, the player record moved, and the lighting told about it,
+   which is the sequence move_char() itself uses. */
+static void dump_light(unsigned long seed, int level, int steps, int variation)
+{
+  int i, j, step;
+
+  header("light", seed);
+  printf("level %d\n", level);
+  printf("steps %d\n", steps);
+  printf("variation %d\n", variation);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+  pin_player(level);
+  dun_level = (int16)level;
+
+  init_curses();
+  oracle_screen_reset();
+
+  generate_cave();
+
+  /* The monsters are cleared off: creature movement is not ported, and one
+     taking its turn would consume random numbers on one side only. */
+  for (i = 0; i < MAX_HEIGHT; i++)
+    for (j = 0; j < MAX_WIDTH; j++)
+      cave[i][j].cptr = 0;
+  mfptr = MIN_MONIX;
+
+  cave[char_row][char_col].cptr = 1;
+
+  switch (variation)
+    {
+    case 0:
+      /* A lit lamp: the ordinary case, where the player carries their light. */
+      player_light = TRUE;
+      break;
+    case 1:
+      /* Blind: nothing new is revealed, so only the player symbol moves. */
+      player_light = TRUE;
+      py.flags.blind = 500;
+      break;
+    case 2:
+      /* No light at all, which is the same path as blindness. */
+      player_light = FALSE;
+      break;
+    default:
+      /* Running: the lamp is switched off, so a long run does not repaint the
+         same nine squares at every step. */
+      player_light = TRUE;
+      find_flag = TRUE;
+      break;
+    }
+
+  panel_row = panel_col = -1;
+  check_view();
+
+  for (step = 0; step < steps; step++)
+    {
+      int y = (int)char_row;
+      int x = (int)char_col;
+      int ny = y;
+      int nx = x;
+
+      for (i = 0; i < 8; i++)
+        {
+          int ty = y + light_dir_row[(step + i) % 8];
+          int tx = x + light_dir_col[(step + i) % 8];
+
+          if (cave[ty][tx].fval <= MAX_OPEN_SPACE)
+            {
+              ny = ty;
+              nx = tx;
+              break;
+            }
+        }
+
+      move_rec(y, x, ny, nx);
+      char_row = (int16)ny;
+      char_col = (int16)nx;
+
+      if (get_panel(ny, nx, FALSE))
+        prt_map();
+
+      move_light(y, x, ny, nx);
+
+      printf("step %d at %d %d\n", step, ny, nx);
+    }
+
+  check_view();
+  oracle_screen_dump("lit");
+
+  /* What the player now knows about the level, square by square, so a
+     difference in the flags shows even where the screen agrees. */
+  {
+    int permanent = 0;
+    int temporary = 0;
+    int marked = 0;
+
+    for (i = 0; i < cur_height; i++)
+      for (j = 0; j < cur_width; j++)
+        {
+          if (cave[i][j].pl)
+            permanent++;
+          if (cave[i][j].tl)
+            temporary++;
+          if (cave[i][j].fm)
+            marked++;
+        }
+
+    printf("permanent %d temporary %d marked %d\n", permanent, temporary, marked);
+  }
+
+  printf("light-flag %d player-light %d\n", light_flag ? 1 : 0,
+         player_light ? 1 : 0);
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
@@ -1976,7 +2115,8 @@ static int usage(void)
           "  oracle commands  the command translation and count tables\n"
           "  oracle regen <seed> <turns>  hit point and mana regeneration\n"
           "  oracle upkeep <seed> <turns> <variation>  a turn in the dungeon\n"
-          "  oracle hallucinate <seed> <level>  the map drawn while hallucinating\n");
+          "  oracle hallucinate <seed> <level>  the map drawn while hallucinating\n"
+          "  oracle light <seed> <level> <steps> <variation>  a walk, lit\n");
   return 2;
 }
 
@@ -2146,6 +2286,19 @@ int main(int argc, char *argv[])
           return usage();
         }
       dump_map(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "light") == 0)
+    {
+      if (argc != 6)
+        {
+          return usage();
+        }
+      dump_light(strtoul(argv[2], NULL, 10),
+                 (int)strtol(argv[3], NULL, 10),
+                 (int)strtol(argv[4], NULL, 10),
+                 (int)strtol(argv[5], NULL, 10));
       return 0;
     }
 

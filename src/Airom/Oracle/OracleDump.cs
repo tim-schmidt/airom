@@ -1072,6 +1072,19 @@ public static partial class OracleDump
                 DumpMap(output, mpSeed, mpLevel);
                 return 0;
 
+            case "light":
+                if (arguments.Length != 5
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint ltSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int ltLevel)
+                    || !int.TryParse(arguments[3], CultureInfo.InvariantCulture, out int ltSteps)
+                    || !int.TryParse(arguments[4], CultureInfo.InvariantCulture, out int ltVar))
+                {
+                    return Usage(error);
+                }
+
+                DumpLight(output, ltSeed, ltLevel, ltSteps, ltVar);
+                return 0;
+
             case "hallucinate":
                 if (arguments.Length != 3
                     || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint hlSeed)
@@ -1164,6 +1177,7 @@ public static partial class OracleDump
         error.WriteLine("  airom oracle commands  the command translation and count tables");
         error.WriteLine("  airom oracle upkeep <seed> <turns> <variation>  a turn in the dungeon");
         error.WriteLine("  airom oracle hallucinate <seed> <level>  the map drawn while hallucinating");
+        error.WriteLine("  airom oracle light <seed> <level> <steps> <variation>  a walk, lit");
         error.WriteLine("  airom oracle regen <seed> <turns>  regeneration of hit points and mana");
         error.WriteLine("  airom oracle map <seed> <level>  the whole level shrunk to one screen");
         return 2;

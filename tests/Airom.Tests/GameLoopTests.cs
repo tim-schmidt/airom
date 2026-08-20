@@ -22,6 +22,14 @@ public class GameLoopTests
             .Create(race: 0, characterClass: 0, male: true, name: "Oracle");
         game.Player = player;
 
+        // A blank level with the player somewhere inside it: the lighting reads
+        // the squares around wherever they stand, so there has to be a level for
+        // it to read.
+        game.Cave.Resize(GameState.DungeonHeight, GameState.DungeonWidth);
+        game.Cave.Blank();
+        game.CharacterRow = 10;
+        game.CharacterColumn = 10;
+
         var screen = new MemoryScreen { TypeAheadVisible = false };
         if (keys is not null)
         {
@@ -29,6 +37,7 @@ public class GameLoopTests
         }
 
         var display = new Display(game, screen);
+        display.Panel.Resize(game.Cave.Height, game.Cave.Width);
         return (game, player, display, screen, new GameLoop(game, display));
     }
 
@@ -472,10 +481,6 @@ public class GameLoopTests
         (GameState game, Player player, _, MemoryScreen screen, GameLoop loop) = Fresh();
 
         game.DungeonLevel = 1;
-        game.Cave.Resize(GameState.DungeonHeight, GameState.DungeonWidth);
-        game.Cave.Blank();
-        game.CharacterRow = 10;
-        game.CharacterColumn = 10;
         player.Food = 5000;
 
         // A no to the first ask, then a yes to the second.

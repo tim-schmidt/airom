@@ -28,6 +28,38 @@ public sealed partial class DungeonGenerator
     private const int RoomGridWidth = 66; // SCREEN_WIDTH
 
     /// <summary>
+    /// Builds the level the player is about to arrive on. Mirrors
+    /// generate_cave().
+    ///
+    /// The town is one screen and the dungeon is nine, so the size is settled
+    /// here along with how far the view can scroll. The panel indices are set to
+    /// their maximum without the window being recomputed - see
+    /// <see cref="Panel.Resize"/> for why that matters - and the player is left
+    /// unplaced for whichever builder runs.
+    /// </summary>
+    public void Generate()
+    {
+        _game.Objects.Reset();
+        _game.Monsters.Reset();
+
+        _game.CharacterRow = -1;
+        _game.CharacterColumn = -1;
+
+        if (_game.DungeonLevel == 0)
+        {
+            _game.Cave.Resize(TownHeight, TownWidth);
+            _game.Cave.Blank();
+            GenerateTown();
+        }
+        else
+        {
+            _game.Cave.Resize(GameState.DungeonHeight, GameState.DungeonWidth);
+            _game.Cave.Blank();
+            CarveCave();
+        }
+    }
+
+    /// <summary>
     /// Carves a complete dungeon level. Mirrors cave_gen().
     ///
     /// Rooms are scattered over a coarse grid, joined in a shuffled ring so the
@@ -39,7 +71,7 @@ public sealed partial class DungeonGenerator
     /// yields fewer - which is why a level has around twenty rooms rather than
     /// the mean the constant names.
     /// </summary>
-    public void GenerateCave()
+    public void CarveCave()
     {
         int rowRooms = 2 * (Cave.Height / RoomGridHeight);
         int columnRooms = 2 * (Cave.Width / RoomGridWidth);

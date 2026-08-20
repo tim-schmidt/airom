@@ -46,7 +46,7 @@ public static partial class OracleDump
         game.Monsters.Reset();
         game.Cave.Resize(GameState.DungeonHeight, GameState.DungeonWidth);
         game.Cave.Blank();
-        new DungeonGenerator(game).GenerateCave();
+        new DungeonGenerator(game).CarveCave();
 
         // Empty the monster list, and take the monsters off the map with it.
         for (int row = 0; row < game.Cave.Height; row++)
@@ -99,15 +99,7 @@ public static partial class OracleDump
                 break;
             case 12: player.DetectInvisible = 3; break;
             case 13: player.TimedInfravision = 3; break;
-            case 14:
-                // Hallucinating, but blind with it: a blind character sees
-                // nothing, so the drawing never reaches the roll that scrambles
-                // a square. The map drawn while hallucinating is compared by the
-                // hallucinate mode, which does not need the lighting half of
-                // moria1.c to be ported first.
-                player.Hallucinating = 3;
-                player.Blind = 99;
-                break;
+            case 14: player.Hallucinating = 3; break;
             case 15: player.Food = 1500; break;
             case 16: player.Food = 500; break;
             case 17: player.Food = 100; break;
@@ -124,8 +116,20 @@ public static partial class OracleDump
                 player.Afraid = 9;
                 player.Hero = 4;
                 break;
-            default:
+            case 23:
                 player.Status |= PlayerStatus.Searching;
+                break;
+            case 24:
+                // A lit lamp with plenty of oil: the player carries their own
+                // light, so every step lights the squares around them.
+                game.LightFuel = 400;
+                game.PlayerLight = true;
+                break;
+            default:
+                // A lamp about to run dry: it warns while it lasts, then goes
+                // out.
+                game.LightFuel = 12;
+                game.PlayerLight = true;
                 break;
         }
 
@@ -143,9 +147,8 @@ public static partial class OracleDump
         screen.SendKeys(
             new string(' ', 200) + Keys.Control('K') + "y" + new string(' ', 1798));
 
-        // The map is drawn by the lighting half of moria1.c, which is not ported
-        // yet, so only the sidebar strip is comparable. Clearing first means
-        // what is left there was drawn by the loop rather than before it.
+        // Cleared so that what is left on the screen was drawn by the loop
+        // rather than by the character creation before it.
         display.ClearScreen();
 
         loop.Run();
@@ -184,13 +187,7 @@ public static partial class OracleDump
 
         for (int row = 0; row < screen.Rows; row++)
         {
-            // The message line and the status line are whole; the rows between
-            // them are cut at the map's left edge.
-            string text = row is 0 or 23
-                ? screen.GetRow(row)
-                : screen.GetRow(row)[..13];
-
-            Line("up " + N(row) + " " + text.TrimEnd());
+            Line("up " + N(row) + " " + screen.GetRow(row).TrimEnd());
         }
 
         OracleDump.Line(output, "final-state", game.Rng.State);
