@@ -272,6 +272,184 @@ public sealed class Traps
     }
 
     /// <summary>
+    /// Disarms a floor trap or a chest. Mirrors disarm_trap().
+    ///
+    /// The skill is the character's disarming, doubled for dexterity, plus wits
+    /// and a share of their level; anything that clouds the senses divides it by
+    /// ten, and the three of them stack, so a blind, confused, hallucinating
+    /// character is a thousand times worse at it.
+    ///
+    /// Failing is not the same as failing badly: a near miss is just a wasted
+    /// turn, but a bad one sets the thing off.
+    /// </summary>
+    public void DisarmTrap()
+    {
+        (bool taken, int direction) = _loop.ReadDirection();
+
+        if (!taken)
+        {
+            return;
+        }
+
+        int row = _game.CharacterRow;
+        int column = _game.CharacterColumn;
+        _game.Cave.Move(direction, ref row, ref column);
+
+        CaveSquare square = _game.Cave[row, column];
+
+        if (square.MonsterIndex > 1 && square.ObjectIndex != 0
+            && (_game.Objects[square.ObjectIndex].TVal == ItemCategory.VisibleTrap
+                || _game.Objects[square.ObjectIndex].TVal == ItemCategory.Chest))
+        {
+            Monster monster = _game.Monsters[square.MonsterIndex];
+
+            string name = monster.Visible
+                ? "The " + GameTables.CreatureList[monster.CreatureIndex].Name
+                : "Something";
+
+            _display.MessagePrint(name + " is in your way!");
+            return;
+        }
+
+        if (square.ObjectIndex == 0)
+        {
+            NothingToDisarm();
+            return;
+        }
+
+        int skill = Player.Disarm
+            + (2 * Stats.DisarmBonus(Player))
+            + Stats.Adjustment(Player, Stat.Intelligence)
+            + (GameTables.ClassLevelAdjust[Player.Class][LevelSkill.Disarming]
+               * Player.Level / 3);
+
+        if (Player.Blind > 0 || _loop.Lighting.NoLight())
+        {
+            skill /= 10;
+        }
+
+        if (Player.Confused > 0)
+        {
+            skill /= 10;
+        }
+
+        if (Player.Hallucinating > 0)
+        {
+            skill /= 10;
+        }
+
+        InvenType trap = _game.Objects[square.ObjectIndex];
+
+        if (trap.TVal == ItemCategory.VisibleTrap)
+        {
+            DisarmFloorTrap(trap, skill, direction, row, column);
+        }
+        else if (trap.TVal == ItemCategory.Chest)
+        {
+            DisarmChest(trap, skill, row, column);
+        }
+        else
+        {
+            NothingToDisarm();
+        }
+    }
+
+    private void NothingToDisarm()
+    {
+        _display.MessagePrint("I do not see anything to disarm there.");
+        _loop.FreeTurn = true;
+    }
+
+    /// <summary>
+    /// A trap in the floor. Whether it is disarmed or set off, the character
+    /// steps onto the square either way - which is why setting one off hurts.
+    /// </summary>
+    private void DisarmFloorTrap(
+        InvenType trap, int skill, int direction, int row, int column)
+    {
+        if (skill + 100 - trap.Level > Rng.RandInt(100))
+        {
+            _display.MessagePrint("You have disarmed the trap.");
+            Player.Experience += trap.P1;
+            _loop.Movement.DeleteObject(row, column);
+
+            StepOnto(direction);
+            _loop.Levelling.PrintExperience();
+            return;
+        }
+
+        // The bound is only rolled when there is something to roll: randint(0)
+        // is not a question the generator can answer.
+        if (skill > 5 && Rng.RandInt(skill) > 5)
+        {
+            _display.CountMessagePrint("You failed to disarm the trap.");
+            return;
+        }
+
+        _display.MessagePrint("You set the trap off!");
+        StepOnto(direction);
+    }
+
+    /// <summary>
+    /// Steps onto the square that was being worked on, with the confusion put
+    /// aside so that a confused character still lands on the trap they were
+    /// fiddling with rather than wandering off.
+    /// </summary>
+    private void StepOnto(int direction)
+    {
+        int confused = Player.Confused;
+        Player.Confused = 0;
+        _loop.Movement.MoveChar(direction, false);
+        Player.Confused = confused;
+    }
+
+    /// <summary>
+    /// A chest, which is a different thing: the trap has to be known about
+    /// before it can be worked on, and there is no stepping onto anything.
+    /// </summary>
+    private void DisarmChest(InvenType chest, int skill, int row, int column)
+    {
+        if (!ItemKnowledge.IsEnchantmentKnown(chest))
+        {
+            _display.MessagePrint("I don't see a trap.");
+            _loop.FreeTurn = true;
+            return;
+        }
+
+        if ((chest.Flags & ChestFlags.Trapped) == 0)
+        {
+            _display.MessagePrint("The chest was not trapped.");
+            _loop.FreeTurn = true;
+            return;
+        }
+
+        if (skill - chest.Level > Rng.RandInt(100))
+        {
+            chest.Flags &= ~ChestFlags.Trapped;
+
+            chest.SpecialName = (chest.Flags & ChestFlags.Locked) != 0
+                ? SpecialName.Locked
+                : SpecialName.Disarmed;
+
+            _display.MessagePrint("You have disarmed the chest.");
+            _game.Knowledge.LearnEnchantment(chest);
+            Player.Experience += chest.Level;
+            _loop.Levelling.PrintExperience();
+            return;
+        }
+
+        if (skill > 5 && Rng.RandInt(skill) > 5)
+        {
+            _display.CountMessagePrint("You failed to disarm the chest.");
+            return;
+        }
+
+        _display.MessagePrint("You set a trap off!");
+        _game.Knowledge.LearnEnchantment(chest);
+        ChestTrap(row, column);
+    }
+
+    /// <summary>
     /// Springs whatever was set on a chest. Mirrors chest_trap().
     ///
     /// A chest can carry several traps at once, and all of them go off, which is

@@ -77,6 +77,9 @@ public class GameLoop
     private Devices _devices;
     private Magic _magic;
     private InventoryScreen _inventoryScreen;
+    private Tunnelling _tunnelling;
+    private Looking _looking;
+    private Throwing _throwing;
 
     public GameLoop(GameState game, Display display)
     {
@@ -103,6 +106,9 @@ public class GameLoop
         _devices = new Devices(game, display, this);
         _magic = new Magic(game, display, this);
         _inventoryScreen = new InventoryScreen(game, display, this);
+        _tunnelling = new Tunnelling(game, display, this);
+        _looking = new Looking(game, display, this);
+        _throwing = new Throwing(game, display, this);
     }
 
     /// <summary>What the player can see, and how the screen hears about it.</summary>
@@ -174,6 +180,19 @@ public class GameLoop
         get => _inventoryScreen;
         set => _inventoryScreen = value ?? throw new ArgumentNullException(nameof(value));
     }
+
+    /// <summary>Digging through rock and rubble.</summary>
+    public Tunnelling Tunnelling => _tunnelling;
+
+    /// <summary>Looking around, with peripheral vision.</summary>
+    public Looking Looking
+    {
+        get => _looking;
+        set => _looking = value ?? throw new ArgumentNullException(nameof(value));
+    }
+
+    /// <summary>Throwing and firing.</summary>
+    public Throwing Throwing => _throwing;
 
     /// <summary>
     /// Lights the monsters without moving them, which is what creatures(FALSE)
@@ -618,9 +637,38 @@ public class GameLoop
         {
             _magic.GainSpells();
         }
-        else if (command is 'i' or 'e' or 'd' or 't' or 'w' or 'x')
+        else if (command is 'i' or 'e' or 'd' or 'w')
         {
             _inventoryScreen.Command(command);
+        }
+        else if (command == 'T')
+        {
+            _inventoryScreen.Command('t');
+        }
+        else if (command == 'X')
+        {
+            _inventoryScreen.Command('x');
+        }
+        else if (command == 't')
+        {
+            _throwing.ThrowObject();
+        }
+        else if (command == 'x')
+        {
+            _looking.Look();
+            FreeTurn = true;
+        }
+        else if (command == 'f')
+        {
+            _doors.Bash();
+        }
+        else if (command == 'D')
+        {
+            _traps.DisarmTrap();
+        }
+        else if (TunnelDirection(command) is int dig)
+        {
+            _tunnelling.Tunnel(dig);
         }
         else if (command == 'm')
         {
@@ -670,6 +718,28 @@ public class GameLoop
 
         LastCommand = command;
     }
+
+    /// <summary>
+    /// The direction a tunnel command digs in, or null if it is not one. The
+    /// control keys spell the direction into the command, as the walk and run
+    /// commands do.
+    /// </summary>
+    private static int? TunnelDirection(char command) => command switch
+    {
+        var c when c == Keys.Control('B') => 1,
+
+        // A carriage return has to be treated the same as a line feed, since
+        // which one a terminal sends is not something the game can choose.
+        var c when c == Keys.Control('M') => 2,
+        var c when c == Keys.Control('J') => 2,
+        var c when c == Keys.Control('N') => 3,
+        var c when c == Keys.Control('H') => 4,
+        var c when c == Keys.Control('L') => 6,
+        var c when c == Keys.Control('Y') => 7,
+        var c when c == Keys.Control('K') => 8,
+        var c when c == Keys.Control('U') => 9,
+        _ => null,
+    };
 
     /// <summary>The direction a walk command steps in, or null if it is not one.</summary>
     private static int? WalkDirection(char command) => command switch

@@ -113,6 +113,8 @@ divergence.
 | `prayer` | **Every prayer**, recited the same way | **Verified matching** |
 | `inven` | **Twenty scripted runs of the inventory mode**, screen and pack compared | **Verified matching** |
 | `getitem` | **Ten runs of the prompt that asks which item** | **Verified matching** |
+| `moria4` | **Ten scripted arrangements**: digging, disarming, bashing, throwing | **Verified matching** |
+| `look` | **Eighteen looks**, every direction with and without mineral veins | **Verified matching** |
 
 `seeds` is the one that will confirm the `reset_seed` quirk against the original
 rather than by inference: `magic_init` shuffles appearances inside a
@@ -233,6 +235,26 @@ the bell character straight to file descriptor 1, unbuffered, which is the same
 stream the dump goes to - so a single mistyped key in a script put a stray byte
 somewhere in the middle of the output. Turning the beep off is a player option
 the real game already has, and it leaves everything else bell() does alone.
+
+## Comparing what is overwritten as it is said
+
+The look describes one thing at a time and writes each description over the last,
+so by the time it finishes there is nothing left on the screen to compare. The
+final message says only whether anything was seen at all, and the look draws no
+random numbers, so the generator proves nothing either.
+
+Both sides therefore log the message line and the cursor position every time the
+look stops to ask for a key. That trace is the whole test: it says which squares
+the cone reached, in what order, and what was said about each. Twenty to thirty
+lines for a look in all directions, and they have to match one for one.
+
+The arrangement is built rather than found, too. A level as generated is mostly
+corridor, and a corridor's walls are all granite - which the look passes over in
+silence unless something is in it - so a look down one finds nothing and proves
+nothing. Both sides clear a patch of floor, put an object two and four squares
+out in each of the eight directions, set mineral veins five out, and place a
+creature. The same trick makes the digging and bashing comparable: whether there
+is rubble next to the player is otherwise a matter of luck.
 
 ## Reaching inside generate.c and main.c
 

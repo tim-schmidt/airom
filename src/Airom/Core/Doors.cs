@@ -4,6 +4,7 @@
 // Copyright (C) 2026 AIrom contributors
 // Licensed under the GNU General Public License v3 or later. See LICENSE.
 
+using System.Globalization;
 using Airom.Data;
 
 namespace Airom.Core;
@@ -39,6 +40,8 @@ public sealed class Doors
     }
 
     private Player Player => _game.Player;
+
+    private Rng Rng => _game.Rng;
 
     /// <summary>
     /// How good the player is at picking a lock. Mirrors the expression
@@ -245,6 +248,263 @@ public sealed class Doors
         square.Feature = CaveFeature.BlockedFloor;
         _loop.Lighting.LightSpot(row, column);
     }
+
+    /// <summary>
+    /// Throws a shoulder at whatever is in the way. Mirrors bash().
+    ///
+    /// A door bashed open is faster than a door unlocked, and the character
+    /// carries on through it - but half the time it breaks, and every failure
+    /// risks losing their footing. A chest bashed is mostly ruined along with
+    /// everything in it.
+    /// </summary>
+    public void Bash()
+    {
+        (bool taken, int direction) = _loop.ReadDirection();
+
+        if (!taken)
+        {
+            return;
+        }
+
+        if (Player.Confused > 0)
+        {
+            _display.MessagePrint("You are confused.");
+
+            do
+            {
+                direction = Rng.RandInt(9);
+            }
+            while (direction == 5);
+        }
+
+        int row = _game.CharacterRow;
+        int column = _game.CharacterColumn;
+        _game.Cave.Move(direction, ref row, ref column);
+
+        CaveSquare square = _game.Cave[row, column];
+
+        if (square.MonsterIndex > 1)
+        {
+            if (Player.Afraid > 0)
+            {
+                _display.MessagePrint("You are afraid!");
+            }
+            else
+            {
+                BashMonster(row, column);
+            }
+
+            return;
+        }
+
+        if (square.ObjectIndex == 0)
+        {
+            // Nothing there. A wall gets the same answer as a secret door, so
+            // that bashing around cannot be used to find one.
+            _display.MessagePrint(square.Feature < CaveFeature.MinCaveWall
+                ? "You bash at empty space."
+                : "You bash it, but nothing interesting happens.");
+
+            return;
+        }
+
+        InvenType obstacle = _game.Objects[square.ObjectIndex];
+
+        if (obstacle.TVal == ItemCategory.ClosedDoor)
+        {
+            BashDoor(obstacle, square, direction, row, column);
+        }
+        else if (obstacle.TVal == ItemCategory.Chest)
+        {
+            BashChest(obstacle);
+        }
+        else
+        {
+            // No free turn here on purpose: with one, a player could bash in
+            // every direction until they found an invisible creature.
+            _display.MessagePrint("You bash it, but nothing interesting happens.");
+        }
+    }
+
+    /// <summary>
+    /// A closed door. Whether it gives is weighed the same way a monster's
+    /// shoulder is, against how firmly it is locked or jammed.
+    /// </summary>
+    private void BashDoor(
+        InvenType door, CaveSquare square, int direction, int row, int column)
+    {
+        _display.CountMessagePrint("You smash into the door!");
+
+        int force = Player.UseStat[Stat.Strength] + (Player.Weight / 2);
+        int fastening = Math.Abs(door.P1);
+
+        if (Rng.RandInt(force * (20 + fastening)) < 10 * (force - fastening))
+        {
+            _display.MessagePrint("The door crashes open!");
+            door.CopyFrom(OpenDoorObject);
+
+            // Half the time the door is broken rather than merely open, which
+            // is what a p1 of one means for an open door.
+            door.P1 = (short)(1 - Rng.RandInt(2));
+            square.Feature = CaveFeature.CorridorFloor;
+
+            if (Player.Confused == 0)
+            {
+                _loop.Movement.MoveChar(direction, false);
+            }
+            else
+            {
+                _loop.Lighting.LightSpot(row, column);
+            }
+
+            return;
+        }
+
+        if (Rng.RandInt(150) > Player.UseStat[Stat.Dexterity])
+        {
+            _display.MessagePrint("You are off-balance.");
+            Player.Paralysis = 1 + Rng.RandInt(2);
+            return;
+        }
+
+        // Said once rather than every turn of a counted bash.
+        if (_display.CommandCount == 0)
+        {
+            _display.MessagePrint("The door holds firm.");
+        }
+    }
+
+    /// <summary>
+    /// A chest, which mostly means ruining it. Breaking the lock open is the
+    /// lucky outcome; destroying the contents is the likely one.
+    /// </summary>
+    private void BashChest(InvenType chest)
+    {
+        if (Rng.RandInt(10) == 1)
+        {
+            _display.MessagePrint("You have destroyed the chest.");
+            _display.MessagePrint("and its contents!");
+            chest.Index = RuinedChestObject;
+            chest.Flags = 0;
+            return;
+        }
+
+        if ((chest.Flags & ChestFlags.Locked) != 0 && Rng.RandInt(10) == 1)
+        {
+            _display.MessagePrint("The lock breaks open!");
+            chest.Flags &= ~ChestFlags.Locked;
+            return;
+        }
+
+        _display.CountMessagePrint("The chest holds firm.");
+    }
+
+    /// <summary>
+    /// A shoulder charge at a creature. Mirrors py_bash().
+    ///
+    /// It is the shield that does the damage, so someone carrying none is
+    /// bashing with nothing at all. What it is really for is the stunning:
+    /// something dazed by a bash cannot fight back for a few turns.
+    /// </summary>
+    private void BashMonster(int row, int column)
+    {
+        int index = _game.Cave[row, column].MonsterIndex;
+        Monster monster = _game.Monsters[index];
+        CreatureType creature = GameTables.CreatureList[monster.CreatureIndex];
+        InvenType shield = _game.Inventory[Inventory.ArmSlot];
+
+        monster.Sleep = 0;
+
+        string name = monster.Visible
+            ? "the " + creature.Name
+            : "it";
+
+        int toHit = Player.UseStat[Stat.Strength] + (shield.Weight / 2)
+            + (Player.Weight / 10);
+
+        // Something the player cannot see is much harder to shoulder squarely.
+        if (!monster.Visible)
+        {
+            toHit = (toHit / 2)
+                - (Player.UseStat[Stat.Dexterity] * (Combat.ToHitWeight - 1))
+                - (Player.Level
+                   * GameTables.ClassLevelAdjust[Player.Class][LevelSkill.Fighting] / 2);
+        }
+
+        if (!_loop.Combat.TestHit(toHit, Player.Level, Player.UseStat[Stat.Dexterity],
+                                  creature.Ac, LevelSkill.Fighting))
+        {
+            _display.MessagePrint("You miss " + name + ".");
+            OffBalance();
+            return;
+        }
+
+        _display.MessagePrint("You hit " + name + ".");
+
+        int damage = Rng.DamRoll(shield.DamageDice, shield.DamageSides);
+        damage = _loop.Combat.CriticalBlow(
+            (shield.Weight / 4) + Player.UseStat[Stat.Strength], 0, damage,
+            LevelSkill.Fighting);
+
+        damage += (Player.Weight / 60) + 3;
+
+        if (damage < 0)
+        {
+            damage = 0;
+        }
+
+        if (_loop.Combat.MonsterTakeHit(index, damage) >= 0)
+        {
+            _display.MessagePrint("You have slain " + name + ".");
+            _loop.Levelling.PrintExperience();
+            OffBalance();
+            return;
+        }
+
+        string capitalised = char.ToUpper(name[0], CultureInfo.InvariantCulture)
+            + name[1..];
+
+        // A Balrog cannot be stunned: its hit points are fixed at the maximum,
+        // so the roll is against a number nothing can beat.
+        int averageHitPoints = (creature.DefenseFlags & CreatureDefense.MaxHitPoints) != 0
+            ? creature.HitDiceCount * creature.HitDiceSides
+            : (creature.HitDiceCount * (creature.HitDiceSides + 1)) >> 1;
+
+        if (100 + Rng.RandInt(400) + Rng.RandInt(400)
+            > monster.HitPoints + averageHitPoints)
+        {
+            monster.Stunned += Rng.RandInt(3) + 1;
+
+            if (monster.Stunned > 24)
+            {
+                monster.Stunned = 24;
+            }
+
+            _display.MessagePrint(capitalised + " appears stunned!");
+        }
+        else
+        {
+            _display.MessagePrint(capitalised + " ignores your bash!");
+        }
+
+        OffBalance();
+    }
+
+    /// <summary>
+    /// The price of throwing your weight about: a clumsy character spends a
+    /// turn or two on the floor.
+    /// </summary>
+    private void OffBalance()
+    {
+        if (Rng.RandInt(150) > Player.UseStat[Stat.Dexterity])
+        {
+            _display.MessagePrint("You are off balance.");
+            Player.Paralysis = 1 + Rng.RandInt(2);
+        }
+    }
+
+    /// <summary>What a chest becomes when it is smashed. Umoria's OBJ_RUINED_CHEST.</summary>
+    private const int RuinedChestObject = 418;
 
     /// <summary>
     /// Turns a wall into floor. Mirrors twall().

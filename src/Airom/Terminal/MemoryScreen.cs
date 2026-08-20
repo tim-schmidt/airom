@@ -55,6 +55,17 @@ public sealed class MemoryScreen : IScreen
     /// <inheritdoc cref="SendKeys(char[])"/>
     public void SendKeys(string keys) => SendKeys(keys.ToCharArray());
 
+    /// <summary>
+    /// Replaces the waiting keys rather than adding to them, so a harness can
+    /// give one action its own script without whatever the last one left behind.
+    /// </summary>
+    public void SetKeys(string keys)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+        _input.Clear();
+        SendKeys(keys);
+    }
+
     /// <summary>One row of the composed frame, as text.</summary>
     public string GetRow(int row) => new(_buffer.Row(row));
 
@@ -114,14 +125,26 @@ public sealed class MemoryScreen : IScreen
     public bool TypeAheadVisible { get; set; } = true;
 
     /// <summary>
+    /// Called just before each key is handed over, so a harness can record what
+    /// was on the screen at the moment the game stopped to ask. Some screens
+    /// overwrite each thing they say with the next, and this is the only record
+    /// that survives.
+    /// </summary>
+    public Action? BeforeReadKey { get; set; }
+
+    /// <summary>
     /// Returns the next scripted key. Throws when the script runs dry, because
     /// a headless run that blocks for input would otherwise hang a test.
     /// </summary>
-    public char ReadKey() =>
-        _input.Count > 0
+    public char ReadKey()
+    {
+        BeforeReadKey?.Invoke();
+
+        return _input.Count > 0
             ? _input.Dequeue()
             : throw new InvalidOperationException(
                 "MemoryScreen ran out of scripted input while the game asked for a key.");
+    }
 
     /// <summary>
     /// Discards type-ahead. A script that is not type-ahead survives, which is

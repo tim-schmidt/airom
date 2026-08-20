@@ -1121,6 +1121,27 @@ public static partial class OracleDump
 
                 return 0;
 
+            case "moria4":
+            case "look":
+                if (arguments.Length != 4
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint m4Seed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int m4Level)
+                    || !int.TryParse(arguments[3], CultureInfo.InvariantCulture, out int m4Variation))
+                {
+                    return Usage(error);
+                }
+
+                if (arguments[0] == "moria4")
+                {
+                    DumpMoria4(output, m4Seed, m4Level, m4Variation);
+                }
+                else
+                {
+                    DumpLook(output, m4Seed, m4Level, m4Variation);
+                }
+
+                return 0;
+
             case "potion":
                 if (arguments.Length != 4
                     || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint potSeed)
@@ -1358,6 +1379,8 @@ public static partial class OracleDump
         error.WriteLine("  airom oracle prayer <seed> <level> <first> <count>  reciting prayers");
         error.WriteLine("  airom oracle inven <seed> <variation>  the inventory screens");
         error.WriteLine("  airom oracle getitem <seed> <variation>  the prompt that asks which item");
+        error.WriteLine("  airom oracle moria4 <seed> <level> <variation>  digging, disarming, bashing, throwing");
+        error.WriteLine("  airom oracle look <seed> <level> <variation>  the cone of peripheral vision");
         error.WriteLine("  airom oracle regen <seed> <turns>  regeneration of hit points and mana");
         error.WriteLine("  airom oracle map <seed> <level>  the whole level shrunk to one screen");
         return 2;

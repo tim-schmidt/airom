@@ -183,15 +183,17 @@ public sealed class Combat
             return damage * 2;
         }
 
-        if ((creature.DefenseFlags & CreatureDefense.HurtByFrost) == 0
+        if ((creature.DefenseFlags & CreatureDefense.HurtByFrost) != 0
             && (weapon.Flags & ItemFlags.FrostBrand) != 0)
         {
+            memory.Defense |= CreatureDefense.HurtByFrost;
             return damage * 3 / 2;
         }
 
-        if ((creature.DefenseFlags & CreatureDefense.HurtByFire) == 0
+        if ((creature.DefenseFlags & CreatureDefense.HurtByFire) != 0
             && (weapon.Flags & ItemFlags.FlameTongue) != 0)
         {
+            memory.Defense |= CreatureDefense.HurtByFire;
             return damage * 3 / 2;
         }
 

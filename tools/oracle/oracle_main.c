@@ -66,6 +66,7 @@ extern void probe_regenmana(int percent);
 extern void probe_hit_trap(int y, int x);
 extern void probe_carry(int y, int x, int pickup);
 extern const char *oracle_screen_row(int row);
+extern void oracle_log_keys(int on);
 
 /* From oracle_probe_main.c, which reaches the object sort inside main.c. */
 extern void probe_init_t_level(void);
@@ -4021,6 +4022,520 @@ static void dump_getitem(unsigned long seed, int variation)
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* ------------------------------------------------------------------ moria4 */
+
+/* Digging, disarming, bashing and throwing.
+
+   None of these can be compared on a level as it was generated: whether there
+   is rubble next to the player is a matter of luck, and a run that finds none
+   would prove nothing. So the eight squares around the player are set to a
+   known arrangement first - a wall of each kind, rubble, a secret door, a
+   locked door, a chest and a trap - and each variation then aims its action at
+   whichever of them it is about.
+
+   Every action is repeated two dozen times, since digging and bashing are both
+   a matter of trying until the thing gives. The prompts are answered with a
+   scripted key, fed fresh each round. */
+
+#define MORIA4_ROUNDS 24
+#define MORIA4_VARIATIONS 10
+
+/* What goes on each of the eight squares around the player. */
+static void moria4_surround(void)
+{
+  int slot;
+
+  /* Three kinds of rock to dig, and rubble. */
+  cave[char_row-1][char_col].fval = GRANITE_WALL;
+  cave[char_row+1][char_col].fval = MAGMA_WALL;
+  cave[char_row][char_col+1].fval = QUARTZ_WALL;
+
+  cave[char_row][char_col-1].fval = CORR_FLOOR;
+  slot = popt();
+  invcopy(&t_list[slot], OBJ_RUBBLE);
+  cave[char_row][char_col-1].tptr = (int8u)slot;
+
+  /* A secret door, which digs like the granite it is hiding in. */
+  cave[char_row-1][char_col+1].fval = GRANITE_WALL;
+  slot = popt();
+  invcopy(&t_list[slot], OBJ_SECRET_DOOR);
+  cave[char_row-1][char_col+1].tptr = (int8u)slot;
+
+  /* A door to bash, locked hard enough to take a few tries. */
+  cave[char_row-1][char_col-1].fval = CORR_FLOOR;
+  slot = popt();
+  invcopy(&t_list[slot], OBJ_CLOSED_DOOR);
+  t_list[slot].p1 = 8;
+  cave[char_row-1][char_col-1].tptr = (int8u)slot;
+
+  /* A chest, locked and trapped, to disarm or to smash. */
+  cave[char_row+1][char_col+1].fval = CORR_FLOOR;
+  slot = popt();
+  invcopy(&t_list[slot], 326);
+  t_list[slot].flags = CH_LOCKED | CH_LOSE_STR | CH_POISON;
+  t_list[slot].level = 10;
+  /* Known, since a chest's trap has to be seen before it can be worked on. */
+  known2(&t_list[slot]);
+  cave[char_row+1][char_col+1].tptr = (int8u)slot;
+
+  /* And a trap in the floor. */
+  cave[char_row+1][char_col-1].fval = CORR_FLOOR;
+  slot = popt();
+  invcopy(&t_list[slot], OBJ_TRAP_LIST + 1);
+  /* Found, as a trap has to be before it can be disarmed. What change_trap()
+     does when the player notices one. */
+  t_list[slot].tval = TV_VIS_TRAP;
+  t_list[slot].tchar = '^';
+  cave[char_row+1][char_col-1].tptr = (int8u)slot;
+
+  /* Nothing is standing on any of them. */
+  cave[char_row-1][char_col].cptr = 0;
+  cave[char_row+1][char_col].cptr = 0;
+  cave[char_row][char_col+1].cptr = 0;
+  cave[char_row][char_col-1].cptr = 0;
+  cave[char_row-1][char_col+1].cptr = 0;
+  cave[char_row-1][char_col-1].cptr = 0;
+  cave[char_row+1][char_col+1].cptr = 0;
+  cave[char_row+1][char_col-1].cptr = 0;
+}
+
+/* A lane to the east with something in it, so that a thrown thing has
+   somewhere to fly and something to hit. */
+static void moria4_target(int adjacent)
+{
+  int j;
+
+  for (j = 1; j <= 8; j++)
+    if (in_bounds(char_row, char_col + j))
+      {
+        cave[char_row][char_col+j].fval = CORR_FLOOR;
+        cave[char_row][char_col+j].tptr = 0;
+        cave[char_row][char_col+j].cptr = 0;
+      }
+
+  j = adjacent ? 1 : 5;
+
+  if (in_bounds(char_row, char_col + j))
+    (void) place_monster(char_row, char_col + j, 20, FALSE);
+}
+
+/* What the player is holding, which decides how well they dig and throw. */
+static void moria4_wield(int variation)
+{
+  int i;
+
+  inven_ctr = 0;
+  inven_weight = 0;
+  equip_ctr = 0;
+
+  invcopy(&inventory[INVEN_BODY], 103);   /* soft leather armor */
+  invcopy(&inventory[INVEN_ARM], 111);    /* a shield, which a bash hits with */
+  invcopy(&inventory[INVEN_LIGHT], 365);  /* a wooden torch */
+  inventory[INVEN_LIGHT].p1 = 5000;
+  equip_ctr = 3;
+
+  if (variation == 1)
+    {
+      /* A shovel, whose digging plus is worth far more than any weapon. */
+      for (i = 0; i < MAX_OBJECTS; i++)
+        if (object_list[i].tval == TV_DIGGING)
+          {
+            invcopy(&inventory[INVEN_WIELD], i);
+            inventory[INVEN_WIELD].p1 = 2;
+            equip_ctr++;
+            break;
+          }
+    }
+  else if (variation == 2)
+    {
+      /* Bare hands, which dig nothing at all. */
+    }
+  else if (variation == 8)
+    {
+      /* A bow, so that the arrows are fired rather than thrown. */
+      for (i = 0; i < MAX_OBJECTS; i++)
+        if (object_list[i].tval == TV_BOW)
+          {
+            invcopy(&inventory[INVEN_WIELD], i);
+            /* A short bow, which is what an arrow is made for. */
+            inventory[INVEN_WIELD].p1 = 2;
+            equip_ctr++;
+            break;
+          }
+    }
+  else
+    {
+      invcopy(&inventory[INVEN_WIELD], 30);   /* a stiletto */
+      equip_ctr++;
+    }
+}
+
+/* A pack of things to throw: one of each of a few kinds, and a quiver. */
+static void moria4_pack(void)
+{
+  int i, k;
+  static int kinds[] = { TV_ARROW, TV_FLASK, TV_POTION1, TV_FOOD, TV_HAFTED };
+
+  for (k = 0; k < (int)(sizeof(kinds)/sizeof(kinds[0])); k++)
+    for (i = 0; i < MAX_OBJECTS; i++)
+      if (object_list[i].tval == kinds[k])
+        {
+          inven_type held;
+
+          invcopy(&held, i);
+          if (kinds[k] == TV_ARROW)
+            held.number = 20;
+          (void) inven_carry(&held);
+          break;
+        }
+}
+
+/* The keys one round needs, padded with escapes. Fed fresh each round so that
+   nothing one action leaves behind is read by the next. */
+static void moria4_keys(const char *keys)
+{
+  char script[600];
+  int n = 0;
+  int i;
+
+  for (i = 0; keys[i]; i++)
+    script[n++] = keys[i];
+  for (i = n; i < 599; i++)
+    script[i] = (char)27;
+  script[599] = 0;
+
+  oracle_feed_keys(script);
+}
+
+static void dump_moria4(unsigned long seed, int level, int variation)
+{
+  int i, round;
+
+  header("moria4", seed);
+  printf("level %d\n", level);
+  printf("variation %d\n", variation);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+
+  init_seeds((int32u)seed);
+  pin_player(level);
+  dun_level = (int16)level;
+
+  init_curses();
+  oracle_screen_reset();
+  msg_flag = FALSE;
+
+  generate_cave();
+  cave[char_row][char_col].cptr = 1;
+
+  py.misc.lev = 20;
+  py.misc.expfact = 100;
+  py.misc.hitdie = 10;
+  py.misc.save = 40;
+  py.misc.wt = 150;
+  py.flags.food = 5000;
+
+  for (i = 0; i < 6; i++)
+    {
+      py.stats.max_stat[i] = 18;
+      py.stats.cur_stat[i] = 18;
+      py.stats.mod_stat[i] = 0;
+      set_use_stat(i);
+    }
+
+  (void) memset((char *)object_ident, 0, OBJECT_IDENT_SIZE);
+
+  moria4_wield(variation);
+  calc_bonuses();
+
+  py.misc.mhp = 2000;
+  py.misc.chp = 2000;
+
+  moria4_pack();
+  moria4_surround();
+
+  if (variation == 7 || variation == 8 || variation == 9)
+    moria4_target(variation == 9);
+
+  player_light = TRUE;
+  panel_row = panel_col = -1;
+  check_view();
+
+  for (round = 0; round < MORIA4_ROUNDS; round++)
+    {
+      /* Cleared each round, so that a message left over from the last one does
+         not turn this one's prompt into a -more- that eats a scripted key. */
+      msg_flag = FALSE;
+      free_turn_flag = FALSE;
+      new_level_flag = FALSE;
+      command_count = 0;
+
+      switch (variation)
+        {
+        case 0: case 1: case 2:
+          /* Dig at each of the sides and corners that hold something. */
+          moria4_keys("");
+          tunnel("8264793"[round % 7] - '0');
+          break;
+
+        case 3:
+          /* The trap in the floor is to the south west. */
+          moria4_keys("1");
+          disarm_trap();
+          break;
+
+        case 4:
+          /* The chest is to the south east. */
+          moria4_keys("3");
+          disarm_trap();
+          break;
+
+        case 5:
+          /* The door is to the north west. */
+          moria4_keys("7");
+          bash();
+          break;
+
+        case 6:
+          moria4_keys("3");   /* the chest */
+          bash();
+          break;
+
+        case 7: case 8:
+          {
+            char keys[3];
+
+            keys[0] = 'a';
+            keys[1] = '6';
+            keys[2] = 0;
+            moria4_keys(keys);
+            throw_object();
+          }
+          break;
+
+        case 9:
+          /* Something alive, one square east. */
+          moria4_keys("6");
+          bash();
+          break;
+
+        default:
+          moria4_keys("");
+          break;
+        }
+
+      printf("round %d free %d chp %d exp %ld at %d %d\n", round,
+             free_turn_flag ? 1 : 0, (int)py.misc.chp, (long)py.misc.exp,
+             (int)char_row, (int)char_col);
+      printf("  str %d con %d dex %d para %d conf %d\n",
+             (int)py.stats.cur_stat[A_STR], (int)py.stats.cur_stat[A_CON],
+             (int)py.stats.cur_stat[A_DEX], (int)py.flags.paralysis,
+             (int)py.flags.confused);
+      {
+        int hp = 0;
+        int m;
+
+        for (m = MIN_MONIX; m < mfptr; m++)
+          hp += m_list[m].hp;
+
+        printf("  packed %d weight %d objects %d monsters %d monhp %d\n",
+               (int)inven_ctr, (int)inven_weight, (int)(tcptr - MIN_TRIX),
+               (int)(mfptr - MIN_MONIX), hp);
+      }
+
+      for (i = 0; i < 9; i++)
+        {
+          int y = char_row + (i / 3) - 1;
+          int x = char_col + (i % 3) - 1;
+
+          if (in_bounds(y, x))
+            printf("  around %d fval %d tptr %d tval %d p1 %d flags %lu\n", i,
+                   (int)cave[y][x].fval, (int)cave[y][x].tptr,
+                   cave[y][x].tptr ? (int)t_list[cave[y][x].tptr].tval : 0,
+                   cave[y][x].tptr ? (int)t_list[cave[y][x].tptr].p1 : 0,
+                   cave[y][x].tptr
+                     ? (unsigned long)t_list[cave[y][x].tptr].flags : 0UL);
+        }
+
+      printf("  message %s\n", oracle_screen_row(0));
+      printf("  state %lu\n", (unsigned long)get_rnd_seed());
+    }
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
+/* -------------------------------------------------------------------- look */
+
+/* The enhanced look, with its cone of peripheral vision.
+
+   The level is left exactly as it was generated, and the whole of it is lit and
+   remembered with every creature on show, so that whatever the cone reaches is
+   worth describing. Every key the look asks for is answered with a space, which
+   steps on to the next thing; the screen is dumped afterwards. */
+/* A known arrangement around the player, so that every direction the cone is
+   pointed has something in it worth describing.
+
+   A level as generated is mostly corridor, whose walls are all granite - and
+   granite is only described when it has something in it, so a look down a
+   corridor finds nothing at all and proves nothing. */
+static void look_arena(void)
+{
+  static int offsets[8][2] = {
+    {-1, 0}, {1, 0}, {0, -1}, {0, 1}, {-1, -1}, {-1, 1}, {1, -1}, {1, 1}
+  };
+  int i, j, k, slot;
+
+  /* An open floor to look across. */
+  for (i = -5; i <= 5; i++)
+    for (j = -7; j <= 7; j++)
+      {
+        int y = char_row + i;
+        int x = char_col + j;
+
+        if (in_bounds(y, x))
+          {
+            cave[y][x].fval = CORR_FLOOR;
+            cave[y][x].tptr = 0;
+            if (!(i == 0 && j == 0))
+              cave[y][x].cptr = 0;
+          }
+      }
+
+  /* Something to see two squares out in each of the eight directions, and
+     something else four squares out. */
+  for (k = 0; k < 8; k++)
+    for (i = 2; i <= 4; i += 2)
+      {
+        int y = char_row + offsets[k][0] * i;
+        int x = char_col + offsets[k][1] * i;
+
+        if (!in_bounds(y, x))
+          continue;
+
+        slot = popt();
+        invcopy(&t_list[slot], 30 + (k * 3) + (i / 2));
+        cave[y][x].tptr = (int8u)slot;
+      }
+
+  /* Mineral veins five out, which only the second pass describes. */
+  for (k = 0; k < 8; k++)
+    {
+      int y = char_row + offsets[k][0] * 5;
+      int x = char_col + offsets[k][1] * 5;
+
+      if (in_bounds(y, x))
+        cave[y][x].fval = (k & 1) ? MAGMA_WALL : QUARTZ_WALL;
+    }
+
+  /* And something alive, three squares to the east. */
+  if (in_bounds(char_row, char_col + 3))
+    (void) place_monster(char_row, char_col + 3, 20, FALSE);
+}
+
+static void dump_look(unsigned long seed, int level, int variation)
+{
+  int i, j;
+  int direction;
+
+  header("look", seed);
+  printf("level %d\n", level);
+  printf("variation %d\n", variation);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+
+  init_seeds((int32u)seed);
+  pin_player(level);
+  dun_level = (int16)level;
+
+  init_curses();
+  oracle_screen_reset();
+  msg_flag = FALSE;
+
+  generate_cave();
+  cave[char_row][char_col].cptr = 1;
+
+  py.misc.lev = 20;
+  py.misc.expfact = 100;
+  py.flags.food = 5000;
+
+  for (i = 0; i < 6; i++)
+    {
+      py.stats.max_stat[i] = 18;
+      py.stats.cur_stat[i] = 18;
+      py.stats.mod_stat[i] = 0;
+      set_use_stat(i);
+    }
+
+  py.misc.mhp = 500;
+  py.misc.chp = 500;
+
+  for (i = 0; i < cur_height; i++)
+    for (j = 0; j < cur_width; j++)
+      {
+        cave[i][j].pl = TRUE;
+        cave[i][j].fm = TRUE;
+      }
+
+  look_arena();
+
+  for (i = MIN_MONIX; i < mfptr; i++)
+    m_list[i].ml = TRUE;
+
+  player_light = TRUE;
+  panel_row = panel_col = -1;
+  check_view();
+
+  /* Mineral veins are picked out on the odd variations, which is what makes
+     look take a second pass over the rock. */
+  highlight_seams = (variation % 2);
+
+  msg_flag = FALSE;
+
+  {
+    char script[4001];
+    int n;
+
+    for (n = 0; n < 4000; n++)
+      script[n] = ' ';
+    script[4000] = 0;
+    oracle_feed_keys(script);
+  }
+
+  /* Directions 1 to 9, with 5 meaning every way at once. */
+  direction = (variation / 2) + 1;
+
+  {
+    char keys[4002];
+    int n;
+
+    keys[0] = (char)('0' + direction);
+    for (n = 1; n < 4000; n++)
+      keys[n] = ' ';
+    keys[4000] = 0;
+    oracle_feed_keys(keys);
+  }
+
+  /* Every description is overwritten by the next, so the only record of what
+     the cone actually found is what was on the message line each time it
+     stopped to ask. */
+  oracle_log_keys(1);
+  look();
+  oracle_log_keys(0);
+
+  printf("direction %d seams %d\n", direction, highlight_seams);
+  oracle_screen_dump("scr");
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ---------------------------------------------------------------- driver */
 
 
@@ -4065,7 +4580,9 @@ static int usage(void)
           "  oracle spell <seed> <level> <first> <count>  casting spells\n"
           "  oracle prayer <seed> <level> <first> <count>  reciting prayers\n"
           "  oracle inven <seed> <variation>  the inventory screens\n"
-          "  oracle getitem <seed> <variation>  the prompt that asks which item\n");
+          "  oracle getitem <seed> <variation>  the prompt that asks which item\n"
+          "  oracle moria4 <seed> <level> <variation>  digging, disarming, bashing, throwing\n"
+          "  oracle look <seed> <level> <variation>  the cone of peripheral vision\n");
   return 2;
 }
 
@@ -4279,6 +4796,22 @@ int main(int argc, char *argv[])
         dump_inven(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
       else
         dump_getitem(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "moria4") == 0 || strcmp(argv[1], "look") == 0)
+    {
+      if (argc != 5)
+        return usage();
+
+      if (strcmp(argv[1], "moria4") == 0)
+        dump_moria4(strtoul(argv[2], NULL, 10),
+                    (int)strtol(argv[3], NULL, 10),
+                    (int)strtol(argv[4], NULL, 10));
+      else
+        dump_look(strtoul(argv[2], NULL, 10),
+                  (int)strtol(argv[3], NULL, 10),
+                  (int)strtol(argv[4], NULL, 10));
       return 0;
     }
 

@@ -503,8 +503,9 @@ public class GameLoopTests
 
         var loop = new ProbeLoop(game, display);
 
-        // Tunnelling belongs to moria4.c, which is not ported.
-        loop.Dispatch('T');
+        // Jamming a door with a spike belongs to moria3.c, which is not
+        // ported.
+        loop.Dispatch('S');
 
         Assert.Contains("not ported yet", screen.GetRow(0), StringComparison.Ordinal);
         Assert.True(loop.FreeTurn, "an unported command still took a turn");
