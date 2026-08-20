@@ -37,7 +37,7 @@ public static class SpellElement
 /// takes a quarter - and either way, seeing it happen teaches the player
 /// something about the creature.
 /// </summary>
-public sealed class Spells
+public sealed partial class Spells
 {
     /// <summary>How far a bolt or a ball travels. Umoria's OBJ_BOLT_RANGE.</summary>
     public const int BoltRange = 18;

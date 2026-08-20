@@ -64,6 +64,9 @@ public sealed class ItemKnowledge
     private static int SlotOf(InvenType item, int offset) =>
         (offset << 6) + (item.SubVal & (ItemCategory.SingleStackMin - 1));
 
+    /// <summary>Forgets every kind, as starting a new game does.</summary>
+    public void Reset() => Array.Clear(_flags);
+
     /// <summary>Whether the kind is known. Mirrors known1_p().</summary>
     public bool IsKindKnown(InvenType item)
     {
@@ -212,6 +215,44 @@ public sealed class ItemKnowledge
     {
         ArgumentNullException.ThrowIfNull(item);
         return (item.Identification & Identification.StoreBought) != 0;
+    }
+
+    /// <summary>
+    /// Whether an item is enchanted in a way the player has not noticed.
+    /// Mirrors dungeon.c's enchanted().
+    ///
+    /// Only good enchantments count: a cursed item is not something the game
+    /// hints at, and neither is one the player has already identified or
+    /// guessed at.
+    /// </summary>
+    public static bool IsUnnoticedEnchantment(InvenType item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
+        if (item.TVal < ItemCategory.MinEnchant || item.TVal > ItemCategory.MaxEnchant
+            || (item.Flags & ItemFlags.Cursed) != 0)
+        {
+            return false;
+        }
+
+        if (IsEnchantmentKnown(item) || (item.Identification & Identification.Magik) != 0)
+        {
+            return false;
+        }
+
+        if (item.ToHit > 0 || item.ToDam > 0 || item.ToAc > 0)
+        {
+            return true;
+        }
+
+        // The flags that only mean something with a p1 behind them, and then
+        // everything else worth noticing.
+        if ((item.Flags & 0x4000107fu) != 0 && item.P1 > 0)
+        {
+            return true;
+        }
+
+        return (item.Flags & 0x07ffe980u) != 0;
     }
 
     /// <summary>Adds one of the game's own inscriptions. Mirrors add_inscribe().</summary>

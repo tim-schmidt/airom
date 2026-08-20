@@ -57,7 +57,10 @@ Early. The foundations are in place; the game is not yet playable.
 | Monsters in motion: moving, breeding, waking, attacking | Done, verified against the original |
 | Monster spells and breaths | Done, verified against the original |
 | Spell engine: bolts, balls, breaths, and the spells aimed at monsters | Done, verified against the original |
-| The rest of spells.c: the player's own utility spells | Not started |
+| Potions and food, and what they do | Done, verified against the original |
+| The cures, the losses and the small comforts from spells.c | Done, verified against the original |
+| Scrolls, wands, staffs and the player's own spells | Not started |
+| The rest of spells.c: detection, enchantment, earthquakes | Not started |
 | Inventory and equipment | Not started |
 | Save files | Not started |
 

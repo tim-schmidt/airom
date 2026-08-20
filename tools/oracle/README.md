@@ -105,6 +105,7 @@ divergence.
 | `fight` | **Hitting things**: every blow, every kill, the drops and the memory | **Verified matching** |
 | `traps` | **Every trap in the table**, sprung on a fresh character each | **Verified matching** |
 | `monsters` | **The monsters taking their turns**: moving, breeding, stealing, attacking, casting | **Verified matching** |
+| `potion` | **Every potion and mushroom in the table**, drunk or eaten and compared | **Verified matching** |
 
 `seeds` is the one that will confirm the `reset_seed` quirk against the original
 rather than by inference: `magic_init` shuffles appearances inside a
@@ -141,6 +142,20 @@ to `moria2.c` and is not ported, so the walk is done in the harness itself: it
 picks a square, moves the player record, and tells the lighting about it, which
 is the sequence `move_char()` uses. Each variation takes a different path
 through `move_light()` - lamp, blind, no lamp at all, and running.
+
+## Driving the real quaff() and eat()
+
+Both take an item from the pack through the inventory screen, which is not
+ported. The C harness puts the item in the pack and feeds the letter, so the
+whole of `quaff()` runs - prompting, effects, the experience for working out
+what it was, the food and the item being used up. This side calls the effects
+directly and then does the same bookkeeping around them.
+
+Two things had to be levelled out to make that comparison mean anything.
+`magic_init()` shuffles the appearance tables where they stand, so it runs once
+rather than once per item - calling it twice would shuffle an already-shuffled
+table. And what the player knows is forgotten between items, so every potion is
+drunk by someone who has never seen one.
 
 ## Reaching inside generate.c and main.c
 

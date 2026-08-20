@@ -26,18 +26,42 @@ public sealed class Inventory
     public const int WieldSlot = 22;
 
     public const int HeadSlot = 23;
-    public const int BodySlot = 24;
-    public const int ArmSlot = 25;
-    public const int HandsSlot = 26;
-    public const int RightRingSlot = 27;
-    public const int LeftRingSlot = 28;
-    public const int FeetSlot = 29;
-    public const int OuterSlot = 30;
-    public const int LightSlot = 31;
-    public const int AuxiliarySlot = 32;
+    public const int NeckSlot = 24;
+    public const int BodySlot = 25;
+    public const int ArmSlot = 26;
+    public const int HandsSlot = 27;
+    public const int RightRingSlot = 28;
+    public const int LeftRingSlot = 29;
+    public const int FeetSlot = 30;
+    public const int OuterSlot = 31;
+    public const int LightSlot = 32;
+
+    /// <summary>The second weapon, which is carried rather than worn.</summary>
+    public const int AuxiliarySlot = 33;
 
     /// <summary>How many slots there are in all. Umoria's INVEN_ARRAY_SIZE.</summary>
     public const int Size = AuxiliarySlot + 1;
+
+    /// <summary>
+    /// How a worn item is being used, for the messages that mention it. Mirrors
+    /// describe_use().
+    /// </summary>
+    public static string DescribeUse(int slot) => slot switch
+    {
+        WieldSlot => "wielding",
+        HeadSlot => "wearing on your head",
+        NeckSlot => "wearing around your neck",
+        BodySlot => "wearing on your body",
+        ArmSlot => "wearing on your arm",
+        HandsSlot => "wearing on your hands",
+        RightRingSlot => "wearing on your right hand",
+        LeftRingSlot => "wearing on your left hand",
+        FeetSlot => "wearing on your feet",
+        OuterSlot => "wearing about your body",
+        LightSlot => "using to light the way",
+        AuxiliarySlot => "holding ready by your side",
+        _ => "carrying in your pack",
+    };
 
     /// <summary>Weight a point of strength carries, in tenths of a pound.</summary>
     public const int WeightPerStrength = 100;

@@ -312,11 +312,7 @@ public class Stats
     {
     }
 
-    /// <summary>
-    /// Pending: calc_hitpoints() belongs to the levelling half of misc3.c, which
-    /// is not ported.
-    /// </summary>
-    protected internal virtual void RecalculateHitPoints()
-    {
-    }
+    /// <summary>Recomputes the hit points. Mirrors calc_hitpoints().</summary>
+    protected internal virtual void RecalculateHitPoints() =>
+        _loop.Levelling.CalculateHitPoints();
 }

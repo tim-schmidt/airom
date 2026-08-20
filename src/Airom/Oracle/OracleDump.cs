@@ -1072,6 +1072,18 @@ public static partial class OracleDump
                 DumpMap(output, mpSeed, mpLevel);
                 return 0;
 
+            case "potion":
+                if (arguments.Length != 4
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint potSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int potFirst)
+                    || !int.TryParse(arguments[3], CultureInfo.InvariantCulture, out int potCount))
+                {
+                    return Usage(error);
+                }
+
+                DumpPotion(output, potSeed, potFirst, potCount);
+                return 0;
+
             case "monsters":
                 if (arguments.Length != 5
                     || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint mnSeed)
@@ -1289,6 +1301,7 @@ public static partial class OracleDump
         error.WriteLine("  airom oracle fight <seed> <level> <creature> <rounds>  hitting things");
         error.WriteLine("  airom oracle traps <seed> <level> <first> <count>  springing traps");
         error.WriteLine("  airom oracle monsters <seed> <level> <turns> <variation>  monster turns");
+        error.WriteLine("  airom oracle potion <seed> <first> <count>  drinking things");
         error.WriteLine("  airom oracle regen <seed> <turns>  regeneration of hit points and mana");
         error.WriteLine("  airom oracle map <seed> <level>  the whole level shrunk to one screen");
         return 2;

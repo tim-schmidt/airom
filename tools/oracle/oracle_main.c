@@ -3029,6 +3029,135 @@ static void dump_monsters(unsigned long seed, int level, int turns, int variatio
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* ------------------------------------------------------------------ potion */
+
+/* Drinking things.
+
+   Every potion in the table is drunk by a fresh character, and what it did is
+   compared: the stats, the counters, the experience, the messages and whether
+   the player worked out what it was.
+
+   quaff() itself asks which potion to drink, through the inventory screen that
+   is not ported. The potion is put in the pack and the letter is fed to it, so
+   the real quaff() runs - prompting, effects, food and all. */
+static void dump_potion(unsigned long seed, int first, int count)
+{
+  int which;
+
+  header("potion", seed);
+  printf("first %d\n", first);
+  printf("count %d\n", count);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  /* magic_init() shuffles the appearance tables where they stand, so calling it
+     once per potion would shuffle an already-shuffled table. It runs once, and
+     only the generator is re-seeded for each potion. */
+  init_seeds((int32u)seed);
+  magic_init();
+
+  for (which = first; which < first + count && which < MAX_OBJECTS; which++)
+    {
+      int tval;
+      inven_type sample_potion;
+
+      init_seeds((int32u)seed);
+      pin_player(0);
+      dun_level = 1;
+
+      init_curses();
+      oracle_screen_reset();
+      msg_flag = FALSE;
+
+      tval = object_list[which].tval;
+      if (tval != TV_POTION1 && tval != TV_POTION2 && tval != TV_FOOD)
+        continue;
+
+      /* A character with room to improve in every direction: hurt, drained,
+         hungry and poisoned, so that a cure has something to cure. */
+      py.misc.lev = 10;
+      py.misc.expfact = 100;
+      py.misc.exp = 2000;
+      py.misc.max_exp = 5000;
+      py.misc.mhp = 80;
+      py.misc.chp = 30;
+      py.misc.mana = 20;
+      py.misc.cmana = 5;
+      py.flags.food = 3000;
+      py.flags.poisoned = 20;
+      py.flags.confused = 20;
+      py.flags.blind = 20;
+      py.flags.afraid = 20;
+
+      {
+        int i;
+
+        for (i = 0; i < 6; i++)
+          {
+            py.stats.max_stat[i] = 16;
+            py.stats.cur_stat[i] = 12;
+            py.stats.mod_stat[i] = 0;
+            set_use_stat(i);
+          }
+      }
+
+      /* Everything the player knows is forgotten between potions: each one is
+         drunk by someone who has never seen one, which is what makes the
+         identification worth comparing. */
+      (void) memset((char *)object_ident, 0, OBJECT_IDENT_SIZE);
+
+      inven_ctr = 1;
+      invcopy(&inventory[0], which);
+      inven_weight = inventory[0].weight;
+
+      {
+        char script[200];
+        int n;
+
+        script[0] = 'a';
+        for (n = 1; n < 199; n++)
+          script[n] = ' ';
+        script[199] = '\0';
+        oracle_feed_keys(script);
+      }
+
+      if (tval == TV_FOOD)
+        eat();
+      else
+        quaff();
+
+      printf("potion %d tval %d flags %lu\n", which, tval,
+             (unsigned long)object_list[which].flags);
+      printf("  chp %d mana %d exp %ld lev %d food %d\n", (int)py.misc.chp,
+             (int)py.misc.cmana, (long)py.misc.exp, (int)py.misc.lev,
+             (int)py.flags.food);
+      printf("  stats %d %d %d %d %d %d\n", (int)py.stats.cur_stat[0],
+             (int)py.stats.cur_stat[1], (int)py.stats.cur_stat[2],
+             (int)py.stats.cur_stat[3], (int)py.stats.cur_stat[4],
+             (int)py.stats.cur_stat[5]);
+      printf("  blind %d conf %d afraid %d pois %d para %d\n",
+             (int)py.flags.blind, (int)py.flags.confused, (int)py.flags.afraid,
+             (int)py.flags.poisoned, (int)py.flags.paralysis);
+      printf("  fast %d slow %d hero %d shero %d invuln %d\n",
+             (int)py.flags.fast, (int)py.flags.slow, (int)py.flags.hero,
+             (int)py.flags.shero, (int)py.flags.invuln);
+      printf("  heat %d cold %d detinv %d infra %d prot %d\n",
+             (int)py.flags.resist_heat, (int)py.flags.resist_cold,
+             (int)py.flags.detect_inv, (int)py.flags.tim_infra,
+             (int)py.flags.protevil);
+      /* Asked about a fresh copy rather than the slot, which the potion has
+         just been destroyed out of. */
+      invcopy(&sample_potion, which);
+      printf("  known %d packed %d message %s\n",
+             known1_p(&sample_potion) ? 1 : 0, (int)inven_ctr,
+             oracle_screen_row(0));
+      printf("  state %lu\n", (unsigned long)get_rnd_seed());
+    }
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ---------------------------------------------------------------- driver */
 
 
@@ -3065,7 +3194,8 @@ static int usage(void)
           "  oracle pickup <seed> <level> <steps> <variation>  carrying things\n"
           "  oracle fight <seed> <level> <creature> <rounds>  hitting things\n"
           "  oracle traps <seed> <level> <first> <count>  springing traps\n"
-          "  oracle monsters <seed> <level> <turns> <variation>  monster turns\n");
+          "  oracle monsters <seed> <level> <turns> <variation>  monster turns\n"
+          "  oracle potion <seed> <first> <count>  drinking things\n");
   return 2;
 }
 
@@ -3235,6 +3365,18 @@ int main(int argc, char *argv[])
           return usage();
         }
       dump_map(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "potion") == 0)
+    {
+      if (argc != 5)
+        {
+          return usage();
+        }
+      dump_potion(strtoul(argv[2], NULL, 10),
+                  (int)strtol(argv[3], NULL, 10),
+                  (int)strtol(argv[4], NULL, 10));
       return 0;
     }
 

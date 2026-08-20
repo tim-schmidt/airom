@@ -71,6 +71,8 @@ public class GameLoop
     private MonsterAi _monsterAi;
     private MonsterAttack _monsterAttack;
     private Spells _spells;
+    private Potions _potions;
+    private Food _food;
 
     public GameLoop(GameState game, Display display)
     {
@@ -91,6 +93,8 @@ public class GameLoop
         _monsterAi = new MonsterAi(game, display, this);
         _monsterAttack = new MonsterAttack(game, display, this);
         _spells = new Spells(game, display, this);
+        _potions = new Potions(game, display, this);
+        _food = new Food(game, display, this);
     }
 
     /// <summary>What the player can see, and how the screen hears about it.</summary>
@@ -128,6 +132,12 @@ public class GameLoop
 
     /// <summary>Spells, and the three shapes they come in.</summary>
     public Spells Spells => _spells;
+
+    /// <summary>Drinking things.</summary>
+    public Potions Potions => _potions;
+
+    /// <summary>Eating things.</summary>
+    public Food Food => _food;
 
     /// <summary>
     /// Lights the monsters without moving them, which is what creatures(FALSE)
