@@ -11,24 +11,24 @@ using Airom.Terminal;
 namespace Airom.Oracle;
 
 /// <summary>
-/// A scroll reader that answers the questions a scroll asks.
+/// A spell book that answers the questions the effects in spells.c ask.
 ///
 /// The C harness answers them with scripted keys - "a" for the first pack slot,
 /// "k" for the letter a scroll of genocide wants. This gives the same answers
 /// without a prompt, so the two sides do the same thing to the same level.
 /// </summary>
-internal sealed class ScriptedScrolls(GameState game, Display display, GameLoop loop)
-    : Scrolls(game, display, loop)
+internal sealed class ScriptedSpells(GameState game, Display display, GameLoop loop)
+    : Spells(game, display, loop)
 {
     private readonly Display _display = display;
 
-    protected override int? ChooseItem(string prompt, int first, int last)
+    protected internal override int? ChooseItem(string prompt, int first, int last)
     {
         AskQuestion();
         return 0;
     }
 
-    protected override char? ChooseSymbol(string prompt)
+    protected internal override char? ChooseSymbol(string prompt)
     {
         AskQuestion();
         return 'k';
@@ -117,7 +117,7 @@ public static partial class OracleDump
             display.Panel.Resize(game.Cave.Height, game.Cave.Width);
 
             var loop = new GameLoop(game, display);
-            loop.Scrolls = new ScriptedScrolls(game, display, loop);
+            loop.Spells = new ScriptedSpells(game, display, loop);
 
             Player player = game.Player;
 

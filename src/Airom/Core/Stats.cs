@@ -305,11 +305,14 @@ public class Stats
     }
 
     /// <summary>
-    /// Pending: calc_spells() and calc_mana() belong to the spell half of
-    /// misc3.c, which is not ported.
+    /// Works out how many spells the character should know and how much mana
+    /// they have. Mirrors the calc_spells()/calc_mana() pair, which the
+    /// original always calls together.
     /// </summary>
     protected internal virtual void RecalculateSpells(int stat)
     {
+        _loop.Magic.CalcSpells(stat);
+        _loop.Magic.CalcMana(stat);
     }
 
     /// <summary>Recomputes the hit points. Mirrors calc_hitpoints().</summary>

@@ -3406,6 +3406,281 @@ static void dump_device(const char *mode, unsigned long seed, int level,
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* ------------------------------------------------------------------- magic */
+
+/* Casting a mage's spells and reciting a priest's prayers.
+
+   Every one of the thirty-one spells a class has is cast twice by the same
+   character on the same freshly generated level: once with mana to spare, and
+   once with almost none, since running short changes both how likely the spell
+   is to fail and what it costs to cast it anyway.
+
+   The real cast() and pray() run, prompting and all. The prompts are answered
+   by a scripted key: "a" picks the book, the spell's own letter picks the
+   spell, "y" confirms a spell too expensive to afford, "6" points east, and "k"
+   is the letter fed to genocide. Which of those a given spell needs is known
+   from its number, so the script is built to match. */
+
+/* Whether a mage spell asks which way it goes. */
+static int mage_spell_aims(int spell)
+{
+  switch (spell + 1)
+    {
+    case 1: case 7: case 8: case 9: case 11: case 15: case 16:
+    case 20: case 23: case 24: case 25: case 27: case 29:
+      return TRUE;
+    default:
+      return FALSE;
+    }
+}
+
+/* Whether a prayer asks which way it goes. */
+static int prayer_aims(int spell)
+{
+  return (spell + 1) == 9 || (spell + 1) == 18;
+}
+
+static void magic_script(int mage, int spell, int letter, int confirm)
+{
+  char script[600];
+  int n = 0;
+  int i;
+
+  /* The book, then the spell within it. */
+  script[n++] = (char)'a';
+  script[n++] = (char)letter;
+
+  if (confirm)
+    script[n++] = (char)'y';
+
+  if (mage ? mage_spell_aims(spell) : prayer_aims(spell))
+    script[n++] = (char)'6';
+
+  if (mage)
+    {
+      /* Recharge I, Recharge II and Identify all ask which item. */
+      if (spell + 1 == 18 || spell + 1 == 21 || spell + 1 == 26)
+        script[n++] = (char)'a';
+
+      /* Genocide asks for a letter. */
+      if (spell + 1 == 31)
+        script[n++] = (char)'k';
+    }
+
+  /* Padded with escapes rather than spaces: a space is not an answer to any of
+     these prompts, so a prompt that asked for one more key than the script
+     provides would spin on the padding instead of giving up. */
+  for (i = n; i < 599; i++)
+    script[i] = (char)27;
+  script[599] = 0;
+
+  oracle_feed_keys(script);
+}
+
+static void dump_magic(const char *mode, unsigned long seed, int level,
+                       int first, int count)
+{
+  int mage;
+  int book_tval;
+  int spell;
+
+  mage = strcmp(mode, "spell") == 0;
+  book_tval = mage ? TV_MAGIC_BOOK : TV_PRAYER_BOOK;
+
+  header(mode, seed);
+  printf("level %d\n", level);
+  printf("first %d\n", first);
+  printf("count %d\n", count);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  /* magic_init() shuffles the appearance tables where they stand, so it runs
+     once and only the generator is re-seeded for each cast. */
+  init_seeds((int32u)seed);
+  magic_init();
+
+  for (spell = first; spell < first + count && spell < 31; spell++)
+    {
+      int book;
+      int which;
+      int first_spell;
+      int32u holder;
+      int letter;
+      int pass;
+
+      /* Which book the spell is printed in, and which letter it has there. The
+         lettering runs from the first spell in the book whether or not the
+         character knows it, so a spell keeps its letter as they learn. */
+      book = -1;
+      for (which = 0; which < MAX_OBJECTS; which++)
+        if (object_list[which].tval == book_tval
+            && (object_list[which].flags & (1L << spell)))
+          {
+            book = which;
+            break;
+          }
+
+      if (book < 0)
+        continue;
+
+      holder = object_list[book].flags;
+      first_spell = bit_pos(&holder);
+      letter = 'a' + spell - first_spell;
+
+      for (pass = 0; pass < 2; pass++)
+        {
+          int i;
+          int lit, marked, walls;
+          int mana, confirm;
+
+          /* Plenty of mana, then almost none. */
+          mana = (pass == 0) ? 200 : 1;
+          confirm = magic_spell[mage ? 0 : 1][spell].smana > mana;
+
+          init_seeds((int32u)seed);
+          pin_player(level);
+          py.misc.pclass = mage ? 1 : 2;   /* class 0 is the warrior */
+          dun_level = (int16)level;
+
+          /* These live outside the player struct, so pin_player() does not
+             clear them and one cast would otherwise be set up by the last. */
+          spell_learned = 0;
+          spell_worked = 0;
+          spell_forgotten = 0;
+          for (i = 0; i < 32; i++)
+            spell_order[i] = 99;
+
+          init_curses();
+          oracle_screen_reset();
+          msg_flag = FALSE;
+
+          generate_cave();
+          cave[char_row][char_col].cptr = 1;
+
+          /* Someone who can cast anything and survive what it wakes. No
+             experience to start with, since the level is pinned. */
+          py.misc.lev = 40;
+          py.misc.expfact = 100;
+          py.misc.exp = 0;
+          py.misc.max_exp = 0;
+          py.misc.hitdie = 10;
+          py.misc.save = 40;
+          py.flags.food = 5000;
+
+          for (i = 0; i < 6; i++)
+            {
+              py.stats.max_stat[i] = 18;
+              py.stats.cur_stat[i] = 18;
+              py.stats.mod_stat[i] = 0;
+              set_use_stat(i);
+            }
+
+          /* Everything the player knows is forgotten between casts. */
+          (void) memset((char *)object_ident, 0, OBJECT_IDENT_SIZE);
+
+          /* A weapon, a suit of armour and a light: without a light nothing can
+             be read at all, spell book included. */
+          inven_ctr = 0;
+          inven_weight = 0;
+          equip_ctr = 0;
+
+          invcopy(&inventory[INVEN_WIELD], 30);   /* a stiletto */
+          invcopy(&inventory[INVEN_BODY], 103);   /* soft leather armor */
+          invcopy(&inventory[INVEN_HEAD], 96);    /* a hard leather cap */
+          invcopy(&inventory[INVEN_LIGHT], 365);  /* a wooden torch */
+          inventory[INVEN_LIGHT].p1 = 5000;
+          equip_ctr = 4;
+
+          /* calc_bonuses() recomputes the hit points from the class and the
+             constitution, so the survivable totals are set after it. */
+          calc_bonuses();
+
+          py.misc.mhp = 500;
+          py.misc.chp = 500;
+          py.misc.mana = 200;
+          py.misc.cmana = mana;
+          py.misc.cmana_frac = 0;
+
+          player_light = TRUE;
+          panel_row = panel_col = -1;
+          check_view();
+
+          invcopy(&inventory[0], book);
+          inven_ctr = 1;
+          inven_weight = inventory[0].weight;
+
+          /* Set after set_use_stat(), which would otherwise forget spells the
+             character is not yet entitled to. */
+          spell_learned = 0x7FFFFFFFL;
+          spell_worked = 0;
+          spell_forgotten = 0;
+          for (i = 0; i < 32; i++)
+            spell_order[i] = 99;
+
+          /* Cleared here rather than at the top: generating the level and
+             lighting it can leave a message waiting, and a waiting message
+             turns the first prompt into a -more- that eats a scripted key. */
+          msg_flag = FALSE;
+
+          magic_script(mage, spell, letter, confirm);
+
+          free_turn_flag = FALSE;
+          new_level_flag = FALSE;
+
+          if (mage)
+            cast();
+          else
+            pray();
+
+          lit = 0;
+          marked = 0;
+          walls = 0;
+          for (i = 0; i < cur_height; i++)
+            {
+              int j;
+
+              for (j = 0; j < cur_width; j++)
+                {
+                  if (cave[i][j].pl || cave[i][j].tl)
+                    lit++;
+                  if (cave[i][j].fm)
+                    marked++;
+                  if (cave[i][j].fval >= MIN_CAVE_WALL)
+                    walls++;
+                }
+            }
+
+          printf("spell %d pass %d book %d letter %c\n", spell, pass, book,
+                 (char)letter);
+          printf("  chp %d mana %d frac %d exp %ld free %d newlev %d\n",
+                 (int)py.misc.chp, (int)py.misc.cmana,
+                 (int)py.misc.cmana_frac, (long)py.misc.exp,
+                 free_turn_flag ? 1 : 0, new_level_flag ? 1 : 0);
+          printf("  at %d %d para %d conf %d afraid %d prot %d invuln %d\n",
+                 (int)char_row, (int)char_col, (int)py.flags.paralysis,
+                 (int)py.flags.confused, (int)py.flags.afraid,
+                 (int)py.flags.protevil, (int)py.flags.invuln);
+          printf("  fast %d blessed %d heat %d cold %d detinv %d\n",
+                 (int)py.flags.fast, (int)py.flags.blessed,
+                 (int)py.flags.resist_heat, (int)py.flags.resist_cold,
+                 (int)py.flags.detect_inv);
+          printf("  worked %lu learned %lu forgot %lu newspells %d\n",
+                 (unsigned long)spell_worked, (unsigned long)spell_learned,
+                 (unsigned long)spell_forgotten, (int)py.flags.new_spells);
+          printf("  monsters %d objects %d lit %d marked %d walls %d\n",
+                 (int)(mfptr - MIN_MONIX), (int)(tcptr - MIN_TRIX), lit, marked,
+                 walls);
+          printf("  con %d food %d packed %d message %s\n",
+                 (int)py.stats.cur_stat[A_CON], (int)py.flags.food,
+                 (int)inven_ctr, oracle_screen_row(0));
+          printf("  state %lu\n", (unsigned long)get_rnd_seed());
+        }
+    }
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ---------------------------------------------------------------- driver */
 
 
@@ -3446,7 +3721,9 @@ static int usage(void)
           "  oracle potion <seed> <first> <count>  drinking things\n"
           "  oracle scroll <seed> <level> <first> <count>  reading scrolls\n"
           "  oracle wand <seed> <level> <first> <count>  aiming wands\n"
-          "  oracle staff <seed> <level> <first> <count>  using staffs\n");
+          "  oracle staff <seed> <level> <first> <count>  using staffs\n"
+          "  oracle spell <seed> <level> <first> <count>  casting spells\n"
+          "  oracle prayer <seed> <level> <first> <count>  reciting prayers\n");
   return 2;
 }
 
@@ -3629,6 +3906,18 @@ int main(int argc, char *argv[])
                   (int)strtol(argv[3], NULL, 10),
                   (int)strtol(argv[4], NULL, 10),
                   (int)strtol(argv[5], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "spell") == 0 || strcmp(argv[1], "prayer") == 0)
+    {
+      if (argc != 6)
+        return usage();
+
+      dump_magic(argv[1], strtoul(argv[2], NULL, 10),
+                 (int)strtol(argv[3], NULL, 10),
+                 (int)strtol(argv[4], NULL, 10),
+                 (int)strtol(argv[5], NULL, 10));
       return 0;
     }
 

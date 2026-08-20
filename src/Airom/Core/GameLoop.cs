@@ -75,6 +75,7 @@ public class GameLoop
     private Food _food;
     private Scrolls _scrolls;
     private Devices _devices;
+    private Magic _magic;
 
     public GameLoop(GameState game, Display display)
     {
@@ -99,6 +100,7 @@ public class GameLoop
         _food = new Food(game, display, this);
         _scrolls = new Scrolls(game, display, this);
         _devices = new Devices(game, display, this);
+        _magic = new Magic(game, display, this);
     }
 
     /// <summary>What the player can see, and how the screen hears about it.</summary>
@@ -135,7 +137,11 @@ public class GameLoop
     public MonsterAttack MonsterAttack => _monsterAttack;
 
     /// <summary>Spells, and the three shapes they come in.</summary>
-    public Spells Spells => _spells;
+    public Spells Spells
+    {
+        get => _spells;
+        set => _spells = value ?? throw new ArgumentNullException(nameof(value));
+    }
 
     /// <summary>Drinking things.</summary>
     public Potions Potions => _potions;
@@ -152,6 +158,13 @@ public class GameLoop
 
     /// <summary>Aiming wands and using staffs.</summary>
     public Devices Devices => _devices;
+
+    /// <summary>Casting spells and reciting prayers.</summary>
+    public Magic Magic
+    {
+        get => _magic;
+        set => _magic = value ?? throw new ArgumentNullException(nameof(value));
+    }
 
     /// <summary>
     /// Lights the monsters without moving them, which is what creatures(FALSE)
@@ -586,6 +599,10 @@ public class GameLoop
         {
             _doors.CloseObject();
         }
+        else if (command == 'G')
+        {
+            _magic.GainSpells();
+        }
         else if (WalkDirection(command) is int walk)
         {
             _movement.MoveChar(walk, pickUp);
@@ -711,7 +728,7 @@ public class GameLoop
         // Something wanders in, out of sight.
         if (_game.Rng.RandInt(MonsterArrivalChance) == 1)
         {
-            new DungeonGenerator(_game).AllocMonster(1, MaxSight, asleep: false);
+            new DungeonGenerator(_game, _display).AllocMonster(1, MaxSight, asleep: false);
         }
 
         BurnLight();

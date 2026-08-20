@@ -8,7 +8,7 @@ using Airom.Data;
 
 namespace Airom.Core;
 
-public sealed partial class Spells
+public partial class Spells
 {
     /// <summary>
     /// Every detection spell works the same way: sweep the panel, mark what
@@ -586,7 +586,7 @@ public sealed partial class Spells
     /// </summary>
     public bool TrapCreation()
     {
-        var generator = new DungeonGenerator(_game);
+        var generator = new DungeonGenerator(_game, _display);
 
         for (int row = _game.CharacterRow - 1; row <= _game.CharacterRow + 1; row++)
         {

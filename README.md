@@ -61,7 +61,8 @@ Early. The foundations are in place; the game is not yet playable.
 | The cures, the losses and the small comforts from spells.c | Done, verified against the original |
 | Scrolls, wands and staffs, and everything they do | Done, verified against the original |
 | The rest of spells.c: detection, enchantment, earthquakes, destruction | Done, verified against the original |
-| The player's own spellcasting (magic.c, prayer.c) | Not started |
+| The player's own spellcasting (magic.c, prayer.c) | Done, verified against the original |
+| Learning spells, mana and the spell list (misc3.c) | Done, verified against the original |
 | Inventory and equipment | Not started |
 | Save files | Not started |
 

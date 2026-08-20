@@ -17,8 +17,26 @@ namespace Airom.Core;
 /// rooms, tunnels and finally population. Each layer is verified against the C
 /// oracle as it lands.
 /// </summary>
-public sealed partial class DungeonGenerator(GameState game)
+public sealed partial class DungeonGenerator(GameState game, Display? display = null)
 {
+    /// <summary>
+    /// Where a message goes when something is dropped under the player's feet.
+    /// Absent while a level is being built, since nobody is standing on it yet.
+    /// </summary>
+    private readonly Display? _display = display;
+
+    /// <summary>
+    /// Says what the player feels when something lands where they stand.
+    /// Mirrors the one line that place_object() and place_gold() share.
+    /// </summary>
+    private void AnnounceUnderfoot(int row, int column)
+    {
+        if (Cave[row, column].MonsterIndex == 1)
+        {
+            _display?.MessagePrint("You feel something roll beneath your feet.");
+        }
+    }
+
     // Tuning constants from constant.h. They shape every level, so they are
     // frozen until the port is verified end to end.
     private const int StreamerDensity = 5;      // DUN_STR_DEN
@@ -162,6 +180,8 @@ public sealed partial class DungeonGenerator(GameState game)
         InvenType gold = _game.Objects[index];
         gold.CopyFrom(GoldListBase + kind);
         gold.Cost += (8 * Rng.RandInt(gold.Cost)) + Rng.RandInt(8);
+
+        AnnounceUnderfoot(row, column);
     }
 
     // Tunnelling constants from constant.h.
@@ -879,6 +899,8 @@ public sealed partial class DungeonGenerator(GameState game)
         item.CopyFrom(ObjectLevels.Sorted[pick]);
 
         _game.Enchantment.Apply(item, _game.DungeonLevel);
+
+        AnnounceUnderfoot(row, column);
     }
 
     /// <summary>

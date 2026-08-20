@@ -9,7 +9,7 @@ using Airom.Data;
 
 namespace Airom.Core;
 
-public sealed partial class Spells
+public partial class Spells
 {
     /// <summary>
     /// Heals the player. Mirrors hp_player().

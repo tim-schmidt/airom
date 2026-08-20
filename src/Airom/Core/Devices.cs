@@ -282,7 +282,7 @@ public sealed class Devices
 
                 // FAITHFUL QUIRK: the bound is re-rolled on every pass, so how
                 // many arrive is a random walk rather than one roll of four.
-                var generator = new DungeonGenerator(_game);
+                var generator = new DungeonGenerator(_game, _display);
 
                 for (int i = 0; i < Rng.RandInt(4); i++)
                 {

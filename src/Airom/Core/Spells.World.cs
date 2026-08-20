@@ -10,7 +10,7 @@ using Airom.Data;
 
 namespace Airom.Core;
 
-public sealed partial class Spells
+public partial class Spells
 {
     /// <summary>
     /// Turns a wall to mud along a line. Mirrors wall_to_mud().
@@ -71,7 +71,7 @@ public sealed partial class Spells
                     // Rubble sometimes had something under it.
                     if (Rng.RandInt(10) == 1)
                     {
-                        new DungeonGenerator(_game).PlaceObject(row, column, false);
+                        new DungeonGenerator(_game, _display).PlaceObject(row, column, false);
 
                         if (IsSeen(row, column))
                         {
@@ -200,7 +200,7 @@ public sealed partial class Spells
             // FAITHFUL QUIRK: the original re-tests the result against the
             // panel and the light here, but only ever sets it to what it
             // already is, so whether the player saw it makes no difference.
-            return new DungeonGenerator(_game)
+            return new DungeonGenerator(_game, _display)
                 .PlaceMonster(newRow, newColumn, kind, asleep: false);
         });
 
@@ -451,7 +451,7 @@ public sealed partial class Spells
             // FAITHFUL QUIRK: the result is overwritten each time round rather
             // than accumulated, so the answer is whatever happened to the last
             // monster polymorphed.
-            anything = new DungeonGenerator(_game)
+            anything = new DungeonGenerator(_game, _display)
                 .PlaceMonster(row, column, DrawAnyCreature(), asleep: false);
         }
 
@@ -624,21 +624,22 @@ public sealed partial class Spells
 
             string name = MonsterName(monster);
 
-            if (Player.Level + 1 > creature.Level
-                || Rng.RandInt(MonsterLevels.MaxMonsterLevel) < Player.Level)
+            if (Player.Level + 1 > creature.Level || Rng.RandInt(5) == 1)
             {
+                // Nothing is said, remembered or counted for something the
+                // player cannot see - but it flees all the same.
                 if (monster.Visible)
                 {
-                    _game.Memories[monster.CreatureIndex].Defense |= CreatureDefense.Undead;
+                    _display.MessagePrint(name + " runs frantically!");
                     turned = true;
+                    _game.Memories[monster.CreatureIndex].Defense |= CreatureDefense.Undead;
                 }
 
                 // The undead flee by being confused, which is the one way they
                 // can be.
                 monster.Confused = Player.Level;
-                _display.MessagePrint(name + " runs frantically!");
             }
-            else
+            else if (monster.Visible)
             {
                 _display.MessagePrint(name + " is unaffected.");
             }
@@ -856,6 +857,80 @@ public sealed partial class Spells
 
     // ---------------------------------------------------------- on the pack
 
+    // ------------------------------------------------------ what they ask for
+    //
+    // Three of the effects in this file cannot start until the player has
+    // answered a question. The questions are seams - get_item() and get_com()
+    // belong to the part of misc3.c and io.c that is not ported yet - and they
+    // live here rather than with the scrolls because a spell reaches the same
+    // three functions that a scroll does.
+
+    /// <summary>
+    /// Asks which carried item to work on. Pending: get_item() from misc3.c.
+    ///
+    /// Returning nothing means the player declined, which for a scroll leaves
+    /// the scroll unused.
+    /// </summary>
+    protected internal virtual int? ChooseItem(string prompt, int first, int last) => null;
+
+    /// <summary>
+    /// Asks for a single letter. Pending: get_com() from io.c. Used only by
+    /// genocide.
+    /// </summary>
+    protected internal virtual char? ChooseSymbol(string prompt) => null;
+
+    /// <summary>
+    /// Identifies something the player picks. Mirrors ident_spell().
+    /// </summary>
+    /// <returns>Whether anything was chosen.</returns>
+    public bool IdentSpell()
+    {
+        int? chosen = ChooseItem("Item you wish identified?", 0, Inventory.Size);
+
+        if (chosen is not int slot)
+        {
+            return false;
+        }
+
+        IdentifyItem(slot);
+        return true;
+    }
+
+    /// <summary>
+    /// Recharges a wand or a staff the player picks. Mirrors recharge().
+    /// </summary>
+    /// <returns>Whether anything was chosen.</returns>
+    public bool RechargeItem(int strength)
+    {
+        if (!_game.Inventory.FindRange(ItemCategory.Staff, ItemCategory.Wand,
+                                       out int first, out int last))
+        {
+            _display.MessagePrint("You have nothing to recharge.");
+            return false;
+        }
+
+        int? chosen = ChooseItem("Recharge which item?", first, last);
+
+        if (chosen is not int slot)
+        {
+            return false;
+        }
+
+        Recharge(slot, strength);
+        return true;
+    }
+
+    /// <summary>
+    /// Wipes out every creature of a kind the player names. Mirrors genocide(),
+    /// which asks for the letter itself.
+    /// </summary>
+    public bool GenocideSpell()
+    {
+        char? symbol = ChooseSymbol("Which type of creature do you wish exterminated?");
+
+        return symbol is char letter && Genocide(letter);
+    }
+
     /// <summary>
     /// Tells the player exactly what something is. Mirrors the working half of
     /// ident_spell(); the prompting belongs to the caller.
@@ -942,12 +1017,14 @@ public sealed partial class Spells
         if (square.ObjectIndex != 0)
         {
             // Nothing is done here rather than destroying what the player is
-            // standing on.
+            // standing on, and the turn is given back so that the scroll or the
+            // spell points are not spent for nothing.
             _display.MessagePrint("There is already an object under you.");
+            _loop.FreeTurn = true;
             return false;
         }
 
-        new DungeonGenerator(_game).PlaceObject(
+        new DungeonGenerator(_game, _display).PlaceObject(
             _game.CharacterRow, _game.CharacterColumn, false);
 
         _game.Objects[square.ObjectIndex].CopyFrom(MushroomObject);

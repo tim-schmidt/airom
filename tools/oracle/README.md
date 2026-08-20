@@ -109,6 +109,8 @@ divergence.
 | `scroll` | **Every scroll in the table**, read on a generated level and compared | **Verified matching** |
 | `wand` | **Every wand in the table**, aimed east down a generated level | **Verified matching** |
 | `staff` | **Every staff in the table**, used on a generated level | **Verified matching** |
+| `spell` | **Every mage spell**, cast twice on a generated level - with mana and without | **Verified matching** |
+| `prayer` | **Every prayer**, recited the same way | **Verified matching** |
 
 `seeds` is the one that will confirm the `reset_seed` quirk against the original
 rather than by inference: `magic_init` shuffles appearances inside a
@@ -182,6 +184,28 @@ allows one key for it, and this side's stand-in for the prompt flushes the same
 way. And the character is given a weapon, a suit of armour, a cap and a lit
 torch: without a light nothing can be read at all, and without something worn
 the enchanting and cursing scrolls have nothing to work on.
+
+## Driving the real cast() and pray()
+
+Every spell a class has is cast twice by the same character on the same
+generated level: once with mana to spare and once with almost none. The second
+pass is not padding - being short changes how likely the spell is to fail, adds
+a question before it goes off at all, and costs consciousness instead of mana
+when it does.
+
+The prompts are answered by a scripted key, as the scrolls are: "a" picks the
+book, the spell's own letter picks the spell, "y" presses on with a spell that
+cannot be afforded, "6" points east, and "k" is the letter fed to genocide.
+Which of those a given spell needs is known from its number, so both sides build
+the same script - except for the book, which this side answers without a key,
+so its script starts one letter later.
+
+Two things had to be set up in the right order. The spells a character knows are
+kept outside the player struct in the original, so they survive a reset that
+clears everything else and have to be cleared by hand between casts; and they
+are set after the stats rather than before, since setting a casting stat is what
+makes the game work out which spells the character is entitled to, and it would
+forget the ones it had just been given.
 
 ## Reaching inside generate.c and main.c
 

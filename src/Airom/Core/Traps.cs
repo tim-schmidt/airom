@@ -79,7 +79,7 @@ public sealed class Traps
             case 3: // a covered pit, which is left open behind them
                 _display.MessagePrint("You fell into a covered pit.");
                 FallInto(trap, damage);
-                new DungeonGenerator(_game).PlaceTrap(row, column, 0);
+                new DungeonGenerator(_game, _display).PlaceTrap(row, column, 0);
                 break;
 
             case 4: // a trap door
@@ -113,7 +113,7 @@ public sealed class Traps
 
             case 6: // something hidden under a rock
                 _loop.Movement.DeleteObject(row, column);
-                new DungeonGenerator(_game).PlaceObject(row, column, false);
+                new DungeonGenerator(_game, _display).PlaceObject(row, column, false);
                 _display.MessagePrint("Hmmm, there was something under this rock.");
                 break;
 
@@ -134,7 +134,7 @@ public sealed class Traps
             case 9: // falling rock, which leaves rubble behind
                 _loop.TakeHit(damage, "a falling rock");
                 _loop.Movement.DeleteObject(row, column);
-                new DungeonGenerator(_game).PlaceRubble(row, column);
+                new DungeonGenerator(_game, _display).PlaceRubble(row, column);
                 _display.MessagePrint("You are hit by falling rock.");
                 break;
 
@@ -153,7 +153,7 @@ public sealed class Traps
                 {
                     int y = row;
                     int x = column;
-                    new DungeonGenerator(_game).SummonMonster(ref y, ref x, false);
+                    new DungeonGenerator(_game, _display).SummonMonster(ref y, ref x, false);
                 }
 
                 break;
@@ -325,7 +325,7 @@ public sealed class Traps
             {
                 int y = row;
                 int x = column;
-                new DungeonGenerator(_game).SummonMonster(ref y, ref x, false);
+                new DungeonGenerator(_game, _display).SummonMonster(ref y, ref x, false);
             }
         }
 

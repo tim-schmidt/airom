@@ -125,6 +125,45 @@ public sealed class Player
     /// <summary>Spells waiting to be learned.</summary>
     public int NewSpells { get; set; }
 
+    // ---------------------------------------------------------------- spells
+    //
+    // Umoria keeps these outside the player struct, as globals saved beside it.
+    // They belong to the character all the same, so they live here.
+    //
+    // Each is a bit per spell, numbered as the class's own row of
+    // GameTables.MagicSpell: bit 0 is the first spell in the first book.
+
+    /// <summary>Spells the character knows. Umoria's spell_learned.</summary>
+    public uint SpellLearned { get; set; }
+
+    /// <summary>Spells that have been cast successfully at least once, which
+    /// are worth no more experience. Umoria's spell_worked.</summary>
+    public uint SpellWorked { get; set; }
+
+    /// <summary>
+    /// Spells once known and since lost, to drained intelligence or a lost
+    /// level. Umoria's spell_forgotten. They come back in the order they were
+    /// learned, which is what <see cref="SpellOrder"/> is for.
+    /// </summary>
+    public uint SpellForgotten { get; set; }
+
+    /// <summary>
+    /// The order the spells were learned in, as spell numbers. 99 marks an
+    /// unused entry, so the first 99 is the end of the list.
+    /// </summary>
+    public byte[] SpellOrder { get; } = CreateSpellOrder();
+
+    /// <summary>An empty order: every entry the 99 that means "no spell".</summary>
+    private static byte[] CreateSpellOrder()
+    {
+        var order = new byte[32];
+        Array.Fill(order, NoSpell);
+        return order;
+    }
+
+    /// <summary>What <see cref="SpellOrder"/> holds where nothing was learned.</summary>
+    public const byte NoSpell = 99;
+
     /// <summary>Experience the character has ever had, which draining cannot lower.</summary>
     public int MaxExperience { get; set; }
 

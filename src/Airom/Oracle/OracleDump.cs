@@ -1087,6 +1087,20 @@ public static partial class OracleDump
                 DumpDevice(output, arguments[0], devSeed, devLevel, devFirst, devCount);
                 return 0;
 
+            case "spell":
+            case "prayer":
+                if (arguments.Length != 5
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint magSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int magLevel)
+                    || !int.TryParse(arguments[3], CultureInfo.InvariantCulture, out int magFirst)
+                    || !int.TryParse(arguments[4], CultureInfo.InvariantCulture, out int magCount))
+                {
+                    return Usage(error);
+                }
+
+                DumpMagic(output, arguments[0], magSeed, magLevel, magFirst, magCount);
+                return 0;
+
             case "potion":
                 if (arguments.Length != 4
                     || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint potSeed)
@@ -1320,6 +1334,8 @@ public static partial class OracleDump
         error.WriteLine("  airom oracle scroll <seed> <level> <first> <count>  reading scrolls");
         error.WriteLine("  airom oracle wand <seed> <level> <first> <count>  aiming wands");
         error.WriteLine("  airom oracle staff <seed> <level> <first> <count>  using staffs");
+        error.WriteLine("  airom oracle spell <seed> <level> <first> <count>  casting spells");
+        error.WriteLine("  airom oracle prayer <seed> <level> <first> <count>  reciting prayers");
         error.WriteLine("  airom oracle regen <seed> <turns>  regeneration of hit points and mana");
         error.WriteLine("  airom oracle map <seed> <level>  the whole level shrunk to one screen");
         return 2;

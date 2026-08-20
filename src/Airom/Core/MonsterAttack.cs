@@ -1063,7 +1063,7 @@ public sealed class MonsterAttack
 
         _game.Monsters.ScanIndex = index;
 
-        var generator = new DungeonGenerator(_game);
+        var generator = new DungeonGenerator(_game, _display);
 
         if (undead)
         {

@@ -14,11 +14,10 @@ namespace Airom.Core;
 /// A scroll is a bit set of effects like a potion, but two things make reading
 /// one different: it can fail to be used up at all (a cancelled identify leaves
 /// the scroll in the pack), and several of its effects ask the player a question
-/// part-way through. The questions are seams here - see <see cref="ChooseItem"/>
-/// and <see cref="ChooseSymbol"/> - because get_item() and get_com() belong to
-/// the part of misc3.c that is not ported yet.
+/// part-way through. Those questions belong to spells.c and are asked there -
+/// see <see cref="Spells.ChooseItem"/>.
 /// </summary>
-public class Scrolls
+public sealed class Scrolls
 {
     private readonly GameState _game;
     private readonly Display _display;
@@ -72,20 +71,6 @@ public class Scrolls
         Inventory.HandsSlot,
         Inventory.FeetSlot,
     ];
-
-    /// <summary>
-    /// Asks which item to work on. Pending: get_item() from misc3.c.
-    ///
-    /// Returning nothing means the player cancelled, which for a scroll of
-    /// identify or of recharging leaves the scroll unused.
-    /// </summary>
-    protected virtual int? ChooseItem(string prompt, int first, int last) => null;
-
-    /// <summary>
-    /// Asks for a single letter. Pending: get_com() from io.c. Used only by the
-    /// scroll of genocide.
-    /// </summary>
-    protected virtual char? ChooseSymbol(string prompt) => null;
 
     /// <summary>
     /// Reads the scroll in a pack slot and applies everything it does. Mirrors
@@ -144,7 +129,7 @@ public class Scrolls
             case 4:
                 _display.MessagePrint("This is an identify scroll.");
                 identified = true;
-                usedUp = IdentifySomething();
+                usedUp = Spells.IdentSpell();
 
                 // Identifying can merge two piles, which moves this scroll down
                 // the pack - arbitrarily far, if an identify scroll was used on
@@ -249,12 +234,12 @@ public class Scrolls
             case 25:
                 _display.MessagePrint("This is a Recharge-Item scroll.");
                 identified = true;
-                usedUp = RechargeSomething(60);
+                usedUp = Spells.RechargeItem(60);
                 break;
 
             case 26:
                 _display.MessagePrint("This is a genocide scroll.");
-                GenocideSomething();
+                Spells.GenocideSpell();
                 identified = true;
                 break;
 
@@ -385,54 +370,9 @@ public class Scrolls
         _display.MessagePrint("You have " + description);
     }
 
-    // ------------------------------------------------------ what they ask for
-
-    private bool IdentifySomething()
-    {
-        int? chosen = ChooseItem("Item you wish identified?", 0, Inventory.Size);
-
-        if (chosen is not int slot)
-        {
-            return false;
-        }
-
-        Spells.IdentifyItem(slot);
-        return true;
-    }
-
-    private bool RechargeSomething(int strength)
-    {
-        if (!Pack.FindRange(ItemCategory.Staff, ItemCategory.Wand,
-                            out int first, out int last))
-        {
-            _display.MessagePrint("You have nothing to recharge.");
-            return false;
-        }
-
-        int? chosen = ChooseItem("Recharge which item?", first, last);
-
-        if (chosen is not int slot)
-        {
-            return false;
-        }
-
-        Spells.Recharge(slot, strength);
-        return true;
-    }
-
-    private void GenocideSomething()
-    {
-        char? symbol = ChooseSymbol("Which type of creature do you wish exterminated?");
-
-        if (symbol is char letter)
-        {
-            Spells.Genocide(letter);
-        }
-    }
-
     private void SummonSome(bool undead, ref bool identified)
     {
-        var generator = new DungeonGenerator(_game);
+        var generator = new DungeonGenerator(_game, _display);
 
         // FAITHFUL QUIRK: the original re-rolls the bound on every pass, so how
         // many arrive is a random walk rather than one roll of three.

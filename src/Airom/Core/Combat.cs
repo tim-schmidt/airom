@@ -287,7 +287,7 @@ public sealed class Combat
                             wanted = Rng.RandInt(100) < 50 ? 1 : 256;
                         }
 
-                        var generator = new DungeonGenerator(_game);
+                        var generator = new DungeonGenerator(_game, _display);
 
                         if (wanted == 1)
                         {

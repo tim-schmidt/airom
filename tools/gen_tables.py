@@ -898,6 +898,46 @@ def gen_player(moria):
         ),
     )
 
+    # What each class knows of the thirty-one spells. The table has one row
+    # fewer than there are classes: a warrior has no magic at all, so the class
+    # index is taken down by one to reach it.
+    body = extract_initialiser(text, "magic_spell[MAX_CLASS-1][31]")
+    rows = split_rows(body)
+    if len(rows) != defines["MAX_CLASS"] - 1:
+        raise SystemExit(
+            "magic_spell: parsed {0} rows, expected {1}".format(
+                len(rows), defines["MAX_CLASS"] - 1
+            )
+        )
+
+    lines += [
+        "    /// <summary>",
+        "    /// What each spell costs and how likely it is to fail, for each class",
+        "    /// that has any magic. Indexed [class - 1][spell], since the warrior",
+        "    /// has no row. Mirrors magic_spell[][].",
+        "    /// </summary>",
+        "    public static readonly SpellType[][] MagicSpell =",
+        "    [",
+    ]
+    for row in rows:
+        spells = split_rows(row)
+        if len(spells) != 31:
+            raise SystemExit(
+                "magic_spell row: parsed {0} spells, expected 31".format(len(spells))
+            )
+        lines.append("        [")
+        for spell in spells:
+            values = [str(c_number(f, defines)) for f in split_fields(spell) if f]
+            if len(values) != 4:
+                raise SystemExit(
+                    "magic_spell entry: parsed {0} fields, expected 4".format(
+                        len(values)
+                    )
+                )
+            lines.append("            new(" + ", ".join(values) + "),")
+        lines.append("        ],")
+    lines += ["    ];", ""]
+
     # The names of the spells, which the wands and staffs borrow for the
     # descriptions of what they fire.
     body = extract_initialiser(text, "spell_names[62]")

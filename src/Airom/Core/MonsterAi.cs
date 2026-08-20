@@ -593,7 +593,7 @@ public sealed class MonsterAi
             // Compacting the monster list needs to know which monster is being
             // processed, in case it is the one that has to go.
             _game.Monsters.ScanIndex = index;
-            bool placed = new DungeonGenerator(_game).PlaceMonster(y, x, creatureIndex, false);
+            bool placed = new DungeonGenerator(_game, _display).PlaceMonster(y, x, creatureIndex, false);
             _game.Monsters.ScanIndex = -1;
 
             if (!placed)

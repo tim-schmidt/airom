@@ -14,15 +14,15 @@ namespace Airom.Tests;
 public class DeviceTests
 {
     /// <summary>
-    /// A scroll reader that answers what a scroll asks, as the oracle harness
+    /// A spell book that answers what an effect asks, as the oracle harness
     /// does.
     /// </summary>
     private sealed class Answering(GameState game, Display display, GameLoop loop, int? item)
-        : Scrolls(game, display, loop)
+        : Spells(game, display, loop)
     {
-        protected override int? ChooseItem(string prompt, int first, int last) => item;
+        protected internal override int? ChooseItem(string prompt, int first, int last) => item;
 
-        protected override char? ChooseSymbol(string prompt) => 'k';
+        protected internal override char? ChooseSymbol(string prompt) => 'k';
     }
 
     private static (GameState Game, MemoryScreen Screen, GameLoop Loop) Fresh(
@@ -42,7 +42,7 @@ public class DeviceTests
         display.Panel.Resize(game.Cave.Height, game.Cave.Width);
 
         var loop = new GameLoop(game, display);
-        loop.Scrolls = new Answering(game, display, loop, answer);
+        loop.Spells = new Answering(game, display, loop, answer);
 
         Player player = game.Player;
         player.Level = 20;

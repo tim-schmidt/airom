@@ -207,3 +207,24 @@ public sealed class BackgroundType(string text, byte roll, byte chart, byte next
 
     public override string ToString() => Text;
 }
+
+/// <summary>
+/// One spell as a class knows it. Mirrors Umoria's spell_type.
+///
+/// The same thirty-one entries mean different spells for different classes: a
+/// rogue's fourth spell is not a mage's, and where a class never learns a spell
+/// at all the level is set to 99 so that nothing can reach it.
+/// </summary>
+public sealed class SpellType(byte level, byte mana, byte fail, byte experience)
+{
+    /// <summary>Character level at which the spell can be learned; 99 for never.</summary>
+    public byte Level { get; } = level;
+
+    public byte Mana { get; } = mana;
+
+    /// <summary>Base percentage chance of failure, before level and stat.</summary>
+    public byte Fail { get; } = fail;
+
+    /// <summary>A quarter of the experience gained for first casting it.</summary>
+    public byte Experience { get; } = experience;
+}
