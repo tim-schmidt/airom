@@ -51,7 +51,12 @@ public class GameLoop
     /// <summary>The least mana regeneration per turn, times 65536.</summary>
     public const int RegenManaBase = 524;
 
-    /// <summary>The largest value Umoria's signed short counters hold.</summary>
+    /// <summary>
+    /// The largest value Umoria's signed short counters hold. Umoria's
+    /// MAX_SHORT, and not a tunable one: the savefile stores those counters in
+    /// two bytes, so raising it would need a new save format as well as wider
+    /// fields.
+    /// </summary>
     public const int MaxShort = 32767;
 
     /// <summary>How far a creature can be seen. Umoria's MAX_SIGHT.</summary>
@@ -96,6 +101,8 @@ public class GameLoop
         _game = game;
         _display = display;
         _lighting = new Lighting(game, display) { PanelMoved = EndRun };
+        _compaction = new Compaction(game, display, _lighting);
+        _compaction.Attach();
         _movement = new Movement(game, display, this);
         _equipment = new Equipment(game, display, this);
         _stats = new Stats(game, display, this);
@@ -1819,11 +1826,11 @@ public class GameLoop
     /// <summary>Ends a run. Mirrors end_find().</summary>
     public void EndRun() => _movement.EndFind();
 
-    // ------------------------------------------------------ pending subsystems
+    // ------------------------------------------------------------- the parts
     //
-    // The loop reaches into parts of the game that are not ported yet. They are
-    // named here rather than left out, so the shape of the turn stays visible
-    // and each one has somewhere to land.
+    // Named here, rather than called straight through, so the shape of a turn
+    // stays visible in one place - and so a test can stand in for any one of
+    // them without standing in for the loop.
 
     /// <summary>
     /// Lights the player's surroundings and moves the monsters. Mirrors
@@ -1832,17 +1839,13 @@ public class GameLoop
     protected virtual void MoveMonsters(bool move) => _monsterAi.Creatures(move);
 
     /// <summary>
-    /// Recomputes what worn equipment grants. Mirrors calc_bonuses(). Pending:
-    /// the inventory half of moria1.c.
-    ///
-    /// With nothing worn there is nothing to grant, so the one thing this can
-    /// still do correctly is take back what only equipment could have given.
+    /// Recomputes what worn equipment grants. Mirrors calc_bonuses().
     /// </summary>
     protected virtual void RecalculateBonuses() => _equipment.Recalculate();
 
     /// <summary>
-    /// Checks whether the player can still carry what they are carrying. Mirrors
-    /// check_strength(). Pending: the inventory.
+    /// Checks whether the player can still carry what they are carrying.
+    /// Mirrors check_strength().
     /// </summary>
     protected virtual void CheckStrength() => _equipment.CheckStrength();
 
@@ -1858,13 +1861,10 @@ public class GameLoop
     {
     }
 
-    /// <summary>
-    /// Frees room in the monster list. Mirrors compact_monsters(). Pending:
-    /// the compaction itself, which is misc1.c.
-    /// </summary>
-    protected virtual void CompactMonsters()
-    {
-    }
+    /// <summary>Frees room in the monster list. Mirrors compact_monsters().</summary>
+    protected virtual void CompactMonsters() => _compaction.CompactMonsters();
+
+    private readonly Compaction _compaction;
 
     /// <summary>Throws the player somewhere else on the level. Mirrors teleport().</summary>
     protected virtual void Teleport(int distance) => _combat.Teleport(distance);

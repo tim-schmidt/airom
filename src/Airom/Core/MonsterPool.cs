@@ -153,10 +153,9 @@ public sealed class MonsterPool
     /// The last monster in the list is moved down into the hole, so the list
     /// stays packed - which is why the square it came from has to be repointed.
     /// </summary>
-    public void Delete(int index, Cave cave, Lighting lighting)
+    public void Delete(int index, Cave cave, Lighting? lighting)
     {
         ArgumentNullException.ThrowIfNull(cave);
-        ArgumentNullException.ThrowIfNull(lighting);
 
         MarkDead(index, cave, lighting);
         Compact(index, cave);
@@ -170,10 +169,9 @@ public sealed class MonsterPool
     /// it would give another monster two turns, so a death that happens during
     /// the scan is done in two halves.
     /// </summary>
-    public void MarkDead(int index, Cave cave, Lighting lighting)
+    public void MarkDead(int index, Cave cave, Lighting? lighting)
     {
         ArgumentNullException.ThrowIfNull(cave);
-        ArgumentNullException.ThrowIfNull(lighting);
 
         Monster monster = _monsters[index];
 
@@ -184,7 +182,7 @@ public sealed class MonsterPool
 
         if (monster.Visible)
         {
-            lighting.LightSpot(monster.Row, monster.Column);
+            lighting?.LightSpot(monster.Row, monster.Column);
         }
 
         if (BredCount > 0)
@@ -213,12 +211,35 @@ public sealed class MonsterPool
         Count--;
     }
 
+    /// <summary>
+    /// What makes room when the list is full. Mirrors compact_monsters(), which
+    /// popm() calls before it gives up. Attached by <see cref="Compaction"/>.
+    /// </summary>
+    public Func<bool>? Compactor { get; set; }
+
+    /// <summary>
+    /// Claims the next free slot. Mirrors popm().
+    ///
+    /// A full list is compacted first, and compaction can fail - the Balrog is
+    /// never thrown away, and neither is whatever the monster loop is part way
+    /// through. When it does, this fails too, which is what a monster failing
+    /// to arrive looks like from the inside.
+    /// </summary>
+    /// <returns>The slot, or -1 when there is no room to be had.</returns>
     public int Allocate()
     {
         if (Count == Capacity)
         {
-            throw new NotSupportedException(
-                "Monster list is full and compact_monsters() is not ported yet.");
+            if (Compactor is null)
+            {
+                throw new InvalidOperationException(
+                    "The monster list is full and nothing is attached to compact it.");
+            }
+
+            if (!Compactor())
+            {
+                return -1;
+            }
         }
 
         return Count++;

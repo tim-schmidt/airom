@@ -26,6 +26,26 @@ public sealed partial class DungeonGenerator(GameState game, Display? display = 
     private readonly Display? _display = display;
 
     /// <summary>
+    /// A level is built before anyone is standing on it, so nothing has yet
+    /// attached the compaction that a full list needs. Generation can fill one
+    /// - the original compacts from popt() whoever calls it - so the generator
+    /// brings its own, with no lighting to redraw through.
+    /// </summary>
+    private readonly bool _compactionAttached = Attach(game, display);
+
+    private static bool Attach(GameState game, Display? display)
+    {
+        ArgumentNullException.ThrowIfNull(game);
+
+        if (game.Objects.Compactor is null || game.Monsters.Compactor is null)
+        {
+            new Compaction(game, display, null).Attach();
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Says what the player feels when something lands where they stand.
     /// Mirrors the one line that place_object() and place_gold() share.
     /// </summary>
@@ -37,8 +57,9 @@ public sealed partial class DungeonGenerator(GameState game, Display? display = 
         }
     }
 
-    // Tuning constants from constant.h. They shape every level, so they are
-    // frozen until the port is verified end to end.
+    // Tuning constants from constant.h. Every one of them shapes the levels a
+    // seed produces, so changing one is a change to the game rather than to the
+    // port - see "The limits" in README.md.
     private const int StreamerDensity = 5;      // DUN_STR_DEN
     private const int StreamerRange = 2;        // DUN_STR_RNG
     private const int MagmaStreamers = 3;       // DUN_STR_MAG

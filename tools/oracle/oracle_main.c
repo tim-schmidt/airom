@@ -5255,6 +5255,141 @@ static void dump_wizard(unsigned long seed, int level, int variation)
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* ----------------------------------------------------------------- compact */
+
+/* Filling a level until it can hold no more.
+
+   A level may hold 175 objects and 125 monsters. Reaching either is rare in
+   play and certain here: the mode packs the level and then asks for one more,
+   which is what sends popt() and popm() to the compaction. What is compared is
+   which of them survived, and the generator state afterwards - compaction rolls
+   for every candidate, so a difference of one draw moves everything after it. */
+static void dump_compact(unsigned long seed, int level, int variation)
+{
+  char keys[600];
+  int i, j, n, placed, slot;
+
+  header("compact", seed);
+  printf("level %d\n", level);
+  printf("variation %d\n", variation);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+
+  init_curses();
+  oracle_screen_reset();
+
+  msg_flag = FALSE;
+
+  for (i = 0; i < 599; i++)
+    keys[i] = ' ';
+  keys[599] = 0;
+  oracle_feed_keys(keys);
+
+  dun_level = (int16)level;
+  generate_cave();
+
+  printf("generated objects %d monsters %d at %d %d\n", (int)tcptr, (int)mfptr,
+         (int)char_row, (int)char_col);
+
+  /* Pack the level with objects, walking the floor in order so that both sides
+     fill the same squares. */
+  placed = 0;
+
+  for (i = 1; i < cur_height - 1 && tcptr < MAX_TALLOC; i++)
+    for (j = 1; j < cur_width - 1 && tcptr < MAX_TALLOC; j++)
+      if ((cave[i][j].fval <= MAX_OPEN_SPACE) && (cave[i][j].tptr == 0)
+          && (cave[i][j].cptr == 0))
+        {
+          slot = popt();
+          cave[i][j].tptr = (int8u)slot;
+          invcopy(&t_list[slot], sorted_objects[(placed + variation) % 100]);
+          placed++;
+        }
+
+  printf("packed objects %d placed %d\n", (int)tcptr, placed);
+
+  /* And one more, which has nowhere to go until something is thrown away. */
+  {
+    int before = (int)tcptr;
+
+    slot = popt();
+    printf("after-compacting objects %d slot %d freed %d\n", (int)tcptr, slot,
+           before - slot);
+
+    /* Undo the allocation so the counts below describe the level rather than
+       the harness. */
+    tcptr--;
+  }
+
+  {
+    int remaining = 0;
+    long where = 0;
+
+    for (i = 0; i < cur_height; i++)
+      for (j = 0; j < cur_width; j++)
+        if (cave[i][j].tptr != 0)
+          {
+            remaining++;
+            where += (long)(i + 1) * (j + 1);
+          }
+
+    printf("objects-left %d where %ld\n", remaining, where);
+  }
+
+  printf("state-after-objects %lu\n", (unsigned long)get_rnd_seed());
+
+  /* Now the monsters. Placing them one at a time from the creature table keeps
+     both sides drawing the same numbers. */
+  placed = 0;
+
+  for (i = 1; i < cur_height - 1 && mfptr < MAX_MALLOC; i++)
+    for (j = 1; j < cur_width - 1 && mfptr < MAX_MALLOC; j++)
+      if ((cave[i][j].fval <= MAX_OPEN_SPACE) && (cave[i][j].cptr == 0)
+          && (distance(i, j, char_row, char_col) > 2))
+        {
+          if (place_monster(i, j, (placed + variation) % (MAX_CREATURES - 30),
+                            FALSE))
+            placed++;
+        }
+
+  printf("packed monsters %d placed %d\n", (int)mfptr, placed);
+
+  {
+    int before = (int)mfptr;
+
+    slot = popm();
+    printf("after-compacting monsters %d slot %d freed %d\n", (int)mfptr, slot,
+           slot < 0 ? -1 : before - slot);
+
+    if (slot >= 0)
+      mfptr--;
+  }
+
+  {
+    int remaining = 0;
+    long where = 0;
+
+    for (i = MIN_MONIX; i < mfptr; i++)
+      {
+        remaining++;
+        where += (long)(i + 1) * (m_list[i].mptr + 1);
+      }
+
+    printf("monsters-left %d where %ld\n", remaining, where);
+  }
+
+  for (i = MIN_MONIX; i < mfptr && i < MIN_MONIX + 40; i++)
+    printf("monster %d index %d at %d %d distance %d hp %d\n", i,
+           (int)m_list[i].mptr, (int)m_list[i].fy, (int)m_list[i].fx,
+           (int)m_list[i].cdis, (int)m_list[i].hp);
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ------------------------------------------------------------------ create */
 
 /* Defined with the save mode below, which prints items the same way. */
@@ -6122,7 +6257,8 @@ static int usage(void)
           "  oracle sheet <seed> <variation>  the character sheet, screen and file\n"
           "  oracle score <seed> <variation> <count>  the score record encoding\n"
           "  oracle save <seed> <level> <variation>  a saved game, written and read\n"
-          "  oracle create <seed> <variation>  rolling a character, with prompts\n");
+          "  oracle create <seed> <variation>  rolling a character, with prompts\n"
+          "  oracle compact <seed> <level> <variation>  filling a level until it gives\n");
   return 2;
 }
 
@@ -6410,6 +6546,17 @@ int main(int argc, char *argv[])
         dump_death(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
       else
         dump_sheet(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "compact") == 0)
+    {
+      if (argc != 5)
+        return usage();
+
+      dump_compact(strtoul(argv[2], NULL, 10),
+                   (int)strtol(argv[3], NULL, 10),
+                   (int)strtol(argv[4], NULL, 10));
       return 0;
     }
 

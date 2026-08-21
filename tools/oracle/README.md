@@ -526,6 +526,28 @@ twice, once on the game state where the gravestone and the savefile read it,
 and once on the command loop where quitting and dying wrote it. Every tombstone
 would have been blank.
 
+## Filling a level until it gives
+
+`compact` is the last mode, and it exists because the two functions it drives
+had never run. `compact_objects()` and `compact_monsters()` are what Umoria does
+when a level holds all it can - 175 objects or 125 monsters - and AIrom had
+neither, only a throw where they should have been. A level that filled would
+have taken the game down with it.
+
+The mode packs a generated level to both limits and then asks for one more of
+each, which is what sends the allocation to the compaction. It compares which
+objects and monsters survived, where they are, and the generator state after -
+compaction rolls for every candidate it passes, so a single extra draw moves
+everything downstream. It matched on the first run and across **60 runs** since:
+four seeds, five depths, three fillings each.
+
+Two paths it cannot reach are unit tested instead. Compaction can refuse - the
+Balrog is never thrown away, so a level packed with them has nothing to spare
+and the new monster simply does not arrive - and it can half-delete, taking a
+monster off the map but leaving its record, which happens only when the monster
+loop is part way through the list and closing the hole under it would give
+another monster two turns.
+
 ## Current verification
 
 The C oracle builds with gcc 16.1.0 (MSYS2 UCRT64) and `rng` matches AIrom
@@ -533,7 +555,7 @@ exactly: **20,000 draws across seven seeds — 140,000 values** — including th
 boundaries 0, 1, `M-1` and `UINT_MAX`, and the folded start state and final
 state in each.
 
-`create` matches across **64 runs**, and `save` across **180 runs** - four seeds, five depths including the
+`compact` matches across **60 runs**, `create` across **64 runs**, and `save` across **180 runs** - four seeds, five depths including the
 town, and nine variations covering every option bit, a dead character, and a
 wizard's resurrection. Each run compares two whole savefiles byte by byte,
 around eleven thousand bytes each, and the restored game between them.

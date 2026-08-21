@@ -197,19 +197,29 @@ public sealed class ObjectPool
     }
 
     /// <summary>
+    /// What makes room when the list is full. Mirrors compact_objects(), which
+    /// popt() calls before it gives up. Attached by <see cref="Compaction"/>.
+    /// </summary>
+    public Action? Compactor { get; set; }
+
+    /// <summary>
     /// Claims the next free slot. Mirrors popt().
     ///
-    /// Umoria calls compact_objects() when the list fills, which deletes distant
-    /// items to make room. That is not ported yet, and throwing is the right
-    /// placeholder: silently reusing a slot would corrupt the level and diverge
-    /// from the original without any visible sign.
+    /// A full list is not the end of the level: distant objects are thrown away
+    /// until there is room. Compaction always finds something eventually, since
+    /// it closes in until it does.
     /// </summary>
     public int Allocate()
     {
         if (Count == Capacity)
         {
-            throw new NotSupportedException(
-                "Object list is full and compact_objects() is not ported yet.");
+            if (Compactor is null)
+            {
+                throw new InvalidOperationException(
+                    "The object list is full and nothing is attached to compact it.");
+            }
+
+            Compactor();
         }
 
         return Count++;

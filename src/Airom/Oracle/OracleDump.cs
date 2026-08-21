@@ -1238,6 +1238,18 @@ public static partial class OracleDump
                 DumpSheet(output, sheSeed, sheVariation);
                 return 0;
 
+            case "compact":
+                if (arguments.Length != 4
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint cpSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int cpLevel)
+                    || !int.TryParse(arguments[3], CultureInfo.InvariantCulture, out int cpVariation))
+                {
+                    return Usage(error);
+                }
+
+                DumpCompact(output, cpSeed, cpLevel, cpVariation);
+                return 0;
+
             case "create":
                 if (arguments.Length != 3
                     || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint crSeed)
@@ -1535,6 +1547,7 @@ public static partial class OracleDump
         error.WriteLine("  airom oracle score <seed> <variation> <count>  a score record, written and read");
         error.WriteLine("  airom oracle save <seed> <level> <variation>  a saved game, written and read");
         error.WriteLine("  airom oracle create <seed> <variation>  rolling a character, with prompts");
+        error.WriteLine("  airom oracle compact <seed> <level> <variation>  filling a level until it gives");
         error.WriteLine("  airom oracle regen <seed> <turns>  regeneration of hit points and mana");
         error.WriteLine("  airom oracle map <seed> <level>  the whole level shrunk to one screen");
         return 2;

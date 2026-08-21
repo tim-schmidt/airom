@@ -19,8 +19,9 @@ public sealed partial class DungeonGenerator
 
     /// <summary>
     /// The viewport, which is also what the room grid is spaced by. Umoria uses
-    /// one constant for both; they are separable in principle but frozen here
-    /// until the port is verified, because changing them changes every level.
+    /// one constant for both, and they are separable in principle - but the
+    /// panel arithmetic wants the level to be a whole number of half-screens,
+    /// so the two cannot be pulled apart without settling that first.
     /// </summary>
     private const int RoomGridHeight = 22; // SCREEN_HEIGHT
 

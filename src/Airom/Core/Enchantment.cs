@@ -35,8 +35,6 @@ public sealed class Enchantment(GameState game)
     private const int StandardDeviationAdjust = 125; // OBJ_STD_ADJ
     private const int MinimumDeviation = 7;          // OBJ_STD_MIN
 
-    private const int MaxShort = 32767;
-
     private readonly GameState _game = game;
 
     private Rng Rng => _game.Rng;
@@ -1081,9 +1079,9 @@ public sealed class Enchantment(GameState game)
         // A serial number, so two piles of otherwise identical arrows do not
         // merge. It wraps rather than saturating, which is why it is allowed to
         // go negative.
-        if (_game.MissileCounter == MaxShort)
+        if (_game.MissileCounter == GameLoop.MaxShort)
         {
-            _game.MissileCounter = -MaxShort - 1;
+            _game.MissileCounter = -GameLoop.MaxShort - 1;
         }
         else
         {

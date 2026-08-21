@@ -141,6 +141,26 @@ frozen at 5.2.2, and everything from 5.0.14 on is read.
 
 The C sources are kept outside this repository and used strictly as reference.
 
+## The limits
+
+Umoria's `MAX_*` constants are 1989 memory budgets rather than design. They
+were left exactly as they were for as long as the port was being diffed against
+the original, since every one of them changes what a seed produces and a
+changed one turns the comparison into noise. That is over, so here is what each
+group actually costs to move.
+
+| Group | Examples | What holds it |
+|---|---|---|
+| Balance | `MAX_SIGHT` 20, `MAX_MON_MULT` 75, `MAX_PLAYER_LEVEL` 40 | Nothing. These are the game's dials, and turning one is a deliberate change to how it plays. `MAX_PLAYER_LEVEL` also sizes the saved hit-point table, so it needs a save-format bump. |
+| Counter ceilings | `MAX_SHORT` 32767, `MAX_UCHAR` 255 | The savefile, which stores those counters in two bytes and one. They are not tunable on their own. |
+| List sizes | `MAX_TALLOC` 175, `MAX_MALLOC` 125 | The savefile again: a level's object and monster indices are written one byte each, so 255 is the ceiling until the format changes. Raising them within that is safe — a full list compacts rather than failing. |
+| Content | `MAX_OBJECTS` 420, `MAX_CREATURES` 279 | Append freely; never insert or reorder. Rows are addressed by position by the `OBJ_*` constants, by the win-monster arithmetic, and by every savefile ever written. |
+| Dungeon size | `MAX_HEIGHT` 66, `MAX_WIDTH` 198 | Real work. The panel arithmetic wants a whole number of half-screens, not the byte-wide coordinate fields, which reach 255. Also a save-format bump: the cave is swept as `MAX_HEIGHT * MAX_WIDTH` and range-checked on the way back in. |
+
+Nothing in the port depends on any of these being what they are, beyond the
+savefile compatibility noted above — the game reads its own limits everywhere,
+and a level that fills one compacts to make room rather than giving up.
+
 ## Generated data
 
 The object, monster, owner and appearance tables are ~800 rows of C struct

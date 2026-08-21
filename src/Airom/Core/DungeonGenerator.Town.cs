@@ -45,6 +45,15 @@ public sealed partial class DungeonGenerator
 
         int slot = _game.Monsters.Allocate();
 
+        // The original calls abort() here, and is right to: the win monsters
+        // are placed on arrival, when the list has just been emptied, so a
+        // failure would mean something else had gone wrong entirely.
+        if (slot < 0)
+        {
+            throw new InvalidOperationException(
+                "There was no room in the monster list for the win monster.");
+        }
+
         int row;
         int column;
         do
