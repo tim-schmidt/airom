@@ -71,7 +71,7 @@ Early. The foundations are in place; the game is not yet playable.
 | The debugging commands (wizard.c) | Done, verified against the original |
 | Dying, the tomb and the character sheet (death.c, files.c) | Done, verified against the original |
 | The score table itself | Done, rewritten for one player on one machine |
-| Save files | Not started |
+| Save files (save.c) | Done, verified against the original |
 
 ## Building
 
@@ -110,6 +110,11 @@ nought throughout - which is the case the original already handles, falling back
 to the character's birth date to tell one character from another. The *record*
 inside that file is still the original's, byte for byte, and is compared as
 such.
+
+Save files are the original's, byte for byte. A game saved by a real Umoria
+5.6 can be picked up here and a game saved here can be taken back, which is
+what the version bytes at the front of every file are for: the format was
+frozen at 5.2.2, and everything from 5.0.14 on is read.
 
 The C sources are kept outside this repository and used strictly as reference.
 

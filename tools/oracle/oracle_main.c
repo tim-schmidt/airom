@@ -68,6 +68,8 @@ extern void probe_carry(int y, int x, int pickup);
 extern const char *oracle_screen_row(int row);
 extern void oracle_log_keys(int on);
 extern void probe_print_tomb(void);
+extern int _save_char(char *fnam);
+extern int get_char(int *generate);
 extern void probe_kingly(void);
 
 /* From oracle_probe_main.c, which reaches the object sort inside main.c. */
@@ -5252,6 +5254,321 @@ static void dump_wizard(unsigned long seed, int level, int variation)
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* -------------------------------------------------------------------- save */
+
+/* Shared with the death mode below, which fills a character in the same way. */
+static void death_character(int variation);
+static void death_belongings(int variation);
+
+
+/* A whole saved game, written and read back.
+
+   The comparison is the file itself: every byte of it, which is the only way
+   to know that two savefiles are the same savefile. Then it is read back and
+   written out a second time, so that the reading half is compared as well -
+   if either side read a field into the wrong place, the second file would not
+   match the other side's second file. */
+
+/* Prints a file byte by byte, so a diff points at the first byte that differs
+   rather than at a wall of hex. */
+static void save_dump_file(const char *tag, const char *path)
+{
+  FILE *file;
+  long size;
+  long i;
+  int c;
+
+  file = fopen(path, "rb");
+
+  if (file == NULL)
+    {
+      printf("%s missing\n", tag);
+      return;
+    }
+
+  (void) fseek(file, 0L, SEEK_END);
+  size = ftell(file);
+  (void) fseek(file, 0L, SEEK_SET);
+
+  printf("%s bytes %ld\n", tag, size);
+
+  for (i = 0; i < size; i++)
+    {
+      c = getc(file);
+      printf("%s byte %ld %d\n", tag, i, c & 0xFF);
+    }
+
+  (void) fclose(file);
+}
+
+/* One item, every field of it: a savefile carries more than a player ever
+   sees, and a field put back in the wrong place has to show up here. */
+static void save_dump_item(const char *tag, int at, inven_type *i_ptr)
+{
+  printf("%s %d index %d name2 %d [%s] flags %lu tval %d tchar %d p1 %d "
+         "cost %ld subval %d number %d weight %d tohit %d todam %d ac %d "
+         "toac %d damage %d %d level %d ident %d\n", tag, at,
+         (int)i_ptr->index, (int)i_ptr->name2, i_ptr->inscrip,
+         (unsigned long)i_ptr->flags, (int)i_ptr->tval, (int)i_ptr->tchar,
+         (int)i_ptr->p1, (long)i_ptr->cost, (int)i_ptr->subval,
+         (int)i_ptr->number, (int)i_ptr->weight, (int)i_ptr->tohit,
+         (int)i_ptr->todam, (int)i_ptr->ac, (int)i_ptr->toac,
+         (int)i_ptr->damage[0], (int)i_ptr->damage[1], (int)i_ptr->level,
+         (int)i_ptr->ident);
+}
+
+/* What came back, in the terms a player would recognise. The bytes prove the
+   two files are the same; this proves the game inside them is. */
+static void save_dump_state(void)
+{
+  int i, j;
+  long features = 0;
+  int monsters = 0;
+  int objects = 0;
+
+  printf("turn %ld dun-level %d row %d col %d\n", (long)turn, (int)dun_level,
+         (int)char_row, (int)char_col);
+
+  printf("standing dead %d wizard %d generated %d saved %d\n", death,
+         to_be_wizard, character_generated, character_saved);
+
+  printf("who [%s] male %d race %d class %d level %d gold %ld exp %ld\n",
+         py.misc.name, (int)py.misc.male, (int)py.misc.prace,
+         (int)py.misc.pclass, (int)py.misc.lev, (long)py.misc.au,
+         (long)py.misc.exp);
+
+  printf("body %d %d %d %d %d %d hp %d/%d mana %d/%d\n",
+         (int)py.stats.use_stat[0], (int)py.stats.use_stat[1],
+         (int)py.stats.use_stat[2], (int)py.stats.use_stat[3],
+         (int)py.stats.use_stat[4], (int)py.stats.use_stat[5],
+         (int)py.misc.chp, (int)py.misc.mhp,
+         (int)py.misc.cmana, (int)py.misc.mana);
+
+  printf("flags %ld food %d speed %d see-infra %d new-spells %d\n",
+         (long)py.flags.status, (int)py.flags.food, (int)py.flags.speed,
+         (int)py.flags.see_infra, (int)py.flags.new_spells);
+
+  printf("options %d %d %d %d %d %d %d %d %d %d %d\n",
+         find_cut, find_examine, find_prself, find_bound, prompt_carry_flag,
+         rogue_like_commands, show_weight_flag, highlight_seams,
+         find_ignore_doors, sound_beep_flag, display_counts);
+
+  printf("pack %d weight %d worn %d\n", (int)inven_ctr, (int)inven_weight,
+         (int)equip_ctr);
+
+  for (i = 0; i < inven_ctr; i++)
+    save_dump_item("carried", i, &inventory[i]);
+
+  for (i = INVEN_WIELD; i < INVEN_ARRAY_SIZE; i++)
+    save_dump_item("worn", i, &inventory[i]);
+
+  printf("spells %ld %ld %ld order %d %d %d\n", (long)spell_learned,
+         (long)spell_worked, (long)spell_forgotten, (int)spell_order[0],
+         (int)spell_order[1], (int)spell_order[2]);
+
+  printf("seeds %lu %lu\n", (unsigned long)randes_seed,
+         (unsigned long)town_seed);
+
+  printf("scoring panic %d winner %d noscore %d max-score %ld birth %ld\n",
+         (int)panic_save, (int)total_winner, (int)noscore, (long)max_score,
+         (long)birth_date);
+
+  printf("died-from [%s]\n", died_from);
+  printf("last-msg %d [%s]\n", (int)last_msg, old_msg[0]);
+
+  for (i = 0; i < MAX_STORES; i++)
+    {
+      printf("store %d owner %d stock %d open %ld good %d bad %d insult %d\n",
+             i, (int)store[i].owner, (int)store[i].store_ctr,
+             (long)store[i].store_open, (int)store[i].good_buy,
+             (int)store[i].bad_buy, (int)store[i].insult_cur);
+
+      for (j = 0; j < store[i].store_ctr; j++)
+        {
+          printf("stock %d %d cost %ld\n", i, j,
+                 (long)store[i].store_inven[j].scost);
+
+          save_dump_item("stock-item", j, &store[i].store_inven[j].sitem);
+        }
+    }
+
+  /* The memory, which every game keeps whether the character lived or not. */
+  for (i = 0; i < MAX_CREATURES; i++)
+    if (c_recall[i].r_kills || c_recall[i].r_cmove || c_recall[i].r_spells)
+      printf("recall %d move %ld spells %ld kills %d deaths %d defense %d "
+             "wake %d ignore %d attacks %d %d %d %d\n", i,
+             (long)c_recall[i].r_cmove, (long)c_recall[i].r_spells,
+             (int)c_recall[i].r_kills, (int)c_recall[i].r_deaths,
+             (int)c_recall[i].r_cdefense, (int)c_recall[i].r_wake,
+             (int)c_recall[i].r_ignore, (int)c_recall[i].r_attacks[0],
+             (int)c_recall[i].r_attacks[1], (int)c_recall[i].r_attacks[2],
+             (int)c_recall[i].r_attacks[3]);
+
+  /* The level itself, summed rather than printed: a divergence anywhere in
+     twelve thousand squares moves the total. */
+  for (i = 0; i < MAX_HEIGHT; i++)
+    for (j = 0; j < MAX_WIDTH; j++)
+      {
+        int packed = cave[i][j].fval | (cave[i][j].lr << 4)
+          | (cave[i][j].fm << 5) | (cave[i][j].pl << 6)
+          | (cave[i][j].tl << 7);
+
+        features += (long)(i + 1) * packed;
+
+        if (cave[i][j].cptr)
+          monsters++;
+
+        if (cave[i][j].tptr)
+          objects++;
+      }
+
+  printf("cave %d %d features %ld standing %d lying %d\n", (int)cur_height,
+         (int)cur_width, features, monsters, objects);
+
+  printf("lists objects %d monsters %d panel %d %d breeding %d\n", (int)tcptr,
+         (int)mfptr, (int)max_panel_rows, (int)max_panel_cols,
+         (int)mon_tot_mult);
+
+  for (i = MIN_TRIX; i < tcptr; i++)
+    save_dump_item("object", i, &t_list[i]);
+
+  for (i = MIN_MONIX; i < mfptr; i++)
+    printf("monster %d index %d hp %d sleep %d speed %d at %d %d "
+           "distance %d seen %d stunned %d confused %d\n", i,
+           (int)m_list[i].mptr, (int)m_list[i].hp, (int)m_list[i].csleep,
+           (int)m_list[i].cspeed, (int)m_list[i].fy, (int)m_list[i].fx,
+           (int)m_list[i].cdis, (int)m_list[i].ml, (int)m_list[i].stunned,
+           (int)m_list[i].confused);
+}
+
+static void dump_save(unsigned long seed, int level, int variation)
+{
+  char keys[600];
+  int i, generate, ok, restored;
+
+  header("save", seed);
+  printf("level %d\n", level);
+  printf("variation %d\n", variation);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+
+  init_curses();
+  oracle_screen_reset();
+
+  death_character(variation);
+  death_belongings(variation);
+
+  /* Shops, so the file carries stock as well as a character. */
+  store_init();
+
+  for (i = 0; i <= (variation % 3); i++)
+    store_maint();
+
+  /* Something learned about a handful of creatures. */
+  for (i = 0; i < 12; i++)
+    {
+      recall_type *r_ptr = &c_recall[((i * 7) + variation) % MAX_CREATURES];
+
+      r_ptr->r_cmove = (int32u)(i + 1) * 0x10001L;
+      r_ptr->r_spells = (int32u)(i + 3);
+      r_ptr->r_kills = (int16u)(i + 1);
+      r_ptr->r_deaths = (int16u)(i % 3);
+      r_ptr->r_cdefense = (int16u)(i * 3);
+      r_ptr->r_wake = (int8u)i;
+      r_ptr->r_ignore = (int8u)(i % 5);
+      r_ptr->r_attacks[0] = (int8u)(i + 1);
+      r_ptr->r_attacks[1] = (int8u)(i % 2);
+    }
+
+  /* Every option, so each bit of the packed long is exercised. */
+  find_cut = (variation & 0x1) != 0;
+  find_examine = (variation & 0x2) != 0;
+  find_prself = (variation & 0x4) != 0;
+  find_bound = (variation & 0x8) != 0;
+  prompt_carry_flag = (variation & 0x10) != 0;
+  rogue_like_commands = (variation & 0x20) != 0;
+  show_weight_flag = (variation & 0x40) != 0;
+  highlight_seams = (variation & 0x1) == 0;
+  find_ignore_doors = (variation & 0x2) == 0;
+  sound_beep_flag = (variation & 0x4) == 0;
+  display_counts = (variation & 0x8) == 0;
+
+  /* And messages, which are kept across a save so the player can still ask
+     what was said before they put the game away. */
+  for (i = 0; i < MAX_SAVE_MSG; i++)
+    (void) sprintf(old_msg[i], "message number %d", i + variation);
+
+  last_msg = variation % MAX_SAVE_MSG;
+
+  /* Set where main.c sets it, since main.c is not compiled here: 99 is what
+     an unlearned slot holds. */
+  for (i = 0; i < 32; i++)
+    spell_order[i] = 99;
+
+  panic_save = 0;
+  total_winner = FALSE;
+  noscore = 0;
+  birth_date = 700000000L + variation;
+  (void) strcpy(died_from, "a Giant Rat");
+  max_score = 0;
+  missile_ctr = variation;
+
+  dun_level = (int16)level;
+  generate_cave();
+
+  turn = 500 + variation;
+  character_generated = 1;
+  character_saved = 0;
+
+  /* A dead character's file stops after the shops, and is read back for its
+     memory alone - unless a wizard asks for a resurrection, which is the only
+     way the rest of it is ever used. */
+  death = (variation % 5) == 4;
+  to_be_wizard = (variation % 10) == 9;
+
+  /* No file is in the way, so nothing is asked about overwriting one. */
+  msg_flag = FALSE;
+
+  keys[0] = 'y';                /* yes to the resurrection, if it is asked */
+
+  for (i = 1; i < 599; i++)
+    keys[i] = ' ';
+  keys[599] = 0;
+  oracle_feed_keys(keys);
+
+  (void) strcpy(savefile, "oracle-save.dat");
+  (void) remove(savefile);
+
+  ok = _save_char(savefile);
+  printf("saved %d\n", ok);
+  save_dump_file("first", savefile);
+
+  /* Now read it back. The game is left standing as it is: what matters is
+     that both sides put the same thing back into the same places, and the
+     second file says whether they did. */
+  generate = TRUE;
+  restored = get_char(&generate);
+  printf("restored %d generate %d\n", restored, generate);
+  save_dump_state();
+
+  character_saved = 0;
+  (void) strcpy(savefile, "oracle-save2.dat");
+  (void) remove(savefile);
+
+  ok = _save_char(savefile);
+  printf("saved-again %d\n", ok);
+  save_dump_file("second", savefile);
+
+  (void) remove("oracle-save.dat");
+  (void) remove("oracle-save2.dat");
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ------------------------------------------------------------------- death */
 
 /* The end of the game: the gravestone, the character sheet and the score.
@@ -5984,6 +6301,17 @@ int main(int argc, char *argv[])
         dump_death(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
       else
         dump_sheet(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "save") == 0)
+    {
+      if (argc != 5)
+        return usage();
+
+      dump_save(strtoul(argv[2], NULL, 10),
+                (int)strtol(argv[3], NULL, 10),
+                (int)strtol(argv[4], NULL, 10));
       return 0;
     }
 

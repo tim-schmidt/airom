@@ -71,7 +71,8 @@ public sealed class Store
 /// </summary>
 public sealed class Stores(GameState game)
 {
-    private const int StoreCount = 6;        // MAX_STORES
+    /// <summary>How many shops the town has. Umoria's MAX_STORES.</summary>
+    public const int StoreCount = 6;
     private const int StockChoices = 26;     // STORE_CHOICES
     private const int TownItemLevel = 7;     // OBJ_TOWN_LEVEL
     private const int MinStock = 10;         // STORE_MIN_INVEN

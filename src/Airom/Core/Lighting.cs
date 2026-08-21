@@ -36,6 +36,12 @@ public sealed class Lighting
         _display = display;
     }
 
+    /// <summary>
+    /// Raised when the view has scrolled to a new sector. The command loop
+    /// hangs a run-stopper on it; nothing else listens.
+    /// </summary>
+    public Action? PanelMoved { get; set; }
+
     private Player Player => _game.Player;
 
     /// <summary>
@@ -272,6 +278,13 @@ public sealed class Lighting
         if (_display.Panel.Follow(row, column, force: false))
         {
             _display.PrintMap();
+
+            // A player who asked for it is told the map has moved by having
+            // their run stopped. Mirrors get_panel()'s end_find().
+            if (_game.StopAtLevelBounds)
+            {
+                PanelMoved?.Invoke();
+            }
         }
 
         MoveLight(row, column, row, column);

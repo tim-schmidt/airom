@@ -109,6 +109,9 @@ public sealed class MonsterPool
     /// <summary>High-water mark. Umoria's mfptr.</summary>
     public int Count { get; private set; }
 
+    /// <summary>Puts the mark back where a saved game left it.</summary>
+    internal void SetCount(int count) => Count = count;
+
     public Monster this[int index] => _monsters[index];
 
     /// <summary>Clears the list for a new level. Mirrors mlink().</summary>

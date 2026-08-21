@@ -56,8 +56,13 @@ public class ScoreFile
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "AIrom", "scores.dat");
 
-    /// <summary>The version this game writes. Mirrors CUR_VERSION_MAJ and friends.</summary>
-    private static readonly byte[] Version = [5, 6, 0];
+    /// <summary>
+    /// The version this game writes. Mirrors CUR_VERSION_MAJ, CUR_VERSION_MIN
+    /// and PATCH_LEVEL, which the 5.6 sources still leave at 5.5.2 - the file
+    /// formats were frozen at 5.2.2 and the numbers were never moved on. These
+    /// are the bytes a real Umoria writes, so its files can be read here.
+    /// </summary>
+    private static readonly byte[] Version = [5, 5, 2];
 
     /// <summary>
     /// Reads the whole table. An empty or missing file is an empty table, and

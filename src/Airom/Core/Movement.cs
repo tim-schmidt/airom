@@ -689,6 +689,13 @@ public class Movement
         if (_display.Panel.Follow(y, x, force: false))
         {
             _display.PrintMap();
+
+            // A player who asked for it is told the map has moved by having
+            // their run stopped. Mirrors get_panel()'s end_find().
+            if (_game.StopAtLevelBounds)
+            {
+                EndFind();
+            }
         }
 
         if (_loop.Running)

@@ -1224,6 +1224,18 @@ public static partial class OracleDump
                 DumpSheet(output, sheSeed, sheVariation);
                 return 0;
 
+            case "save":
+                if (arguments.Length != 4
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint svSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int svLevel)
+                    || !int.TryParse(arguments[3], CultureInfo.InvariantCulture, out int svVariation))
+                {
+                    return Usage(error);
+                }
+
+                DumpSave(output, svSeed, svLevel, svVariation);
+                return 0;
+
             case "score":
                 if (arguments.Length != 4
                     || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint scoSeed)
@@ -1496,6 +1508,7 @@ public static partial class OracleDump
         error.WriteLine("  airom oracle death <seed> <variation>  the gravestone and the score");
         error.WriteLine("  airom oracle sheet <seed> <variation>  the character sheet, screen and file");
         error.WriteLine("  airom oracle score <seed> <variation> <count>  a score record, written and read");
+        error.WriteLine("  airom oracle save <seed> <level> <variation>  a saved game, written and read");
         error.WriteLine("  airom oracle regen <seed> <turns>  regeneration of hit points and mana");
         error.WriteLine("  airom oracle map <seed> <level>  the whole level shrunk to one screen");
         return 2;

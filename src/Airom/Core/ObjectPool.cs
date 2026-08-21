@@ -180,6 +180,9 @@ public sealed class ObjectPool
     /// <summary>High-water mark. Umoria's tcptr.</summary>
     public int Count { get; private set; }
 
+    /// <summary>Puts the mark back where a saved game left it.</summary>
+    internal void SetCount(int count) => Count = count;
+
     public InvenType this[int index] => _items[index];
 
     /// <summary>Clears the list for a new level. Mirrors tlink().</summary>

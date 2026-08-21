@@ -64,6 +64,22 @@ public sealed partial class Display
     /// <summary>The messages kept for review, most recent last.</summary>
     public IReadOnlyList<string> RecentMessages => _oldMessages;
 
+    /// <summary>
+    /// Puts the kept messages back as a saved game left them, so a restored
+    /// game can still be asked what was said before it was put away.
+    /// </summary>
+    public void RestoreMessages(IReadOnlyList<string> messages, int last)
+    {
+        ArgumentNullException.ThrowIfNull(messages);
+
+        for (int i = 0; i < SavedMessageCount; i++)
+        {
+            _oldMessages[i] = i < messages.Count ? messages[i] : string.Empty;
+        }
+
+        _lastMessage = last;
+    }
+
     /// <summary>Where the most recent message sits in the ring.</summary>
     public int LastMessageIndex => _lastMessage;
 

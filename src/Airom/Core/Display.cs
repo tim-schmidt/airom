@@ -139,6 +139,17 @@ public sealed class Panel
         return true;
     }
 
+    /// <summary>
+    /// Puts the panel grid back the size a saved game says it was, without
+    /// touching which panel is showing.
+    /// </summary>
+    public void RestoreBounds(int maxRow, int maxColumn)
+    {
+        MaxRow = maxRow;
+        MaxColumn = maxColumn;
+        Bounds();
+    }
+
     /// <summary>Whether a dungeon square is inside the visible window. Mirrors panel_contains().</summary>
     public bool Contains(int row, int column) =>
         row >= RowMin && row <= RowMax && column >= ColumnMin && column <= ColumnMax;

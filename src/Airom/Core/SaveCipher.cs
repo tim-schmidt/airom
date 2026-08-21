@@ -1,6 +1,6 @@
-// Ported from the byte primitives and the high-score record in Umoria 5.6
-// source/save.c - wr_byte, wr_short, wr_long, wr_bytes, wr_string, their
-// reading halves, and wr_highscore/rd_highscore.
+// Ported from the byte primitives of Umoria 5.6 source/save.c - wr_byte,
+// wr_short, wr_long, wr_bytes, wr_shorts, wr_string, wr_item, wr_monster,
+// their reading halves, and wr_highscore/rd_highscore.
 //
 // Copyright (C) 1989-2008 James E. Wilson, Robert A. Koeneke, David J. Grabiner
 // Copyright (C) 2026 AIrom contributors
@@ -84,6 +84,27 @@ public sealed class SaveCipher
 
     /// <summary>Whether the last read ran off the end of the file.</summary>
     public bool AtEnd { get; private set; }
+
+    /// <summary>
+    /// Whether there is anything left to read. Mirrors the getc/ungetc pair
+    /// the original uses to find out whether a saved character has a level
+    /// after them or stops where they died.
+    /// </summary>
+    public bool HasMore
+    {
+        get
+        {
+            int raw = _stream.ReadByte();
+
+            if (raw < 0)
+            {
+                return false;
+            }
+
+            _stream.Position--;
+            return true;
+        }
+    }
 
     /// <summary>Where in the file the next byte goes. Umoria's ftell().</summary>
     public long Position
@@ -184,6 +205,170 @@ public sealed class SaveCipher
         }
 
         return text.ToString();
+    }
+
+    /// <summary>A run of bytes. Mirrors wr_bytes().</summary>
+    public void WriteBytes(byte[] values, int count)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+
+        for (int i = 0; i < count; i++)
+        {
+            WriteByte(values[i]);
+        }
+    }
+
+    /// <summary>A run of shorts. Mirrors wr_shorts().</summary>
+    public void WriteShorts(int[] values, int count)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+
+        for (int i = 0; i < count; i++)
+        {
+            WriteShort((ushort)values[i]);
+        }
+    }
+
+    /// <summary>
+    /// A string, as long as it is, with the nought that ends it. Mirrors
+    /// wr_string().
+    /// </summary>
+    public void WriteString(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        foreach (char c in text)
+        {
+            WriteByte((byte)c);
+        }
+
+        WriteByte(0);
+    }
+
+    /// <summary>One item, as it lies. Mirrors wr_item().</summary>
+    public void WriteItem(InvenType item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
+        WriteShort((ushort)item.Index);
+        WriteByte(item.SpecialName);
+        WriteString(item.Inscription);
+        WriteLong(item.Flags);
+        WriteByte(item.TVal);
+        WriteByte((byte)item.DisplayChar);
+        WriteShort((ushort)item.P1);
+        WriteLong((uint)item.Cost);
+        WriteByte(item.SubVal);
+        WriteByte(item.Number);
+        WriteShort(item.Weight);
+        WriteShort((ushort)item.ToHit);
+        WriteShort((ushort)item.ToDam);
+        WriteShort((ushort)item.Ac);
+        WriteShort((ushort)item.ToAc);
+        WriteByte(item.DamageDice);
+        WriteByte(item.DamageSides);
+        WriteByte(item.Level);
+        WriteByte(item.Identification);
+    }
+
+    /// <summary>One monster on the level. Mirrors wr_monster().</summary>
+    public void WriteMonster(Monster monster)
+    {
+        ArgumentNullException.ThrowIfNull(monster);
+
+        WriteShort((ushort)monster.HitPoints);
+        WriteShort((ushort)monster.Sleep);
+        WriteShort((ushort)monster.Speed);
+        WriteShort((ushort)monster.CreatureIndex);
+        WriteByte((byte)monster.Row);
+        WriteByte((byte)monster.Column);
+        WriteByte((byte)monster.DistanceToPlayer);
+        WriteByte(monster.Visible ? (byte)1 : (byte)0);
+        WriteByte((byte)monster.Stunned);
+        WriteByte((byte)monster.Confused);
+    }
+
+    /// <summary>A run of bytes. Mirrors rd_bytes().</summary>
+    public void ReadBytes(byte[] values, int count)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+
+        for (int i = 0; i < count; i++)
+        {
+            values[i] = ReadByte();
+        }
+    }
+
+    /// <summary>A run of shorts. Mirrors rd_shorts().</summary>
+    public void ReadShorts(int[] values, int count)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+
+        for (int i = 0; i < count; i++)
+        {
+            values[i] = ReadShort();
+        }
+    }
+
+    /// <summary>A string, read up to its nought. Mirrors rd_string().</summary>
+    public string ReadString()
+    {
+        var text = new StringBuilder();
+
+        while (true)
+        {
+            byte value = ReadByte();
+
+            if (value == 0 || AtEnd)
+            {
+                return text.ToString();
+            }
+
+            text.Append((char)value);
+        }
+    }
+
+    /// <summary>One item. Mirrors rd_item().</summary>
+    public void ReadItem(InvenType item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
+        item.Index = ReadShort();
+        item.SpecialName = ReadByte();
+        item.Inscription = ReadString();
+        item.Flags = ReadLong();
+        item.TVal = ReadByte();
+        item.DisplayChar = (char)ReadByte();
+        item.P1 = (short)ReadShort();
+        item.Cost = (int)ReadLong();
+        item.SubVal = ReadByte();
+        item.Number = ReadByte();
+        item.Weight = ReadShort();
+        item.ToHit = (short)ReadShort();
+        item.ToDam = (short)ReadShort();
+        item.Ac = (short)ReadShort();
+        item.ToAc = (short)ReadShort();
+        item.DamageDice = ReadByte();
+        item.DamageSides = ReadByte();
+        item.Level = ReadByte();
+        item.Identification = ReadByte();
+    }
+
+    /// <summary>One monster. Mirrors rd_monster().</summary>
+    public void ReadMonster(Monster monster)
+    {
+        ArgumentNullException.ThrowIfNull(monster);
+
+        monster.HitPoints = (short)ReadShort();
+        monster.Sleep = (short)ReadShort();
+        monster.Speed = (short)ReadShort();
+        monster.CreatureIndex = ReadShort();
+        monster.Row = ReadByte();
+        monster.Column = ReadByte();
+        monster.DistanceToPlayer = ReadByte();
+        monster.Visible = ReadByte() != 0;
+        monster.Stunned = ReadByte();
+        monster.Confused = ReadByte();
     }
 
     /// <summary>Writes one score. Mirrors wr_highscore().</summary>

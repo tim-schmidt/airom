@@ -52,6 +52,32 @@ char *what;
    It returns a constant. The oracle is always given an explicit seed, so the
    clock never feeds the generator; pinning it means anything that does reach
    for the time stays reproducible instead of quietly varying per run. */
+/* The 1989 sources open the savefile with "w" and "r", which on Windows are
+   text modes: every newline written turns into two bytes and every pair read
+   turns back into one. A savefile is not text, so the harness forces every
+   fopen to binary - which is what the MSDOS branch of the same code does. */
+#undef fopen
+FILE *oracle_fopen(path, mode)
+const char *path;
+const char *mode;
+{
+  char binary[8];
+  int i;
+
+  for (i = 0; mode[i] != 0 && i < 6; i++)
+    {
+      if (mode[i] == 'b')
+        return fopen(path, mode);
+
+      binary[i] = mode[i];
+    }
+
+  binary[i++] = 'b';
+  binary[i] = 0;
+
+  return fopen(path, binary);
+}
+
 long moria_time(where)
 long *where;
 {

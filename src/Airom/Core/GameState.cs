@@ -176,6 +176,12 @@ public sealed class GameState
     public bool IgnoreDoorsWhileRunning { get; set; }
 
     /// <summary>
+    /// Whether a run stops when the map scrolls to a new sector. Umoria's
+    /// find_bound.
+    /// </summary>
+    public bool StopAtLevelBounds { get; set; }
+
+    /// <summary>
     /// Whether the rogue-like key set is in use. A player option, off by
     /// default, which decides how a typed key is translated before dispatch.
     /// </summary>
@@ -300,5 +306,16 @@ public sealed class GameState
     /// Randomises the item appearances for this game. Mirrors magic_init().
     /// Must be called after <see cref="InitSeeds"/>, which supplies its seed.
     /// </summary>
+    /// <summary>
+    /// Puts back the two seeds a saved game carries, so the town and every
+    /// shuffled appearance come out the way they did before. Mirrors reading
+    /// randes_seed and town_seed in get_char().
+    /// </summary>
+    public void SetSeeds(uint randomEssence, uint town)
+    {
+        RandesSeed = randomEssence;
+        TownSeed = town;
+    }
+
     public void MagicInit() => Appearances.Initialize(Rng, RandesSeed);
 }

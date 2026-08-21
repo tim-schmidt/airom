@@ -433,12 +433,70 @@ belonging to one player on one machine. The record inside it is still the
 original's, and `score` compares it byte for byte - every byte of the XOR chain,
 written and read back. Unit tests hold up the table around it.
 
+## Comparing a savefile
+
+save.c is the last file, and the easiest one to check: a savefile is a byte
+stream, so the comparison is the bytes. The `save` mode builds a character,
+stocks the shops, teaches it something about a dozen creatures, sets every
+option, generates a level, writes the file, and prints every byte of it.
+
+Then it reads that file back and writes a second one. That is the part worth
+having. A writer can be compared against a writer with the bytes alone, but a
+reader cannot - and a field read back into the wrong place would go unnoticed
+if the same reader wrote it out again in the same wrong place. Comparing the
+*second* file across the two implementations catches it: C# would have to put
+the field exactly where C puts it for the second files to agree. The restored
+game is printed as well, down to every field of every item, so a divergence
+names itself instead of appearing as a byte offset.
+
+Three things had to be settled before the two sides could agree.
+
+The original opens savefiles with `"w"` and `"r"`, which on Windows are text
+modes: every newline written becomes two bytes and every pair read becomes one.
+The 1989 code has a binary branch for the machines that needed one, guarded by
+`#ifdef MSDOS`. The harness now makes every machine that machine, by way of an
+`fopen` that appends a `b` to whatever mode it is handed.
+
+The file carries the moment it was written, and the shops restock for every day
+between that moment and the moment it is read. The harness's clock already
+returned zero; AIrom's side pins its own to the same zero, and then both agree
+about how long the game was put away, which is not at all.
+
+And `spell_order` is set to 99 - the value an unlearned slot holds - in main.c,
+which is not compiled here. The harness sets it where main.c would.
+
+Two things the comparison found, both real:
+
+AIrom's cave was allocated at the size of the level, so a town level had a grid
+of 22 by 66 while the original always has 66 by 198. Nothing had ever read past
+the town's edge - until sv_write, which writes the whole array regardless of
+what part of it is in use. The cave is now allocated once at its largest, as the
+original's is, and blanking clears all of it rather than the part in use, which
+is what the original's single `bzero` over `sizeof(cave)` does.
+
+The end of a saved character is found by a read that fails, not by looking
+ahead - `getc` followed by `ungetc`. AIrom was asking whether the last read had
+run off the end, which is a different question and is answered "no" at exactly
+that point. A resurrection therefore read a whole level of noughts.
+
+One quirk is reproduced rather than fixed. get_char guards its duplicate-score
+check with `(!noscore & 0x04)`, which takes the logical not of the whole word -
+nought or one - and then masks it with four. The answer is always nought, so the
+check has never once run. It plainly means "the already-scored bit is not set".
+Fixing it would change nothing a player could see, since a duplicate is caught
+again when the score is recorded, so it stays as written and says so.
+
 ## Current verification
 
 The C oracle builds with gcc 16.1.0 (MSYS2 UCRT64) and `rng` matches AIrom
 exactly: **20,000 draws across seven seeds — 140,000 values** — including the
 boundaries 0, 1, `M-1` and `UINT_MAX`, and the folded start state and final
 state in each.
+
+`save` matches across **180 runs** - four seeds, five depths including the
+town, and nine variations covering every option bit, a dead character, and a
+wizard's resurrection. Each run compares two whole savefiles byte by byte,
+around eleven thousand bytes each, and the restored game between them.
 
 `death`, `sheet` and `score` match across **178 runs**: the gravestone in all
 four of its answers, the crowning of a winner, the character sheet on the screen

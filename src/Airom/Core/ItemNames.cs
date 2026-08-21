@@ -31,7 +31,16 @@ public sealed class ItemKnowledge
     /// Seven kinds have shuffled appearances - amulets, rings, staves, wands,
     /// scrolls, potions and mushrooms - each with up to sixty-four varieties.
     /// </summary>
-    private readonly byte[] _flags = new byte[7 * 64];
+    private readonly byte[] _flags = new byte[FlagCount];
+
+    /// <summary>How many flags there are. Umoria's OBJECT_IDENT_SIZE.</summary>
+    public const int FlagCount = 7 * 64;
+
+    /// <summary>
+    /// The flags themselves, so a saved game can carry them. Handed out rather
+    /// than copied, because the save file reads straight into them.
+    /// </summary>
+    internal byte[] Flags => _flags;
 
     /// <summary>
     /// Which appearance table an item belongs to, or -1 for something whose look

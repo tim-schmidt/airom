@@ -70,9 +70,35 @@ public sealed class CaveSquare
 /// </summary>
 public sealed class Cave
 {
-    private CaveSquare[,] _squares = new CaveSquare[0, 0];
+    private readonly CaveSquare[,] _squares;
 
-    public Cave(int height, int width) => Resize(height, width);
+    /// <summary>
+    /// The grid is allocated once at its largest and never grows or shrinks,
+    /// as the original's fixed array is. A town level uses only a corner of it,
+    /// and the rest is still there - which matters, because a saved game writes
+    /// out the whole array rather than the part in use.
+    /// </summary>
+    public Cave(int height, int width)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(height, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(width, 1);
+
+        Capacity = (height, width);
+        _squares = new CaveSquare[height, width];
+
+        for (int row = 0; row < height; row++)
+        {
+            for (int column = 0; column < width; column++)
+            {
+                _squares[row, column] = new CaveSquare();
+            }
+        }
+
+        Resize(height, width);
+    }
+
+    /// <summary>How large the grid is, as opposed to how much of it is in use.</summary>
+    public (int Height, int Width) Capacity { get; }
 
     /// <summary>Rows in use. Umoria's cur_height.</summary>
     public int Height { get; private set; }
@@ -83,39 +109,30 @@ public sealed class Cave
     public CaveSquare this[int row, int column] => _squares[row, column];
 
     /// <summary>
-    /// Reallocates the grid for a level of a different size and blanks it.
-    /// Mirrors setting cur_height/cur_width and calling blank_cave().
+    /// Sizes the level and blanks the grid. Mirrors setting cur_height and
+    /// cur_width and calling blank_cave().
     /// </summary>
     public void Resize(int height, int width)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(height, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(width, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(height, Capacity.Height);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(width, Capacity.Width);
 
-        if (Height != height || Width != width)
-        {
-            Height = height;
-            Width = width;
-            _squares = new CaveSquare[height, width];
-            for (int row = 0; row < height; row++)
-            {
-                for (int column = 0; column < width; column++)
-                {
-                    _squares[row, column] = new CaveSquare();
-                }
-            }
-
-            return;
-        }
-
+        Height = height;
+        Width = width;
         Blank();
     }
 
-    /// <summary>Clears every square. Mirrors blank_cave().</summary>
+    /// <summary>
+    /// Clears every square. Mirrors blank_cave(), which clears the whole array
+    /// rather than the part of it the level occupies.
+    /// </summary>
     public void Blank()
     {
-        for (int row = 0; row < Height; row++)
+        for (int row = 0; row < Capacity.Height; row++)
         {
-            for (int column = 0; column < Width; column++)
+            for (int column = 0; column < Capacity.Width; column++)
             {
                 _squares[row, column].Clear();
             }

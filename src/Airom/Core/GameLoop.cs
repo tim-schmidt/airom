@@ -95,7 +95,7 @@ public class GameLoop
 
         _game = game;
         _display = display;
-        _lighting = new Lighting(game, display);
+        _lighting = new Lighting(game, display) { PanelMoved = EndRun };
         _movement = new Movement(game, display, this);
         _equipment = new Equipment(game, display, this);
         _stats = new Stats(game, display, this);
@@ -225,6 +225,18 @@ public class GameLoop
 
     /// <summary>Writing the character out, and reading the help text back in.</summary>
     public CharacterFile CharacterFile => _characterFile;
+
+    /// <summary>
+    /// The saved game. Settable so the oracle harness can pin the clock, which
+    /// otherwise makes two runs disagree about when the file was written.
+    /// </summary>
+    public SaveFile SaveFile
+    {
+        get => _saveFile ??= new SaveFile(_game, _display, this);
+        set => _saveFile = value;
+    }
+
+    private SaveFile? _saveFile;
 
     /// <summary>What happens when the game ends.</summary>
     public Death Death

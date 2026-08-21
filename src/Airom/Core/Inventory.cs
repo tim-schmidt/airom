@@ -92,6 +92,17 @@ public sealed class Inventory
     public int Weight { get; private set; }
 
     /// <summary>
+    /// Puts the counts back where a saved game left them. The items themselves
+    /// are read into the slots first, so nothing here has to be recomputed.
+    /// </summary>
+    internal void SetCounts(int count, int weight, int equipmentCount)
+    {
+        Count = count;
+        Weight = weight;
+        EquipmentCount = equipmentCount;
+    }
+
+    /// <summary>
     /// How badly the pack is slowing the player down, in points of speed.
     /// Umoria's pack_heavy.
     /// </summary>

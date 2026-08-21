@@ -29,6 +29,7 @@
 #ifndef ORACLE_SHIM_H
 #define ORACLE_SHIM_H
 
+#include <stdio.h>
 #include <time.h>
 
 #define time moria_time
@@ -39,5 +40,11 @@
    truncated to thirty-two bits is the kind of bug that reads plausible garbage
    rather than crashing. */
 extern struct tm *moria_localtime();
+
+/* A savefile is not text, and on Windows "w" and "r" translate newlines. The
+   1989 code has a binary branch for the machines that needed one; this makes
+   every machine that machine. */
+#define fopen oracle_fopen
+extern FILE *oracle_fopen();
 
 #endif /* ORACLE_SHIM_H */
