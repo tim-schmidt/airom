@@ -507,6 +507,97 @@ public class DeathTests
     }
 
     /// <summary>
+    /// Every name a help key can pass to ShowHelp, and the news file the game
+    /// shows before anything else.
+    ///
+    /// These are the strings the commands hold, not a listing of the folder:
+    /// the point is to catch a file that was renamed, dropped, or never copied
+    /// out of the source tree, any of which would leave the reader itself
+    /// working perfectly and every help key in the game saying "Can not find".
+    /// </summary>
+    private static readonly string[] ShippedHelp =
+    [
+        "welcome.hlp",  // ? at any of the three creation prompts
+        "origcmds.hlp", // ? with the original keys
+        "roglcmds.hlp", // ? with the rogue-like keys
+        "owizcmds.hlp", // backslash, wizard, original keys
+        "rwizcmds.hlp", // backslash, wizard, rogue-like keys
+        "version.hlp",  // v
+        "COPYING",      // control-V
+        "news",         // shown once, before the game starts
+    ];
+
+    /// <summary>Where the help text ships: beside the program.</summary>
+    private static string ShippedHelpDirectory =>
+        Path.Combine(AppContext.BaseDirectory, "help");
+
+    /// <summary>
+    /// Every help file the game can ask for is where it looks for it, and has
+    /// something in it.
+    /// </summary>
+    [Fact]
+    public void ShippedHelp_IsBesideTheProgram()
+    {
+        foreach (string name in ShippedHelp)
+        {
+            string path = Path.Combine(ShippedHelpDirectory, name);
+
+            Assert.True(File.Exists(path), name + " does not ship beside the program");
+            Assert.NotEmpty(File.ReadAllText(path));
+        }
+    }
+
+    /// <summary>
+    /// Each of them reads back onto the screen.
+    ///
+    /// The other help tests write a file of their own, which proves the reader
+    /// and proves nothing about what shipped. This one opens the real thing and
+    /// looks at the page while the key is being asked for - after the call the
+    /// screen has been restored, so what the player saw is gone.
+    /// </summary>
+    [Fact]
+    public void ShippedHelp_ReadsOntoTheScreen()
+    {
+        string was = CharacterFile.HelpDirectory;
+        CharacterFile.HelpDirectory = ShippedHelpDirectory;
+
+        try
+        {
+            foreach (string name in ShippedHelp)
+            {
+                (_, _, GameLoop loop, MemoryScreen screen) = Game();
+                screen.SetKeys(new string(Keys.Escape, 200));
+
+                string[] lines = File.ReadAllLines(
+                    Path.Combine(ShippedHelpDirectory, name));
+
+                int first = Array.FindIndex(lines, line => line.Trim().Length > 0);
+                Assert.True(first >= 0, name + " has no text in it");
+
+                string? shown = null;
+                screen.BeforeReadKey = () => shown ??= screen.GetRow(first);
+
+                loop.CharacterFile.ShowHelp(name);
+
+                Assert.DoesNotContain("Can not find", screen.GetRow(0));
+                Assert.NotNull(shown);
+
+                // Trimmed the way put_buffer trims it: the screen is 80 columns
+                // and the last one is left alone.
+                string expected = lines[first].Length > 79
+                    ? lines[first][..79]
+                    : lines[first];
+
+                Assert.Equal(expected.TrimEnd(), shown!.TrimEnd());
+            }
+        }
+        finally
+        {
+            CharacterFile.HelpDirectory = was;
+        }
+    }
+
+    /// <summary>
     /// The written character starts and ends with a page break, so it prints as
     /// three pages on a printer that honours them.
     /// </summary>
