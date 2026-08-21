@@ -5634,7 +5634,12 @@ static void dump_create(unsigned long seed, int variation)
   keys[599] = 0;
   oracle_feed_keys(keys);
 
+  /* Logged, so that where the cursor stands at every question is compared as
+     well as what the question says - which is the only way to see it typing a
+     name, where the cursor is meant to lead what has been typed. */
+  oracle_log_keys(1);
   create_character();
+  oracle_log_keys(0);
 
   oracle_screen_dump("scr");
 

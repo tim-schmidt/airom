@@ -287,8 +287,10 @@ public sealed partial class Display
     {
         text = string.Empty;
 
-        // Clear the field, then work within it.
+        // Clear the field, then work within it. The cursor is put back at the
+        // front afterwards, which is where the typing starts.
         _screen.Put(row, column, new string(' ', length));
+        MoveCursor(row, column);
 
         int startColumn = column;
         int endColumn = column + length - 1;
@@ -332,9 +334,13 @@ public sealed partial class Display
             }
             else
             {
+                // A typed character carries the cursor along with it, so it
+                // leads what has been typed rather than sitting at the front
+                // of the field. Mirrors mvaddch(), which writes and advances.
                 _screen.Put(row, column, key);
                 typed.Append(key);
                 column++;
+                MoveCursor(row, column);
             }
         }
         while (!done && !abandoned);

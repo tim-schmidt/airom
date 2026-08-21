@@ -73,8 +73,26 @@ public static partial class OracleDump
         keys.Append(' ', 599 - keys.Length);
         screen.SetKeys(keys.ToString());
 
+        // Logged, so that where the cursor stands at every question is compared
+        // as well as what the question says - which is the only way to see it
+        // typing a name, where the cursor is meant to lead what has been typed.
+        int asked = 0;
+
+        screen.BeforeReadKey = () =>
+        {
+            output.Write(string.Join(
+                ' ', "ask", asked.ToString(CultureInfo.InvariantCulture),
+                "at", screen.CursorRow.ToString(CultureInfo.InvariantCulture),
+                screen.CursorColumn.ToString(CultureInfo.InvariantCulture),
+                screen.GetRow(0).TrimEnd()) + "\n");
+
+            asked++;
+        };
+
         var maker = new PinnedMaker(game, display, loop);
         maker.Create();
+
+        screen.BeforeReadKey = null;
 
         DumpScreenRows(output, screen, "scr");
 
