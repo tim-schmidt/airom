@@ -195,6 +195,7 @@ public class Session
         bool wantsWizard = options.WantsWizard;
 
         string savePath = options.SaveFile ?? DefaultSaveFile();
+        _loop.SaveFile.CurrentPath = savePath;
 
         // The introduction, and with it whatever the game has to say about
         // itself before anyone plays.

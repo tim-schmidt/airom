@@ -28,6 +28,9 @@ airom -w           wizard mode, which forfeits the score
 A game saved by a real Umoria 5.6 can be opened here, and one saved here can
 be taken back to it: the savefile is the original's, byte for byte.
 
+Death is permanent, and the savefile is how: dying writes over it with the dead
+character, so the next game reads what they learned and then asks who you are.
+
 | Area | State |
 |---|---|
 | Random number generator | Done, verified against the original |

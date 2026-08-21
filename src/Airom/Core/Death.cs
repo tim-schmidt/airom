@@ -284,6 +284,16 @@ public class Death
             return;
         }
 
+        // A character who died is written out where they lived, over whatever
+        // they last saved. This is what makes death permanent: the file left
+        // behind holds a dead character, so the next game reads it for what it
+        // learned and rolls someone new. Without it the last living save is
+        // still sitting there, and the dead walk again.
+        if (!_game.CharacterSaved)
+        {
+            _loop.SaveFile.SaveWithRetry();
+        }
+
         // Cleared before the score is written, which is a strange thing to do
         // until you notice it stops a end-of-input inside the score table
         // calling this all over again.

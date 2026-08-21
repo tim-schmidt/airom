@@ -247,7 +247,7 @@ public partial class GameLoop
         _game.DiedFrom = "(saved)";
         _display.MessagePrint("Saving game...");
 
-        if (SaveFile.Save(Session.DefaultSaveFile()))
+        if (SaveFile.SaveWithRetry())
         {
             Leaving = true;
             return;

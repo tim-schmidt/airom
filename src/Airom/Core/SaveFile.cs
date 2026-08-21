@@ -49,6 +49,12 @@ public class SaveFile
         "AIrom", "game.sav");
 
     /// <summary>
+    /// The file this game saves to. Umoria's savefile, which is a global the
+    /// player can be asked to change when writing fails.
+    /// </summary>
+    public string CurrentPath { get; set; } = DefaultPath;
+
+    /// <summary>
     /// The version this game writes. Mirrors CUR_VERSION_MAJ, CUR_VERSION_MIN
     /// and PATCH_LEVEL, which the 5.6 sources still leave at 5.5.2 - the file
     /// format was frozen at 5.2.2 and the numbers were never moved on.
@@ -82,6 +88,63 @@ public class SaveFile
     private static uint NowStatic() => (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
     // ------------------------------------------------------------------ save
+
+    /// <summary>
+    /// Writes the game out, asking for somewhere else if it cannot. Mirrors
+    /// save_char().
+    ///
+    /// A failure is not the end of the game: the player is offered the chance
+    /// to delete whatever is in the way, or to name another file, and only an
+    /// escape gives up - at which point a dying character loses the record of
+    /// what they learned, which is the worst this can cost.
+    /// </summary>
+    /// <returns>Whether the game was written somewhere.</returns>
+    public bool SaveWithRetry()
+    {
+        while (!Save(CurrentPath))
+        {
+            _display.MessagePrint("Savefile '" + CurrentPath + "' fails.");
+
+            bool deleted = false;
+
+            if (File.Exists(CurrentPath)
+                && _display.GetCheck("File exists. Delete old savefile?"))
+            {
+                try
+                {
+                    File.Delete(CurrentPath);
+                    deleted = true;
+                }
+                catch (IOException)
+                {
+                    _display.MessagePrint("Can't delete '" + CurrentPath + "'");
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    _display.MessagePrint("Can't delete '" + CurrentPath + "'");
+                }
+            }
+
+            if (!deleted)
+            {
+                _display.Print("New Savefile [ESC to give up]:", 0, 0);
+
+                if (!_display.GetString(0, 31, 45, out string named))
+                {
+                    return false;
+                }
+
+                if (named.Length > 0)
+                {
+                    CurrentPath = named;
+                }
+            }
+
+            _display.Print("Saving with " + CurrentPath + "...", 0, 0);
+        }
+
+        return true;
+    }
 
     /// <summary>
     /// Writes the game out. Mirrors _save_char().
