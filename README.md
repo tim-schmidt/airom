@@ -128,7 +128,19 @@ verified against the original's own published check value — seeded at 1, the
 Where the 1989 code has quirks, the port keeps them and documents why —
 `(!noscore & 0x04)`, which is always false and has never once run; a help file
 that ends on a blank page; "the Balrog" keeping its article on the score
-board. Such places are marked `FAITHFUL QUIRK` in the source.
+board; the message telling a new mage what they can learn, printed once and
+shown twice. Such places are marked `FAITHFUL QUIRK` in the source, and
+listing them is one command:
+
+```
+grep -rn "FAITHFUL QUIRK" src tests
+```
+
+That marker is a backlog as much as an explanation. Each one is a decision
+already made and written down, so a later pass can go through them and settle
+which are worth keeping as the game's character and which were only ever
+somebody's slip — a question about what AIrom should be, and one to answer
+deliberately rather than while porting.
 
 One is not kept. `reset_seed()` restores a saved generator state to the *next*
 value rather than the saved one, and since the generator is multiplicative that

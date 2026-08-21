@@ -292,6 +292,13 @@ public class Session
         // A spellcaster is told what they can learn before they set out. The
         // screen is cleared between the two so the list is readable, which is
         // why the clearing happens in a different place for each realm.
+        //
+        // FAITHFUL QUIRK: the message is printed once and shown twice. It goes
+        // up while the class is being chosen and is still standing when this
+        // clear happens, so the clear flushes it through a -more- and the
+        // player answers for it a second time. Clearing the message before the
+        // screen would fix it and would be a change to the game rather than to
+        // the port, so it waits with the rest of them.
         switch (GameTables.Classes[Player.Class].SpellRealm)
         {
             case SpellRealm.Mage:
