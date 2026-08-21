@@ -81,7 +81,6 @@ public sealed class Player
 
     public int ExperienceFactor { get; set; }
 
-    public int Infravision { get; set; }
 
     public int MaxHitPoints { get; set; }
 
@@ -482,7 +481,7 @@ public sealed class CharacterCreation(GameState game)
         player.PlusToArmourClass = 0;
         player.ArmourClass = ArmourBonus(player);
         player.ExperienceFactor = kind.ExperienceFactor;
-        player.Infravision = kind.Infravision;
+        player.SeeInfrared = kind.Infravision;
     }
 
     /// <summary>

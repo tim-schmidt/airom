@@ -229,6 +229,16 @@ public sealed class ConsoleScreen : IScreen
 
     public char ReadKey()
     {
+        // A redirected input has no key events to read, only bytes. Umoria can
+        // be fed a script the same way, and treats the end of one as a hangup
+        // worth saving the game over; here the end simply answers escape,
+        // which backs out of whatever was being asked.
+        if (Console.IsInputRedirected)
+        {
+            int typed = Console.In.Read();
+            return typed < 0 ? Airom.Core.Keys.Escape : (char)typed;
+        }
+
         ConsoleKeyInfo key = Console.ReadKey(intercept: true);
 
         // Umoria's inkey() deals in plain characters. Keys that produce none -

@@ -486,6 +486,45 @@ check has never once run. It plainly means "the already-scored bit is not set".
 Fixing it would change nothing a player could see, since a duplicate is caught
 again when the score is recorded, so it stays as written and says so.
 
+## The last mode, and the file that has no oracle
+
+main.c is the one file the harness cannot compile, because it defines the
+game's own `main`. It has been reached all along through a probe that renames
+that function and includes the file, which is how `init_t_level` and
+`init_m_level` were compared; `char_inven_init`, the starting kit, is now
+reached the same way.
+
+What main.c does around those - reading arguments, choosing a savefile, running
+one level after another - has no counterpart to compare against. A 1989 Unix
+command line and a Windows one are not the same thing, and the loop itself is
+three lines. Those are covered by unit tests, including one that plays a whole
+game through a scripted terminal: roll a human warrior, arrive in the town,
+quit, and land in the score table.
+
+The `create` mode does compare the part that can be: create.c's prompting. It
+types an answer for every question - including a wrong one first, so the bell
+and the redrawn prompt are compared too - rerolls the stats a few times, picks
+a class from the ones the race allows, types a name, and then prints the screen,
+the character, the forty entries of the hit-point table, and the kit they set
+out with. It matches across **64 runs**.
+
+Two divergences it found, both real:
+
+The race's infravision was being kept in a field of its own rather than in the
+player's flags, where the original keeps it and where the character sheet reads
+it from. Every character had been walking around with no infravision at all.
+The `character` mode had not noticed because it read back the same wrong field.
+
+And `get_class` calls `set_use_stat`, which is not merely arithmetic: it is the
+path that tells a spellcaster what they can learn. AIrom was settling the stats
+through the creation code's own quieter version, so a new mage was never told
+about their first spell.
+
+A third came from the scripted game rather than the oracle: `died_from` existed
+twice, once on the game state where the gravestone and the savefile read it,
+and once on the command loop where quitting and dying wrote it. Every tombstone
+would have been blank.
+
 ## Current verification
 
 The C oracle builds with gcc 16.1.0 (MSYS2 UCRT64) and `rng` matches AIrom
@@ -493,7 +532,7 @@ exactly: **20,000 draws across seven seeds — 140,000 values** — including th
 boundaries 0, 1, `M-1` and `UINT_MAX`, and the folded start state and final
 state in each.
 
-`save` matches across **180 runs** - four seeds, five depths including the
+`create` matches across **64 runs**, and `save` across **180 runs** - four seeds, five depths including the
 town, and nine variations covering every option bit, a dead character, and a
 wizard's resurrection. Each run compares two whole savefiles byte by byte,
 around eleven thousand bytes each, and the restored game between them.

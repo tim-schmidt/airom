@@ -217,6 +217,44 @@ public class GameLoop
     /// <summary>Saying what a character on the map stands for.</summary>
     public SymbolHelp SymbolHelp => _symbolHelp;
 
+    /// <summary>
+    /// Saves and leaves. Mirrors the ^X branch of do_command().
+    ///
+    /// A winner cannot use it: their character has to be retired properly, so
+    /// that the crowning and the gravestone both happen.
+    /// </summary>
+    private void SaveAndLeave()
+    {
+        if (_game.TotalWinner)
+        {
+            _display.MessagePrint(
+                "You are a Total Winner,  your character must be retired.");
+
+            _display.MessagePrint(_game.RogueLikeCommands
+                ? "Use 'Q' to when you are ready to quit."
+                : "Use <Control>-K when you are ready to quit.");
+
+            return;
+        }
+
+        _game.DiedFrom = "(saved)";
+        _display.MessagePrint("Saving game...");
+
+        if (SaveFile.Save(Session.DefaultSaveFile()))
+        {
+            Leaving = true;
+            return;
+        }
+
+        _game.DiedFrom = "(alive and well)";
+    }
+
+    /// <summary>
+    /// Set when the player has saved and is leaving. The loop stops without a
+    /// gravestone, which a saved game does not get.
+    /// </summary>
+    public bool Leaving { get; set; }
+
     /// <summary>The debugging commands, which only wizard mode reaches.</summary>
     public WizardCommands WizardCommands => _wizardCommands;
 
@@ -230,6 +268,12 @@ public class GameLoop
     /// The saved game. Settable so the oracle harness can pin the clock, which
     /// otherwise makes two runs disagree about when the file was written.
     /// </summary>
+    /// <summary>Rolling a character, and the screens that go with it.</summary>
+    public CharacterMaker CharacterMaker => _characterMaker ??=
+        new CharacterMaker(_game, _display, this);
+
+    private CharacterMaker? _characterMaker;
+
     public SaveFile SaveFile
     {
         get => _saveFile ??= new SaveFile(_game, _display, this);
@@ -283,8 +327,15 @@ public class GameLoop
         set => _game.PlayerLight = value;
     }
 
-    /// <summary>What killed the player, recorded for the tombstone.</summary>
-    public string DiedFrom { get; set; } = string.Empty;
+    /// <summary>
+    /// What killed the player, recorded for the tombstone. Kept on the game
+    /// state, which is where the gravestone and the savefile both read it.
+    /// </summary>
+    public string DiedFrom
+    {
+        get => _game.DiedFrom;
+        set => _game.DiedFrom = value;
+    }
 
     // -------------------------------------------------------- interruptions
 
@@ -597,7 +648,7 @@ public class GameLoop
                 MoveMonsters(true);
             }
         }
-        while (!NewLevel);
+        while (!NewLevel && !Leaving);
     }
 
     /// <summary>Set when something has thrown the player across the level.</summary>
@@ -707,6 +758,46 @@ public class GameLoop
         else if (command == 'x')
         {
             _looking.Look();
+            FreeTurn = true;
+        }
+        else if (command == 'C')
+        {
+            _display.SaveScreen();
+            CharacterMaker.ChangeName();
+            _display.RestoreScreen();
+            FreeTurn = true;
+        }
+        else if (command == '=')
+        {
+            _display.SaveScreen();
+            CharacterMaker.SetOptions();
+            _display.RestoreScreen();
+            FreeTurn = true;
+        }
+        else if (command == Keys.Control('W'))
+        {
+            if (_game.Wizard)
+            {
+                _game.Wizard = false;
+                _display.MessagePrint("Wizard mode off.");
+            }
+            else if (CharacterMaker.EnterWizardMode())
+            {
+                _display.MessagePrint("Wizard mode on.");
+            }
+
+            _display.PrintWinner(Player);
+            FreeTurn = true;
+        }
+        else if (command == Keys.Control('X'))
+        {
+            SaveAndLeave();
+
+            if (Leaving)
+            {
+                NewLevel = true;
+            }
+
             FreeTurn = true;
         }
         else if (command == '?')

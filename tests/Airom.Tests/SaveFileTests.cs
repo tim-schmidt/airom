@@ -12,6 +12,7 @@ namespace Airom.Tests;
 /// the behaviour around it: what a save does to the game, what a refused file
 /// does, and which files this will and will not open.
 /// </summary>
+[Collection("game files")]
 public class SaveFileTests
 {
     private static (GameState, Display, GameLoop, MemoryScreen) Game(uint seed = 1)

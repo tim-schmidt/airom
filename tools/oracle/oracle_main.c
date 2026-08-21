@@ -68,6 +68,7 @@ extern void probe_carry(int y, int x, int pickup);
 extern const char *oracle_screen_row(int row);
 extern void oracle_log_keys(int on);
 extern void probe_print_tomb(void);
+extern void probe_char_inven_init(void);
 extern int _save_char(char *fnam);
 extern int get_char(int *generate);
 extern void probe_kingly(void);
@@ -5254,6 +5255,112 @@ static void dump_wizard(unsigned long seed, int level, int variation)
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* ------------------------------------------------------------------ create */
+
+/* Defined with the save mode below, which prints items the same way. */
+static void save_dump_item(const char *tag, int at, inven_type *i_ptr);
+
+/* Rolling a character with someone watching, and the belongings they set out
+   with.
+
+   The arithmetic of creation was compared long ago in the `character` mode,
+   which drives it without a terminal. What this compares is the asking: which
+   letter picks which race, what the screen looks like after a reroll, which
+   classes a race is offered and in what order, and what the starting kit is
+   for the class that ends up chosen. */
+static void dump_create(unsigned long seed, int variation)
+{
+  char keys[600];
+  int i, n;
+
+  header("create", seed);
+  printf("variation %d\n", variation);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+
+  init_curses();
+  oracle_screen_reset();
+
+  msg_flag = FALSE;
+
+  n = 0;
+
+  /* An invalid answer first, so the bell and the redrawn prompt are compared
+     as well as the answer that works. */
+  if ((variation % 4) == 0)
+    keys[n++] = '9';
+
+  keys[n++] = (char)('a' + (variation % MAX_RACES));   /* race  */
+  keys[n++] = (variation % 2) == 0 ? 'm' : 'f';        /* sex   */
+
+  /* As many rerolls as the variation asks for, then accept. */
+  for (i = 0; i < (variation % 3); i++)
+    keys[n++] = ' ';
+
+  keys[n++] = ESCAPE;
+  keys[n++] = (char)('a' + (variation % 3));           /* class */
+
+  /* The name, typed rather than taken from the machine. */
+  {
+    const char *name = "Alatariel\r";
+
+    for (i = 0; name[i]; i++)
+      keys[n++] = name[i];
+  }
+
+  for (i = n; i < 599; i++)
+    keys[i] = ' ';
+  keys[599] = 0;
+  oracle_feed_keys(keys);
+
+  create_character();
+
+  oracle_screen_dump("scr");
+
+  printf("who [%s] male %d race %d class %d\n", py.misc.name,
+         (int)py.misc.male, (int)py.misc.prace, (int)py.misc.pclass);
+
+  printf("build age %d height %d weight %d social %d\n", (int)py.misc.age,
+         (int)py.misc.ht, (int)py.misc.wt, (int)py.misc.sc);
+
+  printf("stats %d %d %d %d %d %d\n", (int)py.stats.max_stat[0],
+         (int)py.stats.max_stat[1], (int)py.stats.max_stat[2],
+         (int)py.stats.max_stat[3], (int)py.stats.max_stat[4],
+         (int)py.stats.max_stat[5]);
+
+  printf("use %d %d %d %d %d %d\n", (int)py.stats.use_stat[0],
+         (int)py.stats.use_stat[1], (int)py.stats.use_stat[2],
+         (int)py.stats.use_stat[3], (int)py.stats.use_stat[4],
+         (int)py.stats.use_stat[5]);
+
+  printf("body hitdie %d mhp %d gold %ld bth %d bthb %d\n", (int)py.misc.hitdie,
+         (int)py.misc.mhp, (long)py.misc.au, (int)py.misc.bth,
+         (int)py.misc.bthb);
+
+  for (i = 0; i < 4; i++)
+    printf("history %d [%s]\n", i, py.misc.history[i]);
+
+  for (i = 0; i < MAX_PLAYER_LEVEL; i++)
+    printf("hp %d %d\n", i, (int)player_hp[i]);
+
+  /* And what they are given to set out with. */
+  probe_char_inven_init();
+
+  printf("pack %d weight %d\n", (int)inven_ctr, (int)inven_weight);
+
+  for (i = 0; i < inven_ctr; i++)
+    save_dump_item("carried", i, &inventory[i]);
+
+  for (i = 0; i < 32; i++)
+    printf("order %d %d\n", i, (int)spell_order[i]);
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* -------------------------------------------------------------------- save */
 
 /* Shared with the death mode below, which fills a character in the same way. */
@@ -6013,7 +6120,9 @@ static int usage(void)
           "  oracle wizard <seed> <level> <variation>  the debugging commands\n"
           "  oracle death <seed> <variation>  the gravestone and the crown\n"
           "  oracle sheet <seed> <variation>  the character sheet, screen and file\n"
-          "  oracle score <seed> <variation> <count>  the score record encoding\n");
+          "  oracle score <seed> <variation> <count>  the score record encoding\n"
+          "  oracle save <seed> <level> <variation>  a saved game, written and read\n"
+          "  oracle create <seed> <variation>  rolling a character, with prompts\n");
   return 2;
 }
 
@@ -6301,6 +6410,15 @@ int main(int argc, char *argv[])
         dump_death(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
       else
         dump_sheet(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "create") == 0)
+    {
+      if (argc != 4)
+        return usage();
+
+      dump_create(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
       return 0;
     }
 

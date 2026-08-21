@@ -15,7 +15,18 @@ emulator, no runtime install.
 
 ## Status
 
-Early. The foundations are in place; the game is not yet playable.
+Playable. Every file of the original has been ported and diffed against it;
+what remains is play-testing rather than porting.
+
+```
+airom              play, picking up a saved game if there is one
+airom -n           start a new character
+airom -S           the score table
+airom -w           wizard mode, which forfeits the score
+```
+
+A game saved by a real Umoria 5.6 can be opened here, and one saved here can
+be taken back to it: the savefile is the original's, byte for byte.
 
 | Area | State |
 |---|---|
@@ -23,9 +34,9 @@ Early. The foundations are in place; the game is not yet playable.
 | Seeding and item appearances | Done, verified against the original |
 | Data tables | Done |
 | Item / cave / store predicates | Done |
-| Constants | Item, cave and creature vocabularies done; player, dungeon and inventory pending |
-| Core types | 4 of 16 structs; the rest are runtime state |
-| Game logic | Not started |
+| Constants | Done |
+| Core types | Done |
+| Game logic | Done, verified against the original |
 | Dungeon terrain primitives | Done, verified against the original |
 | Rooms — plain and overlapping | Done, verified against the original |
 | Tunnels and doors | Done, verified against the original |
@@ -72,6 +83,8 @@ Early. The foundations are in place; the game is not yet playable.
 | Dying, the tomb and the character sheet (death.c, files.c) | Done, verified against the original |
 | The score table itself | Done, rewritten for one player on one machine |
 | Save files (save.c) | Done, verified against the original |
+| Rolling a character, with prompts (create.c) | Done, verified against the original |
+| Starting the game: arguments, the play loop (main.c) | Done |
 
 ## Building
 

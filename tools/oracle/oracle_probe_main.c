@@ -29,3 +29,9 @@ void probe_init_m_level(void)
 {
   init_m_level();
 }
+
+/* And the starting kit, which is the one other thing main.c keeps to itself. */
+void probe_char_inven_init(void)
+{
+  char_inven_init();
+}

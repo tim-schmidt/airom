@@ -15,6 +15,7 @@ namespace Airom.Tests;
 /// shared setuid file has no meaning on a single-player Windows machine, so it
 /// is these tests that hold it up.
 /// </summary>
+[Collection("game files")]
 public class DeathTests
 {
     private static (GameState, Display, GameLoop, MemoryScreen) Game(uint seed = 1)

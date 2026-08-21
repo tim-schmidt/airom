@@ -73,7 +73,7 @@ public static partial class OracleDump
         Line("dis_td", player.DisplayedPlusToDamage);
         Line("dis_tac", player.DisplayedToArmourClass);
         Line("dis_ac", player.DisplayedArmourClass);
-        Line("infra", player.Infravision);
+        Line("infra", player.SeeInfrared);
 
         for (int i = 0; i < player.MaxStat.Length; i++)
         {
