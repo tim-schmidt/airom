@@ -51,10 +51,24 @@ public class ScoreFile
     /// <summary>
     /// Where the score file lives. A file beside the player's own data rather
     /// than a shared one under the game, since there is nobody to share with.
+    ///
+    /// MORIA_TOP names it instead when it is set, which is the original's name
+    /// for the same thing. It is what a second board is for - a test run, or a
+    /// game played for practice - and having one is what keeps those out of the
+    /// board that counts.
     /// </summary>
-    public static string DefaultPath { get; set; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "AIrom", "scores.dat");
+    public static string DefaultPath { get; set; } = FromEnvironmentOrData();
+
+    private static string FromEnvironmentOrData()
+    {
+        string? named = Environment.GetEnvironmentVariable("MORIA_TOP");
+
+        return string.IsNullOrEmpty(named)
+            ? Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "AIrom", "scores.dat")
+            : named;
+    }
 
     /// <summary>
     /// The version this game writes. Mirrors CUR_VERSION_MAJ, CUR_VERSION_MIN
