@@ -61,6 +61,7 @@ extern void probe_alloc_monster(int num, int dis, int slp);
 extern void probe_build_store(int store_num, int y, int x);
 extern char probe_original_commands(char command);
 extern int probe_valid_countcommand(char command);
+extern void probe_enter_level(void);
 extern void probe_regenhp(int percent);
 extern void probe_regenmana(int percent);
 extern void probe_hit_trap(int y, int x);
@@ -90,6 +91,23 @@ static void use_unix_line_endings(void)
 #ifdef _WIN32
   _setmode(_fileno(stdout), _O_BINARY);
 #endif
+}
+
+/* A Brass Lantern, which is the light source the fuel commands act on. */
+#define OBJ_LANTERN 85
+
+/* Puts a lamp in the player's hand with the given oil in it.
+
+   The whole point is what this does not do: it never sets player_light.
+   Whether the player has a light of their own is worked out from what they are
+   holding, on arrival and again every turn, and a harness that states the
+   answer is a harness that cannot see that working-out go wrong. Modes arrange
+   darkness the same way, with an empty lamp. */
+static void light_the_lamp(oil)
+int oil;
+{
+  invcopy(&inventory[INVEN_LIGHT], OBJ_LANTERN);
+  inventory[INVEN_LIGHT].p1 = (int16)oil;
 }
 
 static void header(const char *mode, unsigned long seed)
@@ -1774,9 +1792,6 @@ static void dump_regen(unsigned long seed, int turns)
   printf("clamped chp %d frac %d\n", (int)py.misc.chp, (int)py.misc.chp_frac);
 }
 
-/* A Brass Lantern, which is the light source the fuel commands act on. */
-#define OBJ_LANTERN 85
-
 /* ------------------------------------------------------------------ upkeep */
 
 /* The turn: what happens to the player between one command and the next.
@@ -2022,28 +2037,30 @@ static void dump_light(unsigned long seed, int level, int steps, int variation)
   switch (variation)
     {
     case 0:
-      /* A lit lamp: the ordinary case, where the player carries their light. */
-      player_light = TRUE;
+      /* A lit lamp: the ordinary case, where the player carries their light.
+         Only the lamp is put in their hand - whether that amounts to a light
+         is arriving's conclusion to draw. */
+      light_the_lamp(400);
       break;
     case 1:
       /* Blind: nothing new is revealed, so only the player symbol moves. */
-      player_light = TRUE;
+      light_the_lamp(400);
       py.flags.blind = 500;
       break;
     case 2:
-      /* No light at all, which is the same path as blindness. */
-      player_light = FALSE;
+      /* No light at all, which is the same path as blindness: an empty lamp is
+         no light. */
+      light_the_lamp(0);
       break;
     default:
       /* Running: the lamp is switched off, so a long run does not repaint the
          same nine squares at every step. */
-      player_light = TRUE;
+      light_the_lamp(400);
       find_flag = TRUE;
       break;
     }
 
-  panel_row = panel_col = -1;
-  check_view();
+  probe_enter_level();
 
   for (step = 0; step < steps; step++)
     {
@@ -2174,25 +2191,25 @@ static void dump_walk(unsigned long seed, int level, int steps, int variation)
   switch (variation)
     {
     case 0:
-      player_light = TRUE;
+      light_the_lamp(400);
       break;
     case 1:
       /* Confused: three steps in four go somewhere else entirely, which draws
          random numbers of its own. */
-      player_light = TRUE;
+      light_the_lamp(400);
       py.flags.confused = 30000;
       break;
     case 2:
-      player_light = TRUE;
+      light_the_lamp(400);
       py.flags.blind = 30000;
       break;
     default:
-      player_light = FALSE;
+      /* An empty lamp: no light of the player's own. */
+      light_the_lamp(0);
       break;
     }
 
-  panel_row = panel_col = -1;
-  check_view();
+  probe_enter_level();
 
   for (step = 0; step < steps; step++)
     {
@@ -2264,7 +2281,7 @@ static void dump_run(unsigned long seed, int level, int direction, int variation
   py.misc.fos = 30000;
   py.misc.srh = 0;
 
-  player_light = TRUE;
+  light_the_lamp(400);
 
   switch (variation)
     {
@@ -2284,8 +2301,7 @@ static void dump_run(unsigned long seed, int level, int direction, int variation
       break;
     }
 
-  panel_row = panel_col = -1;
-  check_view();
+  probe_enter_level();
 
   printf("start %d %d\n", (int)char_row, (int)char_col);
 
@@ -2586,7 +2602,7 @@ static void dump_pickup(unsigned long seed, int level, int steps, int variation)
   py.misc.wt = 150;
   py.misc.fos = 1;
   py.misc.srh = 40;
-  player_light = TRUE;
+  light_the_lamp(400);
 
   switch (variation)
     {
@@ -2620,8 +2636,7 @@ static void dump_pickup(unsigned long seed, int level, int steps, int variation)
     oracle_feed_keys(script);
   }
 
-  panel_row = panel_col = -1;
-  check_view();
+  probe_enter_level();
 
   for (step = 0; step < steps; step++)
     {
@@ -2728,7 +2743,7 @@ static void dump_fight(unsigned long seed, int level, int creature, int rounds)
   strip_traps();
 
   cave[char_row][char_col].cptr = 1;
-  player_light = TRUE;
+  light_the_lamp(400);
 
   /* A weapon worth swinging: a long sword that slays dragons, so tot_dam has
      something to multiply and the monster memory has something to learn. */
@@ -2757,8 +2772,7 @@ static void dump_fight(unsigned long seed, int level, int creature, int rounds)
     oracle_feed_keys(script);
   }
 
-  panel_row = panel_col = -1;
-  check_view();
+  probe_enter_level();
 
   for (round = 0; round < rounds; round++)
     {
@@ -2850,7 +2864,7 @@ static void dump_traps(unsigned long seed, int level, int first, int count)
       strip_traps();
 
       cave[char_row][char_col].cptr = 1;
-      player_light = TRUE;
+      light_the_lamp(400);
 
       py.misc.chp = 200;
       py.misc.mhp = 200;
@@ -2866,8 +2880,7 @@ static void dump_traps(unsigned long seed, int level, int first, int count)
         oracle_feed_keys(script);
       }
 
-      panel_row = panel_col = -1;
-      check_view();
+      probe_enter_level();
 
       /* The trap goes under the player, which is where a sprung one always
          is. */
@@ -2932,7 +2945,7 @@ static void dump_monsters(unsigned long seed, int level, int turns, int variatio
   generate_cave();
 
   cave[char_row][char_col].cptr = 1;
-  player_light = TRUE;
+  light_the_lamp(400);
 
   py.misc.chp = 2000;
   py.misc.mhp = 2000;
@@ -3013,8 +3026,7 @@ static void dump_monsters(unsigned long seed, int level, int turns, int variatio
     oracle_feed_keys(script);
   }
 
-  panel_row = panel_col = -1;
-  check_view();
+  probe_enter_level();
 
   for (turn_index = 0; turn_index < turns; turn_index++)
     {
@@ -3351,9 +3363,9 @@ static void dump_device(const char *mode, unsigned long seed, int level,
       py.misc.mana = 50;
       py.misc.cmana = 50;
 
-      player_light = TRUE;
-      panel_row = panel_col = -1;
-      check_view();
+      /* The torch above is the whole of the arrangement: whether it amounts to
+         a light is arriving's conclusion to draw. */
+      probe_enter_level();
 
       invcopy(&inventory[0], which);
       /* Charges, so a wand or a staff has something to spend. */
@@ -3627,9 +3639,7 @@ static void dump_magic(const char *mode, unsigned long seed, int level,
           py.misc.cmana = mana;
           py.misc.cmana_frac = 0;
 
-          player_light = TRUE;
-          panel_row = panel_col = -1;
-          check_view();
+          probe_enter_level();
 
           invcopy(&inventory[0], book);
           inven_ctr = 1;
@@ -3809,9 +3819,9 @@ static void dump_inven(unsigned long seed, int variation)
   py.misc.mhp = 500;
   py.misc.chp = 500;
 
-  player_light = TRUE;
-  panel_row = panel_col = -1;
-  check_view();
+  /* The torch above is the whole of the arrangement: arriving works out from
+     it that the player has a light. */
+  probe_enter_level();
 
   /* One of each kind, the first of its kind in the table, so the pack is the
      same every time and the letters do not move. */
@@ -4002,9 +4012,7 @@ static void dump_getitem(unsigned long seed, int variation)
   py.misc.mhp = 500;
   py.misc.chp = 500;
 
-  player_light = TRUE;
-  panel_row = panel_col = -1;
-  check_view();
+  probe_enter_level();
 
   for (k = 0; k < (int)(sizeof(inven_kinds)/sizeof(inven_kinds[0])); k++)
     for (i = 0; i < MAX_OBJECTS; i++)
@@ -4289,9 +4297,8 @@ static void dump_moria4(unsigned long seed, int level, int variation)
   if (variation == 7 || variation == 8 || variation == 9)
     moria4_target(variation == 9);
 
-  player_light = TRUE;
-  panel_row = panel_col = -1;
-  check_view();
+  /* moria4_pack() put a torch in the player's hand; arriving reads it. */
+  probe_enter_level();
 
   for (round = 0; round < MORIA4_ROUNDS; round++)
     {
@@ -4517,9 +4524,8 @@ static void dump_look(unsigned long seed, int level, int variation)
   for (i = MIN_MONIX; i < mfptr; i++)
     m_list[i].ml = TRUE;
 
-  player_light = TRUE;
-  panel_row = panel_col = -1;
-  check_view();
+  light_the_lamp(400);
+  probe_enter_level();
 
   /* Mineral veins are picked out on the odd variations, which is what makes
      look take a second pass over the rock. */
@@ -5211,9 +5217,8 @@ static void dump_wizard(unsigned long seed, int level, int variation)
   py.misc.mana = 20;
   py.misc.cmana = 10;
 
-  player_light = TRUE;
-  panel_row = panel_col = -1;
-  check_view();
+  light_the_lamp(400);
+  probe_enter_level();
 
   msg_flag = FALSE;
 

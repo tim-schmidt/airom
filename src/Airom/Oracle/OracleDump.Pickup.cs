@@ -45,7 +45,12 @@ public static partial class OracleDump
         game.Player.Level = 1;
         game.Player.MaxDungeonLevel = level;
 
-        new DungeonGenerator(game).Generate();
+        var screen = new MemoryScreen { TypeAheadVisible = false };
+        var display = new Display(game, screen);
+
+        // Generated with the screen in hand, so the panel is sized by the
+        // arrival rather than by the harness afterwards.
+        new DungeonGenerator(game, display).Generate();
 
         for (int row = 0; row < game.Cave.Height; row++)
         {
@@ -115,7 +120,7 @@ public static partial class OracleDump
         player.Weight = 150;
         player.SearchFrequency = 1;
         player.Search = 40;
-        game.PlayerLight = true;
+        LightTheLamp(game, 400);
 
         switch (variation)
         {
@@ -137,8 +142,6 @@ public static partial class OracleDump
                 break;
         }
 
-        var screen = new MemoryScreen { TypeAheadVisible = false };
-
         // Spaces answer the -more- prompts and the pickup questions alike; a "y"
         // would be needed for a no, and yes is what these variations want.
         var script = new char[2000];
@@ -149,12 +152,8 @@ public static partial class OracleDump
 
         screen.SendKeys(new string(script));
 
-        var display = new Display(game, screen);
-        display.Panel.Resize(game.Cave.Height, game.Cave.Width);
-        display.Panel.Invalidate();
-
         var loop = new GameLoop(game, display);
-        loop.Lighting.CheckView();
+        loop.EnterLevel();
 
         for (int step = 0; step < steps; step++)
         {

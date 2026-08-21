@@ -146,9 +146,10 @@ public static partial class OracleDump
         var screen = new MemoryScreen { TypeAheadVisible = false };
         var display = new Display(game, screen);
 
-        new DungeonGenerator(game).Generate();
+        // Generated with the screen in hand, so the panel is sized by the
+        // arrival rather than by the harness afterwards.
+        new DungeonGenerator(game, display).Generate();
         game.Cave[game.CharacterRow, game.CharacterColumn].MonsterIndex = 1;
-        display.Panel.Resize(game.Cave.Height, game.Cave.Width);
 
         var loop = new GameLoop(game, display);
         Player player = game.Player;
@@ -180,9 +181,8 @@ public static partial class OracleDump
         player.MaxMana = 20;
         player.CurrentMana = 10;
 
-        game.PlayerLight = true;
-        display.Panel.Invalidate();
-        loop.Lighting.CheckView();
+        LightTheLamp(game, 400);
+        loop.EnterLevel();
 
         display.MessageWaitingFlag = false;
 

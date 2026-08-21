@@ -705,10 +705,24 @@ Two rules came out of it, and both are worth stating plainly.
 **A harness may arrange the world, but never set a value the code under test
 derives.** Setting `player_light` hid a lamp that lit nothing for as long as the
 port existed. Sizing the panel hid a view that could never scroll. Both modes
-were green throughout. Ten modes still set `player_light` and the panel
-directly; they are arranging a world rather than answering a question, but each
-is a place where the same mistake could hide again, and `upkeep` shows what the
-honest version looks like - equip a lantern and let the loop conclude the rest.
+were green throughout.
+
+No mode does either any more. Where a mode wants a lit player it puts a lamp in
+their hand - `light_the_lamp()` on the C side, `LightTheLamp()` on ours - and
+where it wants darkness it puts an empty one there instead. Neither helper
+touches `player_light`. Arriving on the level is then asked for rather than
+imitated: `probe_enter_level()` runs dungeon()'s own opening statements against
+dungeon.c itself, and `GameLoop.EnterLevel()` is the same run of statements
+factored out of `Run()`, so both sides reach the answer the way the game does.
+That is the shape to keep: a mode says what the player is holding, and the game
+says what that amounts to.
+
+The panel went the same way. Sizing it belongs to `generate_cave()`, which does
+it from the level it has just carved, so the modes now hand the generator a
+screen - `new DungeonGenerator(game, display)` - and delete the `Panel.Resize`
+that followed. A mode that once sized the panel for itself would have kept
+working with a view that could never move; now the only way it gets a panel is
+the way the game gets one.
 
 **What is not printed is not compared.** Obvious, and still the way all three
 got through. The cursor is the clearest case: the fake curses has recorded it at

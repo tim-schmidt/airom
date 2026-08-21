@@ -110,7 +110,6 @@ public static partial class OracleDump
 
         game.DungeonLevel = level;
         new DungeonGenerator(game, display).Generate();
-        display.Panel.Resize(game.Cave.Height, game.Cave.Width);
 
         game.Turn = 500 + variation;
         game.CharacterGenerated = true;

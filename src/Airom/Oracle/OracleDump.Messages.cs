@@ -99,15 +99,13 @@ public static partial class OracleDump
         game.InitSeeds(seed);
         game.MagicInit();
         game.DungeonLevel = level;
-        game.Objects.Reset();
-        game.Monsters.Reset();
-        game.Cave.Resize(GameState.DungeonHeight, GameState.DungeonWidth);
-        game.Cave.Blank();
-
-        new DungeonGenerator(game).CarveCave();
 
         var screen = new MemoryScreen();
         var display = new Display(game, screen);
+
+        // The whole of generate_cave(), screen and all, so the panel is sized
+        // by the level rather than by the harness.
+        new DungeonGenerator(game, display).Generate();
 
         Cave cave = game.Cave;
         for (int row = 0; row < cave.Height; row++)
@@ -126,7 +124,6 @@ public static partial class OracleDump
 
         cave[game.CharacterRow, game.CharacterColumn].MonsterIndex = 1;
 
-        display.Panel.Resize(cave.Height, cave.Width);
         display.Panel.Follow(game.CharacterRow, game.CharacterColumn, force: true);
 
         // ScreenMap leaves the drawing on screen; the C only restores it after

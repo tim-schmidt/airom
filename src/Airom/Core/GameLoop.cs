@@ -534,11 +534,6 @@ public partial class GameLoop
             Player.MaxDungeonLevel = _game.DungeonLevel;
         }
 
-        // Whether the player is carrying their own light, which is simply
-        // whether what they are holding has anything left in it. Mirrors the
-        // check at the top of dungeon(), before its loop.
-        PlayerLight = Fuel > 0;
-
         _display.CommandCount = 0;
         int runCount = 0;
         NewLevel = false;
@@ -547,10 +542,7 @@ public partial class GameLoop
 
         _game.Cave[_game.CharacterRow, _game.CharacterColumn].MonsterIndex = 1;
 
-        // Forcing the panel to an impossible index is what makes the first
-        // check_view() draw the map rather than deciding nothing moved.
-        _display.Panel.Invalidate();
-        CheckView();
+        EnterLevel();
 
         // Searching is switched off on arrival, and only after the panel is
         // invalid, because switching it off looks at the view.
@@ -689,11 +681,24 @@ public partial class GameLoop
     public void CheckViewForTest() => CheckView();
 
     /// <summary>
-    /// Everything arriving on a level settles before a turn is played, which
-    /// for the moment is whether the player has a light of their own. Reached
-    /// from tests so that arriving can be checked without playing.
+    /// What arriving on a level settles before the first command is asked for:
+    /// whether the player is carrying their own light, which is simply whether
+    /// what they are holding has anything left in it; a panel forced to an
+    /// impossible index, which is what makes the first check_view() draw the
+    /// map rather than decide nothing moved; and the view itself.
+    ///
+    /// Mirrors the run of statements at the top of dungeon(), before its loop.
+    /// It is a method of its own so that arriving can be asked for without
+    /// playing - by a test, or by the oracle - and so that neither has to state
+    /// an answer the loop is supposed to be working out for itself.
     /// </summary>
-    public void EnterLevelForTest() => PlayerLight = Fuel > 0;
+    public void EnterLevel()
+    {
+        PlayerLight = Fuel > 0;
+
+        _display.Panel.Invalidate();
+        CheckView();
+    }
 
     /// <summary>Drains the lamp the way something that eats light does.</summary>
     public void EatLightForTest() => _monsterAttack.EatLightForTest();

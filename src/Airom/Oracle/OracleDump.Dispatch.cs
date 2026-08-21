@@ -141,8 +141,8 @@ public static partial class OracleDump
         display.CommandCount = 0;
 
         // What dungeon() does before it asks for anything: put the view where
-        // the player is and draw it. Several commands read the panel.
-        display.Panel.Resize(game.Cave.Height, game.Cave.Width);
+        // the player is and draw it. Several commands read the panel. The
+        // sizing is not repeated here - generating the level did that.
         display.Panel.Invalidate();
         display.Panel.Follow(game.CharacterRow, game.CharacterColumn, force: true);
         display.PrintMap();

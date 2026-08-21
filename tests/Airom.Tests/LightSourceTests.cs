@@ -60,7 +60,7 @@ public class LightSourceTests
         Equip(game, Lantern, 7500);
         game.PlayerLight = false;
 
-        loop.EnterLevelForTest();
+        loop.EnterLevel();
 
         Assert.True(game.PlayerLight, "the lantern lit nothing");
     }
@@ -74,7 +74,7 @@ public class LightSourceTests
         Equip(game, Lantern, 0);
         game.PlayerLight = true;
 
-        loop.EnterLevelForTest();
+        loop.EnterLevel();
 
         Assert.False(game.PlayerLight, "an empty lantern lit the way");
     }
@@ -88,7 +88,7 @@ public class LightSourceTests
         (GameState game, _, GameLoop loop, _) = Game();
 
         Equip(game, Lantern, 7500);
-        loop.EnterLevelForTest();
+        loop.EnterLevel();
 
         for (int i = 0; i < 5; i++)
         {
@@ -108,7 +108,7 @@ public class LightSourceTests
         (GameState game, _, GameLoop loop, MemoryScreen screen) = Game();
 
         Equip(game, Lantern, 1);
-        loop.EnterLevelForTest();
+        loop.EnterLevel();
 
         loop.TurnUpkeep();
 
@@ -138,7 +138,7 @@ public class LightSourceTests
 
         Assert.Equal(100 + inFlask, game.Inventory[Inventory.LightSlot].P1);
 
-        loop.EnterLevelForTest();
+        loop.EnterLevel();
         loop.TurnUpkeep();
 
         Assert.Equal(100 + inFlask - 1, game.Inventory[Inventory.LightSlot].P1);

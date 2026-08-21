@@ -50,8 +50,13 @@ public static partial class OracleDump
         game.DungeonLevel = level;
         game.Player.Level = 1;
         game.Player.MaxDungeonLevel = level;
-        // The whole arrival, town or dungeon, as generate_cave() does it.
-        new DungeonGenerator(game).Generate();
+        var screen = new MemoryScreen { TypeAheadVisible = false };
+        var display = new Display(game, screen);
+
+        // The whole arrival, town or dungeon, as generate_cave() does it -
+        // screen and all, since sizing the panel to the level is part of what
+        // arriving does rather than something a caller arranges afterwards.
+        new DungeonGenerator(game, display).Generate();
 
         // The monsters are cleared off: creature movement is not ported, and one
         // taking its turn would consume random numbers on one side only.
@@ -66,39 +71,37 @@ public static partial class OracleDump
         game.Monsters.Reset();
         game.Cave[game.CharacterRow, game.CharacterColumn].MonsterIndex = 1;
 
-        var screen = new MemoryScreen { TypeAheadVisible = false };
-        var display = new Display(game, screen);
         var lighting = new Lighting(game, display);
+        var loop = new GameLoop(game, display);
 
         switch (variation)
         {
             case 0:
                 // A lit lamp: the ordinary case, where the player carries their
-                // light.
-                game.PlayerLight = true;
+                // light. Only the lamp is put in their hand - whether that
+                // amounts to a light is arriving's conclusion to draw.
+                LightTheLamp(game, 400);
                 break;
             case 1:
                 // Blind: nothing new is revealed, so only the player symbol
                 // moves.
-                game.PlayerLight = true;
+                LightTheLamp(game, 400);
                 game.Player.Blind = 500;
                 break;
             case 2:
-                // No light at all, which is the same path as blindness.
-                game.PlayerLight = false;
+                // No light at all, which is the same path as blindness: an
+                // empty lamp is no light.
+                LightTheLamp(game, 0);
                 break;
             default:
                 // Running: the lamp is switched off, so a long run does not
                 // repaint the same nine squares at every step.
-                game.PlayerLight = true;
+                LightTheLamp(game, 400);
                 game.Running = true;
                 break;
         }
 
-        // Sizing the panel to the level is still the caller's job on this side.
-        display.Panel.Resize(game.Cave.Height, game.Cave.Width);
-        display.Panel.Invalidate();
-        lighting.CheckView();
+        loop.EnterLevel();
 
         for (int step = 0; step < steps; step++)
         {

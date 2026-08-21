@@ -38,7 +38,13 @@ public static partial class OracleDump
         game.Player.Level = 1;
         game.Player.MaxDungeonLevel = level;
 
-        new DungeonGenerator(game).Generate();
+        var screen = new MemoryScreen { TypeAheadVisible = false };
+        var display = new Display(game, screen);
+
+        // Generated with a screen in hand, so the panel is sized by the arrival
+        // itself. Sizing it here instead would be the harness doing
+        // generate_cave()'s job, and a panel that never moved would look right.
+        new DungeonGenerator(game, display).Generate();
 
         for (int row = 0; row < game.Cave.Height; row++)
         {
@@ -52,11 +58,6 @@ public static partial class OracleDump
         game.Monsters.Reset();
         game.Objects.Reset();
         game.Cave[game.CharacterRow, game.CharacterColumn].MonsterIndex = 1;
-
-        var screen = new MemoryScreen { TypeAheadVisible = false };
-        var display = new Display(game, screen);
-        display.Panel.Resize(game.Cave.Height, game.Cave.Width);
-        display.Panel.Invalidate();
 
         return (game, display, screen, new GameLoop(game, display));
     }
@@ -128,24 +129,25 @@ public static partial class OracleDump
         switch (variation)
         {
             case 0:
-                game.PlayerLight = true;
+                LightTheLamp(game, 400);
                 break;
             case 1:
                 // Confused: three steps in four go somewhere else entirely,
                 // which draws random numbers of its own.
-                game.PlayerLight = true;
+                LightTheLamp(game, 400);
                 game.Player.Confused = 30000;
                 break;
             case 2:
-                game.PlayerLight = true;
+                LightTheLamp(game, 400);
                 game.Player.Blind = 30000;
                 break;
             default:
-                game.PlayerLight = false;
+                // An empty lamp: no light of the player's own.
+                LightTheLamp(game, 0);
                 break;
         }
 
-        loop.Lighting.CheckView();
+        loop.EnterLevel();
 
         for (int step = 0; step < steps; step++)
         {
@@ -199,7 +201,7 @@ public static partial class OracleDump
         // drown the run itself in noise.
         game.Player.SearchFrequency = 30000;
         game.Player.Search = 0;
-        game.PlayerLight = true;
+        LightTheLamp(game, 400);
 
         switch (variation)
         {
@@ -220,7 +222,7 @@ public static partial class OracleDump
                 break;
         }
 
-        loop.Lighting.CheckView();
+        loop.EnterLevel();
 
         output.Write(string.Join(
             ' ',

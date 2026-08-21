@@ -44,12 +44,16 @@ public static partial class OracleDump
             .Create(race: 0, characterClass: 0, male: true, name: "Oracle");
         game.Player = player;
 
+        var screen = new MemoryScreen { TypeAheadVisible = false };
+        var display = new Display(game, screen);
+
         game.DungeonLevel = 1;
-        game.Objects.Reset();
-        game.Monsters.Reset();
-        game.Cave.Resize(GameState.DungeonHeight, GameState.DungeonWidth);
-        game.Cave.Blank();
-        new DungeonGenerator(game).CarveCave();
+
+        // The whole of generate_cave(), screen and all: sizing the panel to the
+        // level it has just carved is part of what building one does, and a
+        // harness that sized it instead would hide a view that could not
+        // scroll.
+        new DungeonGenerator(game, display).Generate();
 
         // Empty the monster list, and take the monsters off the map with it.
         for (int row = 0; row < game.Cave.Height; row++)
@@ -74,13 +78,7 @@ public static partial class OracleDump
         player.CurrentHitPoints = 3;
         player.HitPointFraction = 0;
 
-        var screen = new MemoryScreen { TypeAheadVisible = false };
-        var display = new Display(game, screen);
         var loop = new GameLoop(game, display);
-
-        // generate_cave() sizes the panel to the level it just carved; on this
-        // side that is still the caller's job.
-        display.Panel.Resize(game.Cave.Height, game.Cave.Width);
 
         switch (variation)
         {

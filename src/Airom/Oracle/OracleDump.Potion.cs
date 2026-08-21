@@ -53,8 +53,9 @@ public static partial class OracleDump
             var screen = new MemoryScreen { TypeAheadVisible = false };
             screen.SendKeys(new string(' ', 200));
 
+            // No level is built here and nothing draws the map, so the panel
+            // is left exactly as the C leaves it: untouched.
             var display = new Display(game, screen);
-            display.Panel.Resize(GameState.DungeonHeight, GameState.DungeonWidth);
 
             var loop = new GameLoop(game, display);
 

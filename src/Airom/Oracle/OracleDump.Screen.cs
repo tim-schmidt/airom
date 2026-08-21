@@ -50,15 +50,15 @@ public static partial class OracleDump
         game.InitSeeds(seed);
         game.MagicInit();
         game.DungeonLevel = level;
-        game.Objects.Reset();
-        game.Monsters.Reset();
-        game.Cave.Resize(GameState.DungeonHeight, GameState.DungeonWidth);
-        game.Cave.Blank();
-
-        new DungeonGenerator(game).CarveCave();
 
         var screen = new MemoryScreen();
         var display = new Display(game, screen);
+
+        // The whole of generate_cave(), screen and all. This mode prints the
+        // panel indices, so where they come from is the point: the level sizes
+        // its own view, and a harness that sized it would be reading back its
+        // own arithmetic.
+        new DungeonGenerator(game, display).Generate();
 
         Cave cave = game.Cave;
 
@@ -81,7 +81,6 @@ public static partial class OracleDump
         // The player occupies index 1 of the monster list.
         cave[game.CharacterRow, game.CharacterColumn].MonsterIndex = 1;
 
-        display.Panel.Resize(cave.Height, cave.Width);
         display.Panel.Follow(game.CharacterRow, game.CharacterColumn, force: true);
 
         void Value(string key, int value) =>

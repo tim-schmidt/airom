@@ -39,7 +39,12 @@ public static partial class OracleDump
         game.Player.Food = 7500;
         game.Player.FoodDigested = 2;
 
-        new DungeonGenerator(game).Generate();
+        var screen = new MemoryScreen { TypeAheadVisible = false };
+        var display = new Display(game, screen);
+
+        // Generated with the screen in hand, so the panel is sized by the
+        // arrival rather than by the harness afterwards.
+        new DungeonGenerator(game, display).Generate();
 
         for (int row = 0; row < game.Cave.Height; row++)
         {
@@ -62,21 +67,16 @@ public static partial class OracleDump
 
         game.Monsters.Reset();
         game.Cave[game.CharacterRow, game.CharacterColumn].MonsterIndex = 1;
-        game.PlayerLight = true;
+        LightTheLamp(game, 400);
 
-        var screen = new MemoryScreen { TypeAheadVisible = false };
         screen.SendKeys(new string(' ', 3999));
-
-        var display = new Display(game, screen);
-        display.Panel.Resize(game.Cave.Height, game.Cave.Width);
-        display.Panel.Invalidate();
 
         var loop = new GameLoop(game, display);
 
         // The rolling leaves its own labels on the screen; what is compared is
         // what the fight draws.
         display.ClearScreen();
-        loop.Lighting.CheckView();
+        loop.EnterLevel();
 
         return (game, display, screen, loop);
     }

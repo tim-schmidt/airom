@@ -41,10 +41,15 @@ public static partial class OracleDump
         game.Player.Level = 1;
         game.Player.MaxDungeonLevel = level;
 
-        new DungeonGenerator(game).Generate();
+        var screen = new MemoryScreen { TypeAheadVisible = false };
+        var display = new Display(game, screen);
+
+        // Generated with the screen in hand, so the panel is sized by the
+        // arrival rather than by the harness afterwards.
+        new DungeonGenerator(game, display).Generate();
 
         game.Cave[game.CharacterRow, game.CharacterColumn].MonsterIndex = 1;
-        game.PlayerLight = true;
+        LightTheLamp(game, 400);
 
         Player player = game.Player;
         player.CurrentHitPoints = 2000;
@@ -84,7 +89,6 @@ public static partial class OracleDump
                 break;
         }
 
-        var screen = new MemoryScreen { TypeAheadVisible = false };
         screen.SendKeys(new string(' ', 3999));
 
         if (casters >= 0)
@@ -92,12 +96,8 @@ public static partial class OracleDump
             output.Write("casters " + casters.ToString(CultureInfo.InvariantCulture) + "\n");
         }
 
-        var display = new Display(game, screen);
-        display.Panel.Resize(game.Cave.Height, game.Cave.Width);
-        display.Panel.Invalidate();
-
         var loop = new GameLoop(game, display);
-        loop.Lighting.CheckView();
+        loop.EnterLevel();
 
         for (int i = 0; i < turns; i++)
         {

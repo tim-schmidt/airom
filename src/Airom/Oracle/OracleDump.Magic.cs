@@ -116,10 +116,10 @@ public static partial class OracleDump
 
                 var display = new Display(game, screen);
 
-                new DungeonGenerator(game).Generate();
+                // Generated with the screen in hand, so the panel is sized by
+                // the arrival rather than by the harness afterwards.
+                new DungeonGenerator(game, display).Generate();
                 game.Cave[game.CharacterRow, game.CharacterColumn].MonsterIndex = 1;
-
-                display.Panel.Resize(game.Cave.Height, game.Cave.Width);
 
                 var loop = new GameLoop(game, display);
                 loop.Spells = new ScriptedSpells(game, display, loop);
@@ -164,9 +164,9 @@ public static partial class OracleDump
                 player.CurrentMana = mana;
                 player.ManaFraction = 0;
 
-                game.PlayerLight = true;
-                display.Panel.Invalidate();
-                loop.Lighting.CheckView();
+                // The torch above is the whole of the arrangement: whether it
+                // amounts to a light is arriving's conclusion to draw.
+                loop.EnterLevel();
 
                 var carried = new InvenType();
                 carried.CopyFrom(book);

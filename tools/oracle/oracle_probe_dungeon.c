@@ -49,3 +49,23 @@ char command;
 {
   do_command(command);
 }
+
+/* What arriving on a level settles before the first command is asked for. The
+   statements are dungeon()'s own, from the run above its loop, and they live
+   here - in the translation unit that has dungeon.c in it - so that a mode can
+   arrive on a level without the harness stating whether the player has a light
+   or whether the panel needs drawing. Both are the game's conclusions to draw,
+   not the harness's to supply. */
+void probe_enter_level()
+{
+  register inven_type *i_ptr;
+
+  i_ptr = &inventory[INVEN_LIGHT];
+  if (i_ptr->p1 > 0)
+    player_light = TRUE;
+  else
+    player_light = FALSE;
+
+  panel_row = panel_col = -1;
+  check_view();
+}

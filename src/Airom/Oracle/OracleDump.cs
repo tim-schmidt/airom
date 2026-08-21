@@ -906,6 +906,27 @@ public static partial class OracleDump
 
 
     /// <summary>
+    /// Puts a lamp in the player's hand with the given oil in it.
+    ///
+    /// This is how a mode arranges a lit player, and the whole point is what it
+    /// does not do: it never sets <c>player_light</c>. Whether the player has a
+    /// light of their own is worked out from what they are holding, on arrival
+    /// and again every turn, and a harness that states the answer is a harness
+    /// that cannot see it go wrong. It could not, for a long time - a lantern
+    /// that lit nothing and burned no oil passed every mode there was, because
+    /// every mode had already said the light was on.
+    ///
+    /// An empty lamp is how a mode arranges darkness, for the same reason.
+    /// </summary>
+    private static void LightTheLamp(GameState game, int oil)
+    {
+        ArgumentNullException.ThrowIfNull(game);
+
+        game.Inventory[Inventory.LightSlot].CopyFrom(Lantern);
+        game.Inventory[Inventory.LightSlot].P1 = (short)oil;
+    }
+
+    /// <summary>
     /// Records where the cursor stands every time a key is asked for, and what
     /// the message line says while it is asked.
     ///
