@@ -242,6 +242,15 @@ public class Session
                 // Q at the last prompt of creation. Nothing has been generated,
                 // so there is no tomb to print and no score to record - the
                 // game simply stops.
+                //
+                // FAITHFUL QUIRK: it stops by way of one more -more-. The
+                // message telling a spellcaster what they can learn is still
+                // waiting when creation ends - the oracle measures the flag
+                // still raised there - and the first thing exit_game() does is
+                // flush it, so the player answers for a message about a
+                // character they have just decided not to play. The same
+                // pending message shows up twice more; see the quirk noted
+                // where the spells are worked out.
                 _loop.Death.ExitGame();
                 return 0;
             }
@@ -311,6 +320,10 @@ public class Session
         // player answers for it a second time. Clearing the message before the
         // screen would fix it and would be a change to the game rather than to
         // the port, so it waits with the rest of them.
+        //
+        // A player who answers Q to the prompt that ends creation meets the
+        // same message a third time, on the way out - see the quirk noted
+        // there.
         switch (GameTables.Classes[Player.Class].SpellRealm)
         {
             case SpellRealm.Mage:
