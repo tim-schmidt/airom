@@ -20,7 +20,7 @@ namespace Airom.Core;
 /// command. Commands that take no time never reach the bottom of the loop,
 /// which is what lets a player check their inventory for free.
 /// </summary>
-public class GameLoop
+public partial class GameLoop
 {
     /// <summary>Chance per turn of a new monster wandering in. Umoria's MAX_MALLOC_CHANCE.</summary>
     public const int MonsterArrivalChance = 160;
@@ -670,6 +670,12 @@ public class GameLoop
     /// rather than doing nothing, so a missing command is never mistaken for a
     /// command that did nothing.
     /// </summary>
+    /// <summary>
+    /// Reaches the dispatch for the oracle harness, which presses every key
+    /// through it and compares what each one does against the original.
+    /// </summary>
+    public void DispatchForOracle(char command) => DoCommand(command);
+
     protected virtual void DoCommand(char command)
     {
         // "-" is a movement command that leaves whatever is on the floor where
@@ -833,9 +839,9 @@ public class GameLoop
         {
             _traps.DisarmTrap();
         }
-        else if (TunnelDirection(command) is int dig)
+        else if (TunnelDirection(command) is int digging)
         {
-            _tunnelling.Tunnel(dig);
+            _tunnelling.Tunnel(digging);
         }
         else if (command == '/')
         {
@@ -856,9 +862,12 @@ public class GameLoop
         {
             _magic.Pray();
         }
-        else if (command == 'b')
+        else if (command == 'P')
         {
+            // Reading a book over is free: the dispatch hands the turn back
+            // after it, whatever the browse itself did.
             _magic.ExamineBook();
+            FreeTurn = true;
         }
         else if (command == 'q')
         {
@@ -872,13 +881,73 @@ public class GameLoop
         {
             _food.EatCommand();
         }
-        else if (command == 'a')
+        else if (command == 'z')
         {
             _devices.Aim();
         }
-        else if (command == 'u')
+        else if (command == 'Z')
         {
             _devices.Use();
+        }
+        else if (command == '<')
+        {
+            GoUp();
+        }
+        else if (command == '>')
+        {
+            GoDown();
+        }
+        else if (command == 'R')
+        {
+            Rest();
+        }
+        else if (command == 'S')
+        {
+            JamDoor();
+        }
+        else if (command == 'F')
+        {
+            RefillLamp();
+        }
+        else if (command == '{')
+        {
+            ScribeObject();
+        }
+        else if (command == 'W')
+        {
+            LocateOnMap();
+        }
+        else if (command == 'V')
+        {
+            ViewScores();
+        }
+        else if (command == '#')
+        {
+            if ((Player.Status & PlayerStatus.Searching) != 0)
+            {
+                SearchOff();
+            }
+            else
+            {
+                SearchOn();
+            }
+
+            FreeTurn = true;
+        }
+        else if (command == 's')
+        {
+            _movement.Search(_game.CharacterRow, _game.CharacterColumn, Player.Search);
+        }
+        else if (command is '!' or '$')
+        {
+            // There is no shell to escape to, and the original would not let
+            // you have one anyway.
+            _display.MessagePrint("Sorry, inferior shells are not allowed from Moria.");
+            FreeTurn = true;
+        }
+        else if (TunnelDirection(command) is int dig)
+        {
+            _tunnelling.Tunnel(dig);
         }
         else if (WalkDirection(command) is int walk)
         {
@@ -888,9 +957,32 @@ public class GameLoop
         {
             _movement.FindInit(run);
         }
+        else if (command == '.')
+        {
+            // Standing still is walking nowhere, and a count on it is a rest
+            // of everything after the first turn.
+            _movement.MoveChar(5, pickUp);
+
+            if (_display.CommandCount > 1)
+            {
+                _display.CommandCount--;
+                Rest();
+            }
+        }
+        else if (_game.Wizard)
+        {
+            // FAITHFUL QUIRK: an unknown key costs a wizard a turn. The
+            // ordinary branch below hands the turn back and this one does not,
+            // which is the original's oversight rather than a rule.
+            _display.Print(
+                _game.RogueLikeCommands
+                    ? "Type '?' or '\\' for help."
+                    : "Type '?' or ^H for help.",
+                0, 0);
+        }
         else
         {
-            _display.Print("That command is not ported yet.", 0, 0);
+            _display.Print("Type '?' for help.", 0, 0);
             FreeTurn = true;
         }
 
@@ -1975,7 +2067,7 @@ public class GameLoop
 
         if (!_game.RogueLikeCommands)
         {
-            command = Commands.ToRogueLike(command, ReadDirection);
+            command = Commands.ToRogueLike(command, () => ReadDirection());
         }
 
         if (count > 0)
@@ -2004,7 +2096,7 @@ public class GameLoop
     /// rings the bell and asks again, since a mistyped direction in a corridor
     /// is worth a second chance.
     /// </summary>
-    public (bool Taken, int Direction) ReadDirection()
+    public (bool Taken, int Direction) ReadDirection(string? prompt = null)
     {
         if (DefaultDirection)
         {
@@ -2016,7 +2108,7 @@ public class GameLoop
             // A prompt must not end a counted command, so the count is put back.
             int saved = _display.CommandCount;
 
-            if (!_display.GetCommand("Which direction?", out char command))
+            if (!_display.GetCommand(prompt ?? "Which direction?", out char command))
             {
                 FreeTurn = true;
                 return (false, 0);

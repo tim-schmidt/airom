@@ -548,6 +548,64 @@ monster off the map but leaving its record, which happens only when the monster
 loop is part way through the list and closing the hole under it would give
 another monster two turns.
 
+## Every key, pressed
+
+A player reported that `>` did nothing in rogue-like mode, that `u` and `b`
+tried to use a staff and read a book instead of walking, and that `P` and `a`
+were the wrong way round. All five were one mistake, and it was worse than the
+report: **the dispatch speaks the rogue-like vocabulary**, and the original set
+is translated into it on the way in. Binding an original key inside the dispatch
+therefore breaks it twice over - the rogue-like player loses the command, and
+*both* players lose whatever the translation produces for that letter. `1` and
+`9` in the original set translate to `b` and `u`, so walking down-left and
+up-right was broken for everybody, and had been all along.
+
+The `commands` mode had been green throughout, because it compares the
+translation table and the table was right. Nothing compared what the dispatch
+did with the answer. So `dispatch` does: it presses **all 127 keys**, one at a
+time, through do_command() itself, and compares what each one said, whether it
+took a turn, whether it changed level, how far the player moved and where the
+generator ended up. Each key gets a level of its own, so no command can leave
+the next one somewhere different.
+
+It found the five reported keys, and then eleven more commands that had never
+been wired at all: `<` `>` up and down stairs, `R` rest, `S` spike a door,
+`F` fill a lamp, `{` inscribe, `W` locate on the map, `V` the score table, `#`
+the search toggle, `s` search once, and the nine tunnelling controls. Several of
+those needed functions that had never been ported, all of them from the two
+files the harness cannot compile whole - go_up, go_down, jamdoor and refill_lamp
+from dungeon.c, rest from moria1.c, scribe_object from misc4.c.
+
+Three more divergences turned up in the sweep once the bindings were right:
+
+- Browsing a book took a turn. The original hands the turn back in the dispatch,
+  after examine_book(), whatever the browse itself decided.
+- Locating on the map asked whether the player was carrying a light, where the
+  original asks whether the square they are standing on is lit - a different
+  question with a different answer in a lit room.
+- A warrior pressing `G` crashed. The original indexes the spell table at minus
+  one to find a warrior's row, reads whatever sits in front of the array, and
+  gets away with it because a warrior has no spells to learn and the loops never
+  run. An empty row is the same thing said safely.
+
+Five keys have their message left out of the comparison, for reasons that have
+nothing to do with which command they reach: three open a help file, and the
+original was compiled with its author's home directory baked into the name; two
+ask for a shell, which Windows does not have and the original refuses anyway.
+What those keys *did* is still compared. Control-X is skipped outright, because
+saving the game ends the original's process and would take the rest of the run
+with it.
+
+Two harness details were needed to make the sweep meaningful, and both are worth
+recording because they are the sort of thing that makes a green run worthless.
+The original's message ring, searching flag, speed and inventory are globals: a
+key that toggled searching left it on for every key after it, which costs eight
+rolls a move, and the message left by one key was still there for the next key's
+^P to read back. The setup now clears all of them.
+
+`dispatch` matches across **32 runs** - four seeds, four depths including the
+town, both command sets, 127 keys each.
+
 ## Current verification
 
 The C oracle builds with gcc 16.1.0 (MSYS2 UCRT64) and `rng` matches AIrom
@@ -555,7 +613,7 @@ exactly: **20,000 draws across seven seeds — 140,000 values** — including th
 boundaries 0, 1, `M-1` and `UINT_MAX`, and the folded start state and final
 state in each.
 
-`compact` matches across **60 runs**, `create` across **64 runs**, and `save` across **180 runs** - four seeds, five depths including the
+`dispatch` matches across **32 runs** of 127 keys, `compact` across **60 runs**, `create` across **64 runs**, and `save` across **180 runs** - four seeds, five depths including the
 town, and nine variations covering every option bit, a dead character, and a
 wizard's resurrection. Each run compares two whole savefiles byte by byte,
 around eleven thousand bytes each, and the restored game between them.

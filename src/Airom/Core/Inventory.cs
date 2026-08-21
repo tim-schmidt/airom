@@ -118,6 +118,16 @@ public sealed class Inventory
     /// Spends one of a wielded pile of missiles: they are swung as a weapon and
     /// used up as they are. Mirrors the weight bookkeeping inside py_attack().
     /// </summary>
+    /// <summary>
+    /// Takes one thing's weight off the pack without taking the thing itself,
+    /// which is what spending one of a pile amounts to.
+    /// </summary>
+    public void ReduceWeight(int weight)
+    {
+        Weight -= weight;
+        _game.Player.Status |= PlayerStatus.WeightChanged;
+    }
+
     public void SpendWielded(int weight)
     {
         Weight -= weight;

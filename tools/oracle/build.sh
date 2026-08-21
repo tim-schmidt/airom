@@ -83,6 +83,13 @@ echo "compiling ${#sources[@]} files with $CC"
     -include "$here/oracle_shim.h" \
     -I"$here/fakeunix" \
     -Dctime=oracle_ctime \
+    -DMORIA_GPL='"help/COPYING"' \
+    -DMORIA_HELP='"help/roglcmds.hlp"' \
+    -DMORIA_ORIG_HELP='"help/origcmds.hlp"' \
+    -DMORIA_WIZ_HELP='"help/rwizcmds.hlp"' \
+    -DMORIA_OWIZ_HELP='"help/owizcmds.hlp"' \
+    -DMORIA_VER='"help/version.hlp"' \
+    -DMORIA_WELCOME='"help/welcome.hlp"' \
     -I"$SRC" \
     -o "$OUT" \
     "${sources[@]}"

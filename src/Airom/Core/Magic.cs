@@ -65,11 +65,18 @@ public class Magic
     public const int PrayerNameOffset = 31;
 
     /// <summary>
-    /// The class's own row of the spell table. Warriors have no row at all,
-    /// which is why nothing here may be reached without checking the realm
-    /// first.
+    /// The class's own row of the spell table.
+    ///
+    /// FAITHFUL QUIRK: a warrior has no row, and the original indexes the
+    /// table at minus one to find it. That reads whatever happens to sit in
+    /// front of the array, and gets away with it because a warrior has no
+    /// spells to learn and the loops that would read the row never run. An
+    /// empty row is the same thing said safely.
     /// </summary>
-    private SpellType[] Book => GameTables.MagicSpell[Player.Class - 1];
+    private SpellType[] Book =>
+        GameTables.Classes[Player.Class].SpellRealm == SpellRealm.None
+            ? []
+            : GameTables.MagicSpell[Player.Class - 1];
 
     private bool IsMage =>
         GameTables.Classes[Player.Class].SpellRealm == SpellRealm.Mage;

@@ -40,3 +40,12 @@ int percent;
    than included - so the trap mode reaches it the way a step onto one does,
    through carry(), which move_char() calls. Standing the player on the trap and
    walking them onto their own square springs it. */
+
+/* And the dispatch itself, which is where a command's whole meaning lives.
+   Reaching it is the only way to compare what a key does rather than merely
+   what it translates to. */
+void probe_do_command(command)
+char command;
+{
+  do_command(command);
+}

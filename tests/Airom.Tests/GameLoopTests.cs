@@ -493,22 +493,37 @@ public class GameLoopTests
     }
 
     /// <summary>
-    /// A command that is not ported yet says so, rather than looking like a
-    /// command that did nothing.
+    /// A key that means nothing says so and costs no turn.
     /// </summary>
     [Fact]
-    public void DoCommand_SaysWhenACommandIsNotPorted()
+    public void DoCommand_SaysSoWhenTheKeyMeansNothing()
     {
         (GameState game, _, Display display, MemoryScreen screen, _) = Fresh();
 
         var loop = new ProbeLoop(game, display);
 
-        // Jamming a door with a spike belongs to moria3.c, which is not
-        // ported.
-        loop.Dispatch('S');
+        loop.Dispatch('~');
 
-        Assert.Contains("not ported yet", screen.GetRow(0), StringComparison.Ordinal);
-        Assert.True(loop.FreeTurn, "an unported command still took a turn");
+        Assert.Contains("Type '?' for help.", screen.GetRow(0), StringComparison.Ordinal);
+        Assert.True(loop.FreeTurn, "an unknown key still took a turn");
+    }
+
+    /// <summary>
+    /// FAITHFUL QUIRK: the same key costs a wizard a turn. The original hands
+    /// the turn back in the ordinary branch and forgets to in the wizard one.
+    /// </summary>
+    [Fact]
+    public void DoCommand_ChargesAWizardForAKeyThatMeansNothing()
+    {
+        (GameState game, _, Display display, MemoryScreen screen, _) = Fresh();
+
+        game.Wizard = true;
+
+        var loop = new ProbeLoop(game, display);
+        loop.Dispatch('~');
+
+        Assert.Contains("Type '?' or ^H for help.", screen.GetRow(0), StringComparison.Ordinal);
+        Assert.False(loop.FreeTurn, "the wizard's mistyped key was free after all");
     }
 
     /// <summary>Reaches the dispatch, which is protected so the loop owns it.</summary>

@@ -5255,6 +5255,179 @@ static void dump_wizard(unsigned long seed, int level, int variation)
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* ---------------------------------------------------------------- dispatch */
+
+/* Shared with the death mode below, which fills a character the same way. */
+static void death_character(int variation);
+static void death_belongings(int variation);
+
+/* Every key, pressed.
+
+   The `commands` mode compares the table that turns one command set into the
+   other, which is worth having but says nothing about what the dispatch then
+   does with the answer. This drives do_command() itself, once per key, and
+   compares what each one said, whether it took a turn, and what it changed.
+
+   Every prompt a command raises is answered with escape, so what is compared is
+   the command reaching the right place rather than what it does once it is
+   there - which the other modes cover a command at a time. */
+/* Six keys whose message cannot be compared, for reasons that have nothing to
+   do with which command they reach.
+
+   Three of them open a help file, and the original was compiled with the
+   author's own home directory baked into the name, so the two sides disagree
+   about a path rather than about a command. Two ask for a shell, which Windows
+   does not have and the original refuses anyway. What each key did is still
+   compared - the turn, the move, the level - only what it said is not. */
+static int dispatch_says_nothing(command)
+int command;
+{
+  return command == 22 || command == 33 || command == 36 || command == 63
+    || command == 118;
+}
+
+static void dispatch_setup(unsigned long seed, int level, int rogue)
+{
+  int i, j;
+
+  init_seeds((int32u)seed);
+  magic_init();
+
+  oracle_screen_reset();
+
+  /* Every slot, not merely the counts: a command run for an earlier key may
+     have left something behind, and inven_carry() sorts new arrivals in among
+     whatever it finds. */
+  for (i = 0; i < INVEN_ARRAY_SIZE; i++)
+    invcopy(&inventory[i], OBJ_NOTHING);
+
+  death_character(0);
+  death_belongings(0);
+
+  store_init();
+
+  rogue_like_commands = rogue;
+  msg_flag = FALSE;
+
+  dun_level = (int16)level;
+  generate_cave();
+
+  /* Something to stand on, something to open, and something to dig. */
+  for (i = 0; i < 32; i++)
+    spell_order[i] = 99;
+
+  turn = 100;
+  character_generated = 1;
+  character_saved = 0;
+  death = FALSE;
+  (void) strcpy(died_from, "(alive and well)");
+
+  py.flags.food = 5000;
+  py.flags.food_digested = 2;
+
+  /* Searching and speed are globals too, and the key that toggles searching
+     would otherwise leave it on for every key after it - which costs eight
+     rolls a move and moves the whole sequence. */
+  py.flags.status = 0;
+  py.flags.speed = 0;
+  py.misc.chp = py.misc.mhp;
+  py.misc.cmana = py.misc.mana;
+
+  free_turn_flag = FALSE;
+  new_level_flag = FALSE;
+  find_flag = 0;
+  command_count = 0;
+
+  /* The message ring is a global; without this, one key's message is still
+     there for the next key's ^P to read back. */
+  for (i = 0; i < MAX_SAVE_MSG; i++)
+    old_msg[i][0] = '\0';
+
+  last_msg = 0;
+
+  /* What dungeon() does before it asks for anything: put the view where the
+     player is and draw it. Several commands read the panel. */
+  panel_row = panel_col = -1;
+  (void) get_panel(char_row, char_col, TRUE);
+  prt_map();
+  cave[char_row][char_col].cptr = 1;
+
+  /* Put the player somewhere known, with a staircase underfoot: several
+     commands turn on what is being stood on. */
+  (void) j;
+}
+
+static void dump_dispatch(unsigned long seed, int level, int rogue, int first,
+                          int count)
+{
+  char keys[600];
+  int i, which;
+
+  header("dispatch", seed);
+  printf("level %d\n", level);
+  printf("rogue %d\n", rogue);
+  printf("first %d count %d\n", first, count);
+
+  probe_init_t_level();
+  probe_init_m_level();
+  init_curses();
+
+  for (which = first; which < first + count; which++)
+    {
+      char command;
+      int row, column;
+
+      /* Not control-X: saving the game ends the original outright, and would
+         take the rest of the run with it. */
+      if (which < 0 || which > 127 || which == 24)
+        continue;
+
+      command = (char)which;
+
+      /* A level of its own for every key, so that one command cannot leave the
+         next one standing somewhere different. */
+      dispatch_setup(seed, level, rogue);
+
+      row = char_row;
+      column = char_col;
+
+      /* Escapes all the way down: every prompt this can raise is answered by
+         backing out of it. */
+      for (i = 0; i < 599; i++)
+        keys[i] = (char)27;
+      keys[599] = 0;
+      oracle_feed_keys(keys);
+
+      probe_do_command(command);
+
+      printf("key %d free %d new-level %d moved %d %d level %d turn %ld\n",
+             which, free_turn_flag, new_level_flag,
+             char_row - row, char_col - column, (int)dun_level, (long)turn);
+
+      {
+        char said[256];
+        int at;
+
+        (void) strncpy(said, oracle_screen_row(0), sizeof(said) - 1);
+        said[sizeof(said) - 1] = '\0';
+
+        for (at = (int)strlen(said); at > 0; at--)
+          {
+            if (said[at-1] != ' ' && said[at-1] != '\n' && said[at-1] != '\r')
+              break;
+
+            said[at-1] = '\0';
+          }
+
+        printf("said %d [%s]\n", which,
+               dispatch_says_nothing(which) ? "not compared" : said);
+      }
+      printf("state %d %lu\n", which, (unsigned long)get_rnd_seed());
+    }
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ----------------------------------------------------------------- compact */
 
 /* Filling a level until it can hold no more.
@@ -5497,10 +5670,6 @@ static void dump_create(unsigned long seed, int variation)
 }
 
 /* -------------------------------------------------------------------- save */
-
-/* Shared with the death mode below, which fills a character in the same way. */
-static void death_character(int variation);
-static void death_belongings(int variation);
 
 
 /* A whole saved game, written and read back.
@@ -6258,7 +6427,8 @@ static int usage(void)
           "  oracle score <seed> <variation> <count>  the score record encoding\n"
           "  oracle save <seed> <level> <variation>  a saved game, written and read\n"
           "  oracle create <seed> <variation>  rolling a character, with prompts\n"
-          "  oracle compact <seed> <level> <variation>  filling a level until it gives\n");
+          "  oracle compact <seed> <level> <variation>  filling a level until it gives\n"
+          "  oracle dispatch <seed> <level> <rogue> <first> <count>  every key, pressed\n");
   return 2;
 }
 
@@ -6546,6 +6716,19 @@ int main(int argc, char *argv[])
         dump_death(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
       else
         dump_sheet(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "dispatch") == 0)
+    {
+      if (argc != 7)
+        return usage();
+
+      dump_dispatch(strtoul(argv[2], NULL, 10),
+                    (int)strtol(argv[3], NULL, 10),
+                    (int)strtol(argv[4], NULL, 10),
+                    (int)strtol(argv[5], NULL, 10),
+                    (int)strtol(argv[6], NULL, 10));
       return 0;
     }
 

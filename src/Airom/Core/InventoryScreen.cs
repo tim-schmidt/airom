@@ -293,6 +293,22 @@ public partial class InventoryScreen
     /// bell - which is how a prompt says "not that kind of thing".
     /// </param>
     /// <returns>The slot chosen, or nothing when the player backed out.</returns>
+    /// <summary>
+    /// Says what is left of a pile after one is spent. Mirrors desc_remain(),
+    /// which counts the pile one short so that the last one reads as
+    /// "no more".
+    /// </summary>
+    public void DescribeRemaining(int slot)
+    {
+        InvenType item = _game.Inventory[slot];
+
+        item.Number--;
+        string description = _game.Names.Describe(item, withArticle: true);
+        item.Number++;
+
+        _display.MessagePrint("You have " + description);
+    }
+
     public int? GetItem(
         string prompt, int first, int last, bool[]? mask = null, string? message = null)
     {

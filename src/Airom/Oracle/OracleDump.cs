@@ -1238,6 +1238,20 @@ public static partial class OracleDump
                 DumpSheet(output, sheSeed, sheVariation);
                 return 0;
 
+            case "dispatch":
+                if (arguments.Length != 6
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint dsSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int dsLevel)
+                    || !int.TryParse(arguments[3], CultureInfo.InvariantCulture, out int dsRogue)
+                    || !int.TryParse(arguments[4], CultureInfo.InvariantCulture, out int dsFirst)
+                    || !int.TryParse(arguments[5], CultureInfo.InvariantCulture, out int dsCount))
+                {
+                    return Usage(error);
+                }
+
+                DumpDispatch(output, dsSeed, dsLevel, dsRogue, dsFirst, dsCount);
+                return 0;
+
             case "compact":
                 if (arguments.Length != 4
                     || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint cpSeed)
@@ -1548,6 +1562,7 @@ public static partial class OracleDump
         error.WriteLine("  airom oracle save <seed> <level> <variation>  a saved game, written and read");
         error.WriteLine("  airom oracle create <seed> <variation>  rolling a character, with prompts");
         error.WriteLine("  airom oracle compact <seed> <level> <variation>  filling a level until it gives");
+        error.WriteLine("  airom oracle dispatch <seed> <level> <rogue> <first> <count>  every key, pressed");
         error.WriteLine("  airom oracle regen <seed> <turns>  regeneration of hit points and mana");
         error.WriteLine("  airom oracle map <seed> <level>  the whole level shrunk to one screen");
         return 2;

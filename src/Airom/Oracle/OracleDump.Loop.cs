@@ -46,11 +46,11 @@ public static partial class OracleDump
         {
             screen.SendKeys("4");
             loop.FreeTurn = false;
-            char answered = Commands.ToRogueLike((char)key, loop.ReadDirection);
+            char answered = Commands.ToRogueLike((char)key, () => loop.ReadDirection());
 
             screen.SendKeys(Keys.Escape.ToString());
             loop.FreeTurn = false;
-            char abandoned = Commands.ToRogueLike((char)key, loop.ReadDirection);
+            char abandoned = Commands.ToRogueLike((char)key, () => loop.ReadDirection());
 
             output.Write(
                 KeyText("key", key)
