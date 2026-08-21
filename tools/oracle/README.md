@@ -606,6 +606,41 @@ rolls a move, and the message left by one key was still there for the next key's
 `dispatch` matches across **32 runs** - four seeds, four depths including the
 town, both command sets, 127 keys each.
 
+## What the harness set for itself
+
+Every mode that draws a map called `Panel.Resize` by hand before doing it. That
+looked like harness housekeeping and was hiding a real bug: `generate_cave()`
+sizes the panel, and the port's `Generate()` did not. In a real game nothing
+ever sized it, so the view could never scroll - a player walking past the
+twenty-second row of a sixty-six row level would have walked off the drawn map
+and kept going.
+
+The harness could not see it, because the harness always did the work itself.
+That is the shape of mistake to watch for in a differential test: not a
+divergence, but a step the comparison performs on the port's behalf.
+
+The panel is now sized where the original sizes it, and the modes that still ask
+for it are asking for something already done.
+
+Two more came out of the same report, both about the view a restored game
+arrives with:
+
+- Restoring recomputed the window from the panel indices, which the original
+  does not do - `get_char()` restores how far the view may scroll and nothing
+  else. A window computed for a level the player is not standing in is worse
+  than none at all: the first look only recomputes an axis the player looks
+  close to the edge of, so a plausible-looking old window can answer "no need to
+  move" for one axis while the other moves, leaving the panel half unset at
+  minus one and the map drawn from thirty-three columns before the level starts.
+- Invalidating the panel now clears the window with it, which is the state the
+  original's globals start in and the state `generate_cave()` puts them back to.
+
+And one thing the harness did that it had no business doing: the dispatch mode
+presses every key, two of which save the game and write a score, and those went
+to the player's real save slot. A harness character turned up waiting in
+somebody's game. Every mode now redirects both paths into a scratch directory
+before it runs.
+
 ## Current verification
 
 The C oracle builds with gcc 16.1.0 (MSYS2 UCRT64) and `rng` matches AIrom

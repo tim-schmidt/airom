@@ -14,6 +14,7 @@ namespace Airom.Tests;
 /// The counterpart is ORACLE_FORMAT and the printf calls in
 /// tools/oracle/oracle_main.c; the two move together.
 /// </summary>
+[Collection("game files")]
 public class OracleDumpTests
 {
     private static string Dump(uint seed, long count)

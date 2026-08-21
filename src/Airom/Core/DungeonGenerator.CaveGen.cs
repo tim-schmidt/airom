@@ -46,16 +46,23 @@ public sealed partial class DungeonGenerator
         _game.CharacterRow = -1;
         _game.CharacterColumn = -1;
 
+        // The view is cleared here and sized below, which is where the level
+        // decides how far it may scroll: one screen of town scrolls not at all,
+        // and nine screens of dungeon scroll four half-screens each way.
+        _display?.Panel.Invalidate();
+
         if (_game.DungeonLevel == 0)
         {
             _game.Cave.Resize(TownHeight, TownWidth);
             _game.Cave.Blank();
+            _display?.Panel.Resize(TownHeight, TownWidth);
             GenerateTown();
         }
         else
         {
             _game.Cave.Resize(GameState.DungeonHeight, GameState.DungeonWidth);
             _game.Cave.Blank();
+            _display?.Panel.Resize(GameState.DungeonHeight, GameState.DungeonWidth);
             CarveCave();
         }
     }

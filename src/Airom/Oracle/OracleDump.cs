@@ -914,6 +914,16 @@ public static partial class OracleDump
             return Usage(error);
         }
 
+        // Nothing the harness does may touch the player's own files. One mode
+        // presses every key, and two of those keys save the game and write a
+        // score - which is how a harness character once turned up waiting in
+        // somebody's real save slot.
+        string scratch = Path.Combine(Path.GetTempPath(), "airom-oracle");
+        Directory.CreateDirectory(scratch);
+
+        SaveFile.DefaultPath = Path.Combine(scratch, "game.sav");
+        ScoreFile.DefaultPath = Path.Combine(scratch, "scores.dat");
+
         switch (arguments[0])
         {
             case "rng":

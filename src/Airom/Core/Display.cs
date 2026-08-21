@@ -41,6 +41,17 @@ public sealed class Panel
     {
         Row = -1;
         Column = -1;
+
+        // And the window with them. Follow() only recomputes an axis when the
+        // player looks close to that edge of the window, so a window left
+        // standing can answer "no need" for one axis while the other moves -
+        // leaving the panel half at minus one, and the view running off the
+        // side of the level. The original starts with these at nought, where
+        // every position looks out of range, and this is that state.
+        RowMin = 0;
+        RowMax = 0;
+        ColumnMin = 0;
+        ColumnMax = 0;
     }
 
     /// <summary>Highest panel index in each direction, from the level's size.</summary>
@@ -147,7 +158,12 @@ public sealed class Panel
     {
         MaxRow = maxRow;
         MaxColumn = maxColumn;
-        Bounds();
+
+        // The window is deliberately not recomputed. get_char() restores how
+        // far the view may scroll and nothing else, leaving the window where a
+        // fresh game leaves it, and the first look at the level settles it.
+        // Computing it here instead puts a plausible window on a level the
+        // player is not standing in, which is worse than none at all.
     }
 
     /// <summary>Whether a dungeon square is inside the visible window. Mirrors panel_contains().</summary>

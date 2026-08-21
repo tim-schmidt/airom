@@ -676,6 +676,13 @@ public partial class GameLoop
     /// </summary>
     public void DispatchForOracle(char command) => DoCommand(command);
 
+    /// <summary>
+    /// Lights the player's surroundings and settles the view, which is the
+    /// first thing arriving on a level does. Reached from tests so that
+    /// arriving can be checked without playing a turn.
+    /// </summary>
+    public void CheckViewForTest() => CheckView();
+
     protected virtual void DoCommand(char command)
     {
         // "-" is a movement command that leaves whatever is on the floor where
