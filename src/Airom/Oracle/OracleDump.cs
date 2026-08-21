@@ -1164,6 +1164,19 @@ public static partial class OracleDump
                 DumpStore(output, shopSeed, stStore, stVariation);
                 return 0;
 
+            case "recall":
+                if (arguments.Length != 5
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint rcSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int rcVariation)
+                    || !int.TryParse(arguments[3], CultureInfo.InvariantCulture, out int rcFirst)
+                    || !int.TryParse(arguments[4], CultureInfo.InvariantCulture, out int rcCount))
+                {
+                    return Usage(error);
+                }
+
+                DumpRecall(output, rcSeed, rcVariation, rcFirst, rcCount);
+                return 0;
+
             case "potion":
                 if (arguments.Length != 4
                     || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint potSeed)
@@ -1418,6 +1431,7 @@ public static partial class OracleDump
         error.WriteLine("  airom oracle moria4 <seed> <level> <variation>  digging, disarming, bashing, throwing");
         error.WriteLine("  airom oracle look <seed> <level> <variation>  the cone of peripheral vision");
         error.WriteLine("  airom oracle store <seed> <store> <variation>  a visit to a shop");
+        error.WriteLine("  airom oracle recall <seed> <variation> <first> <count>  the monster memory");
         error.WriteLine("  airom oracle regen <seed> <turns>  regeneration of hit points and mana");
         error.WriteLine("  airom oracle map <seed> <level>  the whole level shrunk to one screen");
         return 2;

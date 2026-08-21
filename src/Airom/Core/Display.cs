@@ -175,6 +175,11 @@ public sealed partial class Display(GameState game, IScreen screen)
             column = 79;
         }
 
+        // Where curses leaves the cursor: move() puts it at the start of the
+        // text and writing a string does not carry it along, so anything that
+        // waits for a key straight after this shows it here.
+        _screen.MoveCursor(row, column);
+
         int room = 79 - column;
         _screen.Put(row, column, text.Length > room ? text[..room] : text);
     }
@@ -189,6 +194,7 @@ public sealed partial class Display(GameState game, IScreen screen)
             MessagePrint(null);
         }
 
+        _screen.MoveCursor(row, column);
         _screen.EraseLine(row, column);
     }
 
@@ -219,8 +225,17 @@ public sealed partial class Display(GameState game, IScreen screen)
     /// Draws one character at a dungeon position, translated to the screen.
     /// Mirrors print().
     /// </summary>
-    public void PrintAt(char symbol, int row, int column) =>
-        _screen.Put(row - Panel.RowOffset, column - Panel.ColumnOffset, symbol);
+    public void PrintAt(char symbol, int row, int column)
+    {
+        int screenRow = row - Panel.RowOffset;
+        int screenColumn = column - Panel.ColumnOffset;
+
+        _screen.Put(screenRow, screenColumn, symbol);
+
+        // A single character does carry the cursor along with it, which is the
+        // one place writing and moving differ.
+        _screen.MoveCursor(screenRow, screenColumn + 1);
+    }
 
     /// <summary>
     /// Parks the cursor at a dungeon position. Mirrors move_cursor_relative().

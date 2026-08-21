@@ -1033,6 +1033,58 @@ def gen_store(moria):
     return chr(10).join(lines)
 
 
+def gen_recall(moria):
+    """The words the monster memory is written out of, which live in recall.c."""
+    text = strip_comments(
+        select_branches(
+            (moria / "source" / "recall.c").read_text(encoding="latin-1")))
+
+    lines = [
+        HEADER.format(source="moria/source/recall.c"),
+        "namespace Airom.Data;",
+        "",
+        "public static partial class GameTables",
+        "{",
+    ]
+
+    wanted = [
+        ("desc_atype[]", "AttackEffects", 25,
+         "What an attack does to the player, indexed by attack_type."),
+        ("desc_amethod[]", "AttackMethods", 20,
+         "How an attack is delivered, indexed by attack_desc."),
+        ("desc_howmuch[]", "HowErratically", 8,
+         "How much a creature wanders, indexed by its random-move bits."),
+        ("desc_move[]", "SpecialAbilities", 6,
+         "What a creature can do beyond walking and hitting, in the order of"
+         " the CM_SPECIAL bits."),
+        ("desc_spell[]", "SpellDescriptions", 15,
+         "What a creature's spells do, in the order of the CS_SPELLS bits."),
+        ("desc_breath[]", "BreathDescriptions", 5,
+         "What a creature breathes, in the order of the CS_BREATHE bits."),
+        ("desc_weakness[]", "Weaknesses", 6,
+         "What a creature is hurt by, in the order of the CD_WEAKNESS bits."),
+    ]
+
+    for declaration, name, expected, doc in wanted:
+        body = extract_initialiser(text, "*" + declaration)
+        values = [c_string(f) for f in split_fields(body) if f]
+
+        if len(values) != expected:
+            raise SystemExit(
+                "{0}: parsed {1} entries, expected {2}".format(
+                    declaration, len(values), expected))
+
+        _emit_strings(
+            lines,
+            name,
+            ["    /// <summary>", "    /// " + doc, "    /// </summary>"],
+            values,
+        )
+
+    lines[-1:] = ["}", ""]
+    return chr(10).join(lines)
+
+
 # ---------------------------------------------------------------- driver
 
 TARGETS = {
@@ -1042,6 +1094,7 @@ TARGETS = {
     "src/Airom/Data/GameTables.Misc.g.cs": gen_misc_tables,
     "src/Airom/Data/GameTables.Player.g.cs": gen_player,
     "src/Airom/Data/GameTables.Store.g.cs": gen_store,
+    "src/Airom/Data/GameTables.Recall.g.cs": gen_recall,
 }
 
 

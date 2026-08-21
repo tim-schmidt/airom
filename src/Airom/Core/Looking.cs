@@ -84,15 +84,13 @@ public class Looking
     private static readonly int[] SecondDiagonal = [2, 1, 0, 4, 3];
 
     /// <summary>
-    /// Recalls what is known about a kind of creature. Pending: roff_recall()
-    /// from recall.c.
+    /// Recalls what is known about a kind of creature. Mirrors the
+    /// roff_recall() call. Left overridable so a harness can answer without a
+    /// terminal.
     /// </summary>
     /// <returns>The key that ended the recall, so escape still aborts the look.</returns>
-    protected virtual char RecallCreature(int creatureIndex)
-    {
-        _display.MessagePrint("You cannot remember anything about it.");
-        return ' ';
-    }
+    protected virtual char RecallCreature(int creatureIndex) =>
+        _loop.MonsterRecall.Describe(creatureIndex);
 
     /// <summary>
     /// Looks in a direction, or in all of them. Mirrors look().

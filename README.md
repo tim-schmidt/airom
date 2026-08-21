@@ -66,6 +66,7 @@ Early. The foundations are in place; the game is not yet playable.
 | Digging, disarming, bashing and throwing (moria4.c) | Done, verified against the original |
 | Looking around, with peripheral vision | Done, verified against the original |
 | The shops: stock, prices and haggling (store1.c, store2.c) | Done, verified against the original |
+| The monster memory, written out as prose (recall.c) | Done, verified against the original |
 | Save files | Not started |
 
 ## Building

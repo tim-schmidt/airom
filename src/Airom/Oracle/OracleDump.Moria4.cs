@@ -540,11 +540,19 @@ public static partial class OracleDump
 
         display.MessageWaitingFlag = false;
 
-        // Directions 1 to 9, with 5 meaning every way at once.
-        int direction = (variation / 2) + 1;
+        // Directions 1 to 9, with 5 meaning every way at once. The variations
+        // past eighteen run the same looks again, but answer the first thing
+        // described with an "r" - which recalls the creature, if it was one,
+        // and so puts the monster memory up in the middle of a look and takes
+        // it down again.
+        int direction = ((variation % 18) / 2) + 1;
 
-        screen.SetKeys(
-            direction.ToString(CultureInfo.InvariantCulture) + new string(' ', 3999));
+        // Every description answered with an "r" rather than a space, so
+        // whichever of them are creatures are recalled.
+        string keys = direction.ToString(CultureInfo.InvariantCulture);
+
+        screen.SetKeys(keys
+            + new string(variation >= 18 ? 'r' : ' ', 4000 - keys.Length));
 
         // Every description is overwritten by the next, so the only record of
         // what the cone actually found is what was on the message line each
@@ -566,7 +574,8 @@ public static partial class OracleDump
         screen.BeforeReadKey = null;
 
         output.Write("direction " + direction.ToString(CultureInfo.InvariantCulture)
-            + " seams " + (game.HighlightSeams ? "1" : "0") + "\n");
+            + " seams " + (game.HighlightSeams ? "1" : "0")
+            + " recall " + (variation >= 18 ? "1" : "0") + "\n");
 
         for (int row = 0; row < screen.Rows; row++)
         {

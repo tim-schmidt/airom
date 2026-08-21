@@ -44,6 +44,28 @@ public sealed class MonsterMemory
     /// <summary>How often each of its attacks has been felt.</summary>
     public byte[] Attacks { get; } = new byte[MaxAttacks];
 
+    /// <summary>
+    /// Takes on everything another memory holds. Used where the memory is
+    /// filled in for a moment and then put back as it was.
+    /// </summary>
+    public void CopyFrom(MonsterMemory other)
+    {
+        ArgumentNullException.ThrowIfNull(other);
+
+        Move = other.Move;
+        Spells = other.Spells;
+        Kills = other.Kills;
+        Deaths = other.Deaths;
+        Defense = other.Defense;
+        Wake = other.Wake;
+        Ignore = other.Ignore;
+
+        for (int i = 0; i < MaxAttacks; i++)
+        {
+            Attacks[i] = other.Attacks[i];
+        }
+    }
+
     /// <summary>How many attacks a creature can have. Umoria's MAX_MON_NATTACK.</summary>
     public const int MaxAttacks = 4;
 

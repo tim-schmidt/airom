@@ -114,8 +114,9 @@ divergence.
 | `inven` | **Twenty scripted runs of the inventory mode**, screen and pack compared | **Verified matching** |
 | `getitem` | **Ten runs of the prompt that asks which item** | **Verified matching** |
 | `moria4` | **Ten scripted arrangements**: digging, disarming, bashing, throwing | **Verified matching** |
-| `look` | **Eighteen looks**, every direction with and without mineral veins | **Verified matching** |
+| `look` | **Thirty-six looks**, every direction with and without mineral veins, and again recalling what it finds | **Verified matching** |
 | `store` | **Seventeen scripted visits** through each of the six shops | **Verified matching** |
+| `recall` | **Every creature described**, at four depths of knowledge and sixteen levels | **Verified matching** |
 
 `seeds` is the one that will confirm the `reset_seed` quirk against the original
 rather than by inference: `magic_init` shuffles appearances inside a
@@ -279,6 +280,23 @@ flag on the item, never at what the player had actually learned - so a potion
 they had identified was still priced as a mystery. Shop stock is store-bought by
 definition, so the older shops mode could not see it; only selling something of
 the player's own does.
+
+## A cursor that does not follow the text
+
+The look's key trace records where the cursor was each time the game stopped to
+ask, and that caught a difference nothing else had: after the monster memory
+wrote a page, the two sides disagreed about where the cursor had been left.
+
+Umoria writes through curses' mvaddstr, and the honest answer is that the cursor
+ends up at the *start* of what was written, not the end - move() puts it there
+and writing a string does not carry it along. Only addch, a single character,
+takes the cursor with it. AIrom's Display was not moving the cursor at all when
+it wrote, so it kept whatever position the last explicit move had set.
+
+That is now mirrored: writing a line or erasing one parks the cursor where the
+text starts, and drawing a single character leaves it one further on. It matters
+because the caret is something the player can see, and because the trace is only
+worth keeping if every part of it is real.
 
 ## Reaching inside generate.c and main.c
 

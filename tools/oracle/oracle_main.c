@@ -4519,16 +4519,22 @@ static void dump_look(unsigned long seed, int level, int variation)
     oracle_feed_keys(script);
   }
 
-  /* Directions 1 to 9, with 5 meaning every way at once. */
-  direction = (variation / 2) + 1;
+  /* Directions 1 to 9, with 5 meaning every way at once. The variations past
+     eighteen run the same looks again, but answer the first thing described
+     with an "r" - which recalls the creature, if it was one, and so puts the
+     monster memory up in the middle of a look and takes it down again. */
+  direction = ((variation % 18) / 2) + 1;
 
   {
     char keys[4002];
-    int n;
+    int n = 0;
 
-    keys[0] = (char)('0' + direction);
-    for (n = 1; n < 4000; n++)
-      keys[n] = ' ';
+    keys[n++] = (char)('0' + direction);
+
+    /* Every description answered with an "r" rather than a space, so whichever
+       of them are creatures are recalled. */
+    for (; n < 4000; n++)
+      keys[n] = (variation >= 18) ? 'r' : ' ';
     keys[4000] = 0;
     oracle_feed_keys(keys);
   }
@@ -4540,7 +4546,8 @@ static void dump_look(unsigned long seed, int level, int variation)
   look();
   oracle_log_keys(0);
 
-  printf("direction %d seams %d\n", direction, highlight_seams);
+  printf("direction %d seams %d recall %d\n", direction, highlight_seams,
+         variation >= 18 ? 1 : 0);
   oracle_screen_dump("scr");
 
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
@@ -4882,6 +4889,114 @@ static void dump_store(unsigned long seed, int store_num, int variation)
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* ------------------------------------------------------------------ recall */
+
+/* The monster memory, written out as prose.
+
+   Everything said about a creature is something the player found out, so the
+   memory is filled in to a known depth first and the whole page compared
+   afterwards. Four depths are used: nothing known at all, a single kill, very
+   nearly everything, and a wizard's view - which fills the memory in, reads it
+   out, and has to put it back exactly as it was.
+
+   The character's level is varied too, since the worth of a kill is scaled by
+   it and the sentence that says so has to get its ordinal right. */
+static const char *cp_name(int which)
+{
+  return c_list[which].name;
+}
+
+static void recall_memory(int which, int variation)
+{
+  recall_type *mp = &c_recall[which];
+  creature_type *cp = &c_list[which];
+  int k;
+
+  (void) memset((char *)mp, 0, sizeof(*mp));
+
+  if (variation == 1)
+    {
+      mp->r_kills = 1;
+      mp->r_attacks[0] = 1;
+    }
+  else if (variation == 2)
+    {
+      mp->r_kills = 5 + (which % 50);
+      mp->r_deaths = which % 4;
+      mp->r_wake = which % 20;
+      mp->r_ignore = which % 20;
+      mp->r_cmove = cp->cmove;
+      mp->r_cdefense = cp->cdefense;
+      mp->r_spells = cp->spells;
+
+      for (k = 0; k < 4; k++)
+        mp->r_attacks[k] = 1 + ((which * (k + 1)) % 200);
+    }
+}
+
+static void dump_recall(unsigned long seed, int variation, int first, int count)
+{
+  int which;
+
+  header("recall", seed);
+  printf("variation %d\n", variation);
+  printf("first %d\n", first);
+  printf("count %d\n", count);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+  pin_player(0);
+
+  /* The depth of knowledge repeats every four, while the level keeps moving -
+     so the same four depths are read out by characters of many levels, which
+     is what the ordinal and the "a"/"an" in front of it turn on. */
+  py.misc.lev = 1 + ((variation * 7) % 40);
+  wizard = (variation % 4 == 3);
+
+  for (which = first; which < first + count && which < MAX_CREATURES; which++)
+    {
+      int r;
+      char keys[64];
+
+      recall_memory(which, variation % 4);
+
+      init_curses();
+      oracle_screen_reset();
+      msg_flag = FALSE;
+
+      for (r = 0; r < 63; r++)
+        keys[r] = ' ';
+      keys[63] = 0;
+      oracle_feed_keys(keys);
+
+      printf("creature %d %s\n", which, cp_name(which));
+      printf("  known %d\n", bool_roff_recall(which) ? 1 : 0);
+      printf("  answer %d\n", roff_recall(which));
+
+      /* And what the memory holds afterwards, which the wizard's view has to
+         have left exactly as it found it. */
+      printf("  memory %lu %lu %d %d %d %d %d %d %d %d %d\n",
+             (unsigned long)c_recall[which].r_cmove,
+             (unsigned long)c_recall[which].r_spells,
+             (int)c_recall[which].r_kills, (int)c_recall[which].r_deaths,
+             (int)c_recall[which].r_cdefense, (int)c_recall[which].r_wake,
+             (int)c_recall[which].r_ignore,
+             (int)c_recall[which].r_attacks[0],
+             (int)c_recall[which].r_attacks[1],
+             (int)c_recall[which].r_attacks[2],
+             (int)c_recall[which].r_attacks[3]);
+
+      oracle_screen_dump("scr");
+    }
+
+  wizard = FALSE;
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ---------------------------------------------------------------- driver */
 
 
@@ -4929,7 +5044,8 @@ static int usage(void)
           "  oracle getitem <seed> <variation>  the prompt that asks which item\n"
           "  oracle moria4 <seed> <level> <variation>  digging, disarming, bashing, throwing\n"
           "  oracle look <seed> <level> <variation>  the cone of peripheral vision\n"
-          "  oracle store <seed> <store> <variation>  a visit to a shop\n");
+          "  oracle store <seed> <store> <variation>  a visit to a shop\n"
+          "  oracle recall <seed> <variation> <first> <count>  the monster memory\n");
   return 2;
 }
 
@@ -5170,6 +5286,18 @@ int main(int argc, char *argv[])
       dump_store(strtoul(argv[2], NULL, 10),
                  (int)strtol(argv[3], NULL, 10),
                  (int)strtol(argv[4], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "recall") == 0)
+    {
+      if (argc != 6)
+        return usage();
+
+      dump_recall(strtoul(argv[2], NULL, 10),
+                  (int)strtol(argv[3], NULL, 10),
+                  (int)strtol(argv[4], NULL, 10),
+                  (int)strtol(argv[5], NULL, 10));
       return 0;
     }
 
