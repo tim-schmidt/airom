@@ -98,7 +98,22 @@ dotnet publish src/Airom -c Release      # produce a standalone exe
 
 The published binary lands in
 `src/Airom/bin/Release/net9.0/win-x64/publish/airom.exe` and needs nothing
-installed to run.
+installed to run. It is one trimmed, self-contained, compressed file of about
+11 MB.
+
+Trimming is safe here for the same reason the port is a good candidate for
+NativeAOT: it is a translation of 1989 C, so it touches none of the framework
+that trimming has trouble with — no reflection, no dynamic loading, no
+serialization. The trimmer agrees, and emits no warnings.
+
+NativeAOT would take it to roughly 5 MB and start with no warm-up at all. It
+needs the MSVC linker — the *Desktop development with C++* workload, several
+gigabytes of it — so it is not a requirement for building the game. If you have
+that installed already:
+
+```
+dotnet publish src/Airom -c Release -p:PublishAot=true -p:PublishSingleFile=false
+```
 
 ## Fidelity
 
