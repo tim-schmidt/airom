@@ -92,29 +92,24 @@ public sealed class InvenType : IItemAttributes
         Identification = other.Identification;
     }
 
-    /// <summary>Resets to the blank_treasure state Umoria clears the list to.</summary>
-    public void Clear()
-    {
-        Index = 0;
-        SpecialName = 0;
-        Inscription = string.Empty;
-        Flags = 0;
-        TVal = ItemCategory.Nothing;
-        DisplayChar = '\0';
-        P1 = 0;
-        Cost = 0;
-        SubVal = 0;
-        Number = 0;
-        Weight = 0;
-        ToHit = 0;
-        ToDam = 0;
-        Ac = 0;
-        ToAc = 0;
-        DamageDice = 0;
-        DamageSides = 0;
-        Level = 0;
-        Identification = 0;
-    }
+    /// <summary>
+    /// The last row of the object table: an item called "nothing", which is what
+    /// an empty slot holds. Umoria's OBJ_NOTHING.
+    /// </summary>
+    public const int Nothing = 417;
+
+    /// <summary>
+    /// Empties this slot. Mirrors invcopy(ptr, OBJ_NOTHING), which is the only
+    /// way the original ever empties one.
+    ///
+    /// Emptying is stamping a row of the table, not zeroing the struct, and the
+    /// difference is not academic: "nothing" has a subvalue of sixty-four, and
+    /// several commands ask a slot what it is by its subvalue. Pouring oil is
+    /// the plainest case - it takes a subvalue of nought to mean a lamp, so a
+    /// zeroed light slot is a lamp that is not there, and filling it lights a
+    /// player who is carrying no light at all.
+    /// </summary>
+    public void Clear() => CopyFrom(Nothing);
 
     /// <summary>
     /// Stamps this item from an object table row. Mirrors invcopy().

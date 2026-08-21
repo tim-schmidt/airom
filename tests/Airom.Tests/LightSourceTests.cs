@@ -161,6 +161,57 @@ public class LightSourceTests
         Assert.Equal(1, game.Inventory[Inventory.LightSlot].P1);
     }
 
+    /// <summary>
+    /// An empty slot holds the table's "nothing", not a zeroed struct.
+    ///
+    /// The original only ever empties a slot with invcopy(ptr, OBJ_NOTHING), so
+    /// "empty" carries that row's values - a subvalue of sixty-four among them.
+    /// Zeroing instead looks equivalent and is not.
+    /// </summary>
+    [Fact]
+    public void AnEmptySlot_HoldsNothingFromTheTable()
+    {
+        (GameState game, _, _, _) = Game();
+
+        game.Inventory[Inventory.LightSlot].Clear();
+
+        InvenType empty = game.Inventory[Inventory.LightSlot];
+
+        Assert.Equal(InvenType.Nothing, empty.Index);
+        Assert.Equal(64, (int)empty.SubVal);
+        Assert.Equal(0, (int)empty.P1);
+    }
+
+    /// <summary>
+    /// Pouring oil with no lamp in hand is refused, and lights nobody.
+    ///
+    /// The command decides what it is holding by subvalue: nought means a lamp.
+    /// A zeroed light slot therefore read as a lamp that was not there, took the
+    /// oil, and left a player carrying no light with a light of their own - the
+    /// radius only becoming visible once the room around them went dark.
+    /// </summary>
+    [Fact]
+    public void RefillingWithNoLamp_IsRefusedAndLightsNobody()
+    {
+        (GameState game, _, GameLoop loop, MemoryScreen screen) = Game();
+
+        game.Inventory[Inventory.LightSlot].Clear();
+
+        var flask = new InvenType();
+        flask.CopyFrom(FirstOfCategory(ItemCategory.Flask));
+        game.Inventory.Carry(flask);
+
+        screen.SetKeys("F" + new string(Keys.Escape, 40));
+        loop.DispatchForOracle(loop.ReadCommand());
+
+        Assert.Contains("not using a lamp", screen.GetRow(0), StringComparison.Ordinal);
+        Assert.Equal(0, (int)game.Inventory[Inventory.LightSlot].P1);
+
+        loop.EnterLevel();
+
+        Assert.False(game.PlayerLight, "a player carrying no light was lit");
+    }
+
     private static int FirstOfCategory(int category)
     {
         for (int i = 0; i < GameTables.ObjectList.Length; i++)

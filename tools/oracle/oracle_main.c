@@ -6133,6 +6133,15 @@ static void death_belongings(int variation)
                          INVEN_ARM };
   int i;
 
+  /* Every slot emptied the way char_inven_init() empties them, which is the
+     only way a real game ever has an empty one: invcopy() stamps the table's
+     "nothing" row, and that row is not a zeroed struct - its subvalue is
+     sixty-four, and commands ask a slot what it is by its subvalue. Leaving
+     these at the zeros a global starts life with would be the harness
+     arranging a character no player could ever be. */
+  for (i = 0; i < INVEN_ARRAY_SIZE; i++)
+    invcopy(&inventory[i], OBJ_NOTHING);
+
   inven_ctr = 0;
   inven_weight = 0;
   equip_ctr = 0;
