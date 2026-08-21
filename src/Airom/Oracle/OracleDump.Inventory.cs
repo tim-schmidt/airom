@@ -177,7 +177,9 @@ public static partial class OracleDump
                 : loop.InventoryScreen.ContinuingCommand ?? ' ';
 
             loop.FreeTurn = false;
-            loop.InventoryScreen.Command(command);
+            Action stopLogging = LogKeys(output, screen);
+        loop.InventoryScreen.Command(command);
+        stopLogging();
 
             string N(int value) => value.ToString(CultureInfo.InvariantCulture);
 

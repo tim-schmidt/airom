@@ -6,6 +6,7 @@
 using System.Globalization;
 using Airom.Core;
 using Airom.Data;
+using Airom.Terminal;
 
 namespace Airom.Oracle;
 
@@ -901,6 +902,36 @@ public static partial class OracleDump
         var game = new GameState();
         game.Rng.RestoresExactly = false;
         return game;
+    }
+
+
+    /// <summary>
+    /// Records where the cursor stands every time a key is asked for, and what
+    /// the message line says while it is asked.
+    ///
+    /// The screen alone does not show a cursor, so a mode that only dumps
+    /// screens compares what a player would read and not where they would be
+    /// typing. Every mode that answers prompts turns this on.
+    /// </summary>
+    private static Action LogKeys(TextWriter output, MemoryScreen screen)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+        ArgumentNullException.ThrowIfNull(screen);
+
+        int asked = 0;
+
+        screen.BeforeReadKey = () =>
+        {
+            output.Write(string.Join(
+                ' ', "ask", asked.ToString(CultureInfo.InvariantCulture),
+                "at", screen.CursorRow.ToString(CultureInfo.InvariantCulture),
+                screen.CursorColumn.ToString(CultureInfo.InvariantCulture),
+                screen.GetRow(0).TrimEnd()) + "\n");
+
+            asked++;
+        };
+
+        return () => screen.BeforeReadKey = null;
     }
 
     public static int Run(TextWriter output, TextWriter error, string[] arguments)

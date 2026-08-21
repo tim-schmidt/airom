@@ -202,13 +202,15 @@ public sealed partial class Display(GameState game, IScreen screen)
             column = 79;
         }
 
-        // Where curses leaves the cursor: move() puts it at the start of the
-        // text and writing a string does not carry it along, so anything that
-        // waits for a key straight after this shows it here.
-        _screen.MoveCursor(row, column);
-
         int room = 79 - column;
-        _screen.Put(row, column, text.Length > room ? text[..room] : text);
+        string written = text.Length > room ? text[..room] : text;
+
+        _screen.Put(row, column, written);
+
+        // Where curses leaves the cursor: writing carries it along, so it ends
+        // just past what was written. get_check() reads it back to decide
+        // whether a long prompt has pushed its answer off the screen.
+        _screen.MoveCursor(row, column + written.Length);
     }
 
     /// <summary>Blanks from a column to the end of its row. Mirrors erase_line().</summary>

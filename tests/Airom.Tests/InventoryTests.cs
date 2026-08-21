@@ -253,9 +253,14 @@ public class InventoryTests
     {
         (GameState game, _) = Fresh();
 
+        // A hundred and thirty tenths of a pound per point of strength, plus
+        // what the player weighs themselves: Umoria's PLAYER_WEIGHT_CAP.
         game.Player.UseStat[Stat.Strength] = 10;
         game.Player.Weight = 150;
-        Assert.Equal(1150, game.Inventory.WeightLimit());
+        Assert.Equal((10 * Inventory.WeightPerStrength) + 150,
+            game.Inventory.WeightLimit());
+
+        Assert.Equal(130, Inventory.WeightPerStrength);
 
         game.Player.UseStat[Stat.Strength] = 118;
         Assert.Equal(Inventory.MaxWeightLimit, game.Inventory.WeightLimit());

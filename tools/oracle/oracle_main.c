@@ -3879,7 +3879,11 @@ static void dump_inven(unsigned long seed, int variation)
       char command = rounds == 0 ? script[0] : (char)doing_inven;
 
       free_turn_flag = FALSE;
-      inven_command(command);
+      /* Logged, so where the cursor stands at every question is compared as
+     well as what the question says. */
+  oracle_log_keys(1);
+  inven_command(command);
+  oracle_log_keys(0);
 
       printf("round %d free %d doing %d\n", rounds, free_turn_flag ? 1 : 0,
              (int)doing_inven);
@@ -4866,7 +4870,11 @@ static void dump_store(unsigned long seed, int store_num, int variation)
     oracle_feed_keys(keys);
   }
 
+  /* Logged, so where the cursor stands at every question is compared as
+     well as what the question says. */
+  oracle_log_keys(1);
   enter_store(store_num);
+  oracle_log_keys(0);
 
   {
     store_type *s = &store[store_num];
@@ -4975,7 +4983,11 @@ static void dump_recall(unsigned long seed, int variation, int first, int count)
       int r;
       char keys[64];
 
-      recall_memory(which, variation % 4);
+      /* Logged, so where the cursor stands at every question is compared as
+     well as what the question says. */
+  oracle_log_keys(1);
+  recall_memory(which, variation % 4);
+  oracle_log_keys(0);
 
       init_curses();
       oracle_screen_reset();
@@ -5101,7 +5113,11 @@ static void dump_symbol(unsigned long seed, int variation, int first, int count)
       keys[599] = 0;
       oracle_feed_keys(keys);
 
-      ident_char();
+      /* Logged, so where the cursor stands at every question is compared as
+     well as what the question says. */
+  oracle_log_keys(1);
+  ident_char();
+  oracle_log_keys(0);
 
       printf("symbol %d [%c]\n", which, symbol);
       oracle_screen_dump("scr");
@@ -5221,9 +5237,17 @@ static void dump_wizard(unsigned long seed, int level, int variation)
   oracle_feed_keys(keys);
 
   if ((variation % 2) == 0)
-    change_character();
+    {
+      change_character();
+    }
   else
-    wizard_create();
+    {
+      /* Logged, so where the cursor stands at every question is compared as
+         well as what the question says. */
+      oracle_log_keys(1);
+      wizard_create();
+      oracle_log_keys(0);
+    }
 
   printf("stats %d %d %d %d %d %d\n",
          (int)py.stats.cur_stat[0], (int)py.stats.cur_stat[1],
@@ -6230,7 +6254,11 @@ static void dump_death(unsigned long seed, int variation)
 
   (void) remove("oracle-tomb.txt");
 
+  /* Logged, so where the cursor stands at every question is compared as
+     well as what the question says. */
+  oracle_log_keys(1);
   probe_print_tomb();
+  oracle_log_keys(0);
   oracle_screen_dump("scr");
 
   /* And what it wrote, if it wrote anything. */
@@ -6296,7 +6324,11 @@ static void dump_sheet(unsigned long seed, int variation)
   oracle_feed_keys(keys);
 
   msg_flag = FALSE;
+  /* Logged, so where the cursor stands at every question is compared as
+     well as what the question says. */
+  oracle_log_keys(1);
   display_char();
+  oracle_log_keys(0);
   oracle_screen_dump("scr");
 
   (void) remove("oracle-sheet.txt");

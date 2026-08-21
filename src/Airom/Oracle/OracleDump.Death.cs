@@ -106,7 +106,9 @@ public static partial class OracleDump
         string written = Path.Combine(Directory.GetCurrentDirectory(), "oracle-tomb.txt");
         Delete(written);
 
+        Action stopTombLogging = LogKeys(output, screen);
         death.PrintTomb();
+        stopTombLogging();
 
         DumpScreenRows(output, screen, "scr");
 
@@ -145,7 +147,9 @@ public static partial class OracleDump
         screen.SetKeys(new string(' ', 599));
         display.MessageWaitingFlag = false;
 
+        Action stopLogging = LogKeys(output, screen);
         loop.CharacterSheet.DisplayAll();
+        stopLogging();
         DumpScreenRows(output, screen, "scr");
 
         string path = Path.Combine(Directory.GetCurrentDirectory(), "oracle-sheet.txt");

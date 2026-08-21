@@ -75,7 +75,9 @@ public static partial class OracleDump
             var display = new Display(game, screen);
             var loop = new GameLoop(game, display);
 
+            Action stopLogging = LogKeys(output, screen);
             loop.SymbolHelp.IdentifySymbol();
+            stopLogging();
 
             output.Write("symbol " + which.ToString(CultureInfo.InvariantCulture)
                 + " [" + symbol + "]\n");
@@ -208,7 +210,9 @@ public static partial class OracleDump
         }
         else
         {
+            Action stopCreateLogging = LogKeys(output, screen);
             loop.WizardCommands.CreateObject();
+            stopCreateLogging();
         }
 
         output.Write("stats " + string.Join(' ',

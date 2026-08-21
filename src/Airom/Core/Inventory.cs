@@ -63,8 +63,11 @@ public sealed class Inventory
         _ => "carrying in your pack",
     };
 
-    /// <summary>Weight a point of strength carries, in tenths of a pound.</summary>
-    public const int WeightPerStrength = 100;
+    /// <summary>
+    /// Weight a point of strength carries, in tenths of a pound. Umoria's
+    /// PLAYER_WEIGHT_CAP.
+    /// </summary>
+    public const int WeightPerStrength = 130;
 
     /// <summary>The most anyone can carry, however strong.</summary>
     public const int MaxWeightLimit = 3000;

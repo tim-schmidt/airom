@@ -270,7 +270,9 @@ public static partial class OracleDump
 
         screen.SetKeys(script + new string((char)27, 2000 - script.Length));
 
+        Action stopLogging = LogKeys(output, screen);
         loop.StoreScreen.Enter(storeIndex);
+        stopLogging();
 
         Store store = game.Stores.All[storeIndex];
 

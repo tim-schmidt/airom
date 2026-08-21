@@ -693,6 +693,61 @@ kind of gap is worth naming: not a file that had been skipped, but the seam
 between two files - create.c finishing and main.c continuing - which no mode had
 reason to cover.
 
+## What each mode does not compare
+
+Three bugs in a row were of the same kind: the harness could have seen the
+fault and had not been asked to. The panel it sized itself; the lamp it lit
+itself; the cursor it never looked at. So this is the sweep of the harness
+itself - for every mode, what it deliberately leaves out.
+
+Two rules came out of it, and both are worth stating plainly.
+
+**A harness may arrange the world, but never set a value the code under test
+derives.** Setting `player_light` hid a lamp that lit nothing for as long as the
+port existed. Sizing the panel hid a view that could never scroll. Both modes
+were green throughout. Ten modes still set `player_light` and the panel
+directly; they are arranging a world rather than answering a question, but each
+is a place where the same mistake could hide again, and `upkeep` shows what the
+honest version looks like - equip a lantern and let the loop conclude the rest.
+
+**What is not printed is not compared.** Obvious, and still the way all three
+got through. The cursor is the clearest case: the fake curses has recorded it at
+every keypress since the recall was ported, and only two of the forty-nine modes
+ever switched that on. The other prompt-driven modes compared what the screen
+said and not where the player would be typing. Nine modes log it now - `inven`,
+`look`, `store`, `recall`, `symbol`, `wizard`, `create`, `death`, `sheet` - and
+the first run of the first one found this:
+
+```
+- ask 0 ... Your capacity is 234.0 pounds ...
++ ask 0 ... Your capacity is 180.0 pounds ...
+```
+
+`PLAYER_WEIGHT_CAP` is 130 tenths of a pound per point of strength and the port
+had 100, so every character had been slowed by a pack a fifth lighter than
+Umoria intends, since the day the inventory landed. It appears in a message line
+nothing compared and in a speed penalty no mode pushed hard enough to trigger.
+
+Switching the logging on also caught something older and stranger: both sides
+shared a wrong idea of where the cursor is. The fake curses advanced the write
+position on `addstr` and left the reported cursor where it was, and AIrom's
+`PutBuffer` matched it - so they agreed, and both were wrong. Curses has one
+position, not two, and writing carries it along. That is not merely cosmetic:
+`get_check()` reads the cursor back with `getyx()` and shifts its `[y/n]` left
+when a long prompt has pushed it past column 73, so the model was driving a
+branch. Both sides now do what curses does.
+
+What is still not compared, and why:
+
+| Not compared | Where | Why it is left |
+|---|---|---|
+| The cursor | the thirty-eight modes that never ask for a key | Nothing types, so there is nothing to place. |
+| Colour | everywhere | The screen is characters; Umoria's use of colour is a terminal setting, not game state. |
+| Timing | everywhere | The original sleeps in three places and the port does not; the sleeps are stated as skippable in the original's own comments. |
+| The score *table* | `score` compares one record | The table around it is rewritten rather than ported - one player, one machine, no lock. See above. |
+| `^X` and `Q` at creation | `dispatch`, `create` | Both end the original's process, which would take the rest of the run with it. Unit tests cover them. |
+| Three help files and the shell | `dispatch` | The original was compiled with its author's home directory in the path, and Windows has no shell to escape to. What the keys *did* is still compared. |
+
 ## Current verification
 
 The C oracle builds with gcc 16.1.0 (MSYS2 UCRT64) and `rng` matches AIrom
