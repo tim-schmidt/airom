@@ -237,7 +237,15 @@ public class Session
         }
         else
         {
-            NewCharacter();
+            if (!NewCharacter())
+            {
+                // Q at the last prompt of creation. Nothing has been generated,
+                // so there is no tomb to print and no score to record - the
+                // game simply stops.
+                _loop.Death.ExitGame();
+                return 0;
+            }
+
             generate = true;
         }
 
@@ -278,9 +286,13 @@ public class Session
     /// Rolls someone new and hands them their belongings. Mirrors the second
     /// half of main()'s "create character" branch.
     /// </summary>
-    private void NewCharacter()
+    /// <returns>False when the player walked away rather than play.</returns>
+    private bool NewCharacter()
     {
-        _loop.CharacterMaker.Create();
+        if (!_loop.CharacterMaker.Create())
+        {
+            return false;
+        }
 
         _game.BirthDate = (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
@@ -317,6 +329,7 @@ public class Session
         // From here the character is worth saving, which is what this flag
         // means to everything that might have to save one in a hurry.
         _game.CharacterGenerated = true;
+        return true;
     }
 
     /// <summary>

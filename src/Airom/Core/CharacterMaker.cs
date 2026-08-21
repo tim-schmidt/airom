@@ -53,7 +53,11 @@ public class CharacterMaker
     /// <summary>
     /// Rolls a character from beginning to end. Mirrors create_character().
     /// </summary>
-    public void Create()
+    /// <returns>
+    /// False when the player answered the last prompt with Q, which is the one
+    /// chance to walk away from a character rather than play them.
+    /// </returns>
+    public bool Create()
     {
         _game.Player = new Player();
         var creation = new CharacterCreation(_game);
@@ -99,7 +103,11 @@ public class CharacterMaker
         _loop.CharacterSheet.PutAbilities();
 
         GetName();
-        _display.PauseExit(23);
+
+        // The original waits PLAYER_EXIT_PAUSE seconds before going, and says
+        // in the same breath that machines slow enough to need the delay
+        // should skip it. Every machine is now that machine.
+        return !_display.PauseExit(23);
     }
 
     /// <summary>

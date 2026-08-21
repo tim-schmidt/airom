@@ -365,6 +365,99 @@ public class SessionTests
         }
     }
 
+    /// <summary>
+    /// The last prompt of character creation offers a way out, and taking it
+    /// leaves rather than starting the game.
+    ///
+    /// Nothing has been generated at that point - no level, no score, no save -
+    /// so leaving costs nothing and records nothing. It is the one chance to
+    /// look at a rolled character and decide not to play them.
+    /// </summary>
+    [Fact]
+    public void Play_LeavesWhenTheLastPromptIsAnsweredWithQ()
+    {
+        string directory = Path.Combine(
+            Path.GetTempPath(), "airom-quit-" + Guid.NewGuid().ToString("N"));
+
+        Directory.CreateDirectory(directory);
+
+        string wasScores = ScoreFile.DefaultPath;
+        string wasHelp = CharacterFile.HelpDirectory;
+
+        ScoreFile.DefaultPath = Path.Combine(directory, "scores.dat");
+        CharacterFile.HelpDirectory = Path.Combine(directory, "help");
+
+        try
+        {
+            (GameState game, _, GameLoop loop, MemoryScreen screen) = Game();
+
+            string save = Path.Combine(directory, "game.sav");
+
+            // Race a, sex m, accept the roll, class a, a name - and then Q at
+            // the pause that ends creation.
+            screen.SetKeys("am" + Keys.Escape + "aQuitter\r" + "Q"
+                + new string(Keys.Escape, 100));
+
+            int result = new Session(game, new Display(game, screen), loop)
+                .Play(new Options { NewGame = true, SaveFile = save });
+
+            Assert.Equal(0, result);
+
+            // The character was rolled but never became a game: no level, no
+            // file, and nothing on the board.
+            Assert.False(game.CharacterGenerated, "the game started anyway");
+            Assert.False(File.Exists(save), "leaving wrote a savefile");
+            Assert.Empty(new ScoreFile(game, new Display(game, screen)).Read()!);
+        }
+        finally
+        {
+            ScoreFile.DefaultPath = wasScores;
+            CharacterFile.HelpDirectory = wasHelp;
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    /// <summary>Any other key carries on into the game.</summary>
+    [Fact]
+    public void Play_CarriesOnWhenTheLastPromptIsAnsweredWithAnythingElse()
+    {
+        string directory = Path.Combine(
+            Path.GetTempPath(), "airom-carry-" + Guid.NewGuid().ToString("N"));
+
+        Directory.CreateDirectory(directory);
+
+        string wasScores = ScoreFile.DefaultPath;
+        string wasHelp = CharacterFile.HelpDirectory;
+
+        ScoreFile.DefaultPath = Path.Combine(directory, "scores.dat");
+        CharacterFile.HelpDirectory = Path.Combine(directory, "help");
+
+        try
+        {
+            (GameState game, _, GameLoop loop, MemoryScreen screen) = Game();
+
+            screen.SetKeys("am" + Keys.Escape + "aPlayer\r" + " "
+                + string.Concat(Enumerable.Repeat(" " + Keys.Control('K') + " y", 60))
+                + new string(Keys.Escape, 200));
+
+            new Session(game, new Display(game, screen), loop)
+                .Play(new Options
+                {
+                    NewGame = true,
+                    SaveFile = Path.Combine(directory, "game.sav"),
+                });
+
+            Assert.True(game.CharacterGenerated, "the game never started");
+            Assert.Equal("Player", game.Player.Name);
+        }
+        finally
+        {
+            ScoreFile.DefaultPath = wasScores;
+            CharacterFile.HelpDirectory = wasHelp;
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
     [Fact]
     public void GetName_FallsBackToTheMachinesName()
     {
