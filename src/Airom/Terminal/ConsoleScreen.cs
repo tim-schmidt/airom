@@ -77,6 +77,26 @@ public sealed class ConsoleScreen : IScreen
             // signal that kills the process mid-turn.
             Console.TreatControlCAsInput = true;
             Console.CursorVisible = true;
+            Console.Write(UnderlineCursor);
+
+            // The classic console does not read that sequence but has a knob of
+            // its own, and a terminal that has neither simply keeps its own
+            // cursor.
+            try
+            {
+                if (OperatingSystem.IsWindows())
+                {
+                    Console.CursorSize = 20;
+                }
+            }
+            catch (PlatformNotSupportedException)
+            {
+                // Nothing to put right: the shape is a courtesy, not a feature.
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+            }
+
             Console.Clear();
         }
 
@@ -93,10 +113,29 @@ public sealed class ConsoleScreen : IScreen
 
         Console.TreatControlCAsInput = false;
         Console.CursorVisible = true;
+        Console.Write(DefaultCursor);
         Console.ResetColor();
         Console.SetCursorPosition(0, Math.Max(Console.WindowHeight - 1, 0));
         Console.WriteLine();
     }
+
+    /// <summary>
+    /// A blinking underline, which is what the cursor looked like on the
+    /// terminals Umoria was written for.
+    ///
+    /// The game leaves the cursor standing on the player, as curses does, so
+    /// its shape decides how that reads. A modern terminal defaults to a bar
+    /// drawn down the left edge of the cell, which puts it beside the player
+    /// rather than under them and looks like a fault. An underline sits below
+    /// the character it is on, where it belongs.
+    ///
+    /// Terminals that do not understand the sequence ignore it, and the game
+    /// looks the way it did before.
+    /// </summary>
+    private const string UnderlineCursor = "\u001b[3 q";
+
+    /// <summary>Hands the cursor's shape back to the terminal.</summary>
+    private const string DefaultCursor = "\u001b[0 q";
 
     public void Put(int row, int column, char value) => _buffer.Put(row, column, value);
 
