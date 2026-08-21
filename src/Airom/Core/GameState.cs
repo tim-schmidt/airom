@@ -129,7 +129,6 @@ public sealed class GameState
     /// itself, as inventory[INVEN_LIGHT].p1; it lives here until the inventory
     /// is ported, since the turn has to burn it either way.
     /// </summary>
-    public int LightFuel { get; set; }
 
     /// <summary>
     /// Whether the player's own light is currently shining on the squares around

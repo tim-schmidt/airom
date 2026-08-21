@@ -11,6 +11,9 @@ namespace Airom.Oracle;
 
 public static partial class OracleDump
 {
+    /// <summary>A Brass Lantern, which is what the fuel commands act on.</summary>
+    private const int Lantern = 85;
+
     /// <summary>
     /// The turn: what happens to the player between one command and the next.
     ///
@@ -122,14 +125,19 @@ public static partial class OracleDump
             case 24:
                 // A lit lamp with plenty of oil: the player carries their own
                 // light, so every step lights the squares around them.
-                game.LightFuel = 400;
-                game.PlayerLight = true;
+                //
+                // Only the lamp is set, never the light itself: whether the
+                // player has one is the loop's own conclusion from what they
+                // are holding, and setting it here would be the harness
+                // answering the question it is supposed to be asking.
+                game.Inventory[Inventory.LightSlot].CopyFrom(Lantern);
+                game.Inventory[Inventory.LightSlot].P1 = 400;
                 break;
             default:
                 // A lamp about to run dry: it warns while it lasts, then goes
                 // out.
-                game.LightFuel = 12;
-                game.PlayerLight = true;
+                game.Inventory[Inventory.LightSlot].CopyFrom(Lantern);
+                game.Inventory[Inventory.LightSlot].P1 = 12;
                 break;
         }
 
@@ -184,6 +192,12 @@ public static partial class OracleDump
         Line("rest " + N(player.Rest));
         Line("death " + (loop.Dead ? "1" : "0") + " died_from " + loop.DiedFrom);
         Line("monsters " + N(game.Monsters.Count - MonsterPool.FirstIndex));
+
+        // Whether the player is carrying their own light, and how much of it
+        // is left: both are worked out from the lamp rather than kept beside
+        // it, so both are worth reading back.
+        Line("light " + (game.PlayerLight ? "1" : "0")
+            + " fuel " + N(game.Inventory[Inventory.LightSlot].P1));
 
         for (int row = 0; row < screen.Rows; row++)
         {

@@ -1774,6 +1774,9 @@ static void dump_regen(unsigned long seed, int turns)
   printf("clamped chp %d frac %d\n", (int)py.misc.chp, (int)py.misc.chp_frac);
 }
 
+/* A Brass Lantern, which is the light source the fuel commands act on. */
+#define OBJ_LANTERN 85
+
 /* ------------------------------------------------------------------ upkeep */
 
 /* The turn: what happens to the player between one command and the next.
@@ -1894,14 +1897,19 @@ static void dump_upkeep(unsigned long seed, int turns, int variation)
       break;
     case 24:
       /* A lit lamp with plenty of oil: the player carries their own light, so
-         every step lights the squares around them. */
+         every step lights the squares around them.
+
+         Only the lamp is set, never player_light: whether the player has a
+         light is the loop's own conclusion from what they are holding, and
+         setting it here would be the harness answering the question it is
+         supposed to be asking. */
+      invcopy(&inventory[INVEN_LIGHT], OBJ_LANTERN);
       inventory[INVEN_LIGHT].p1 = 400;
-      player_light = TRUE;
       break;
     default:
       /* A lamp about to run dry: it warns while it lasts, then goes out. */
+      invcopy(&inventory[INVEN_LIGHT], OBJ_LANTERN);
       inventory[INVEN_LIGHT].p1 = 12;
-      player_light = TRUE;
       break;
     }
 
@@ -1956,6 +1964,7 @@ static void dump_upkeep(unsigned long seed, int turns, int variation)
   printf("death %d died_from %s\n", (int)death, died_from);
   printf("monsters %d\n", (int)(mfptr - MIN_MONIX));
 
+  printf("light %d fuel %d\n", player_light, (int)inventory[INVEN_LIGHT].p1);
   oracle_screen_dump("up");
 
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());

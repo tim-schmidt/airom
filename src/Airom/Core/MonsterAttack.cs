@@ -593,18 +593,25 @@ public sealed class MonsterAttack
     }
 
     /// <summary>Drinks the oil out of the player's lamp, but never puts it out.</summary>
+    /// <summary>Reached from tests, which cannot arrange to be bitten.</summary>
+    public void EatLightForTest() => EatLight();
+
     private bool EatLight()
     {
-        if (_game.LightFuel <= 0)
+        InvenType light = _game.Inventory[Inventory.LightSlot];
+
+        if (light.P1 <= 0)
         {
             return false;
         }
 
-        _game.LightFuel -= 250 + Rng.RandInt(250);
+        light.P1 -= (short)(250 + Rng.RandInt(250));
 
-        if (_game.LightFuel < 1)
+        // Never quite out: something that drinks a lamp dry leaves a mouthful,
+        // so the player is robbed rather than blinded.
+        if (light.P1 < 1)
         {
-            _game.LightFuel = 1;
+            light.P1 = 1;
         }
 
         if (Player.Blind >= 1)

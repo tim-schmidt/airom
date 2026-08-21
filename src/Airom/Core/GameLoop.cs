@@ -534,6 +534,11 @@ public partial class GameLoop
             Player.MaxDungeonLevel = _game.DungeonLevel;
         }
 
+        // Whether the player is carrying their own light, which is simply
+        // whether what they are holding has anything left in it. Mirrors the
+        // check at the top of dungeon(), before its loop.
+        PlayerLight = Fuel > 0;
+
         _display.CommandCount = 0;
         int runCount = 0;
         NewLevel = false;
@@ -682,6 +687,16 @@ public partial class GameLoop
     /// arriving can be checked without playing a turn.
     /// </summary>
     public void CheckViewForTest() => CheckView();
+
+    /// <summary>
+    /// Everything arriving on a level settles before a turn is played, which
+    /// for the moment is whether the player has a light of their own. Reached
+    /// from tests so that arriving can be checked without playing.
+    /// </summary>
+    public void EnterLevelForTest() => PlayerLight = Fuel > 0;
+
+    /// <summary>Drains the lamp the way something that eats light does.</summary>
+    public void EatLightForTest() => _monsterAttack.EatLightForTest();
 
     protected virtual void DoCommand(char command)
     {
@@ -1217,18 +1232,16 @@ public partial class GameLoop
     /// turn over the last forty, so it comes as a nagging reminder rather than a
     /// single notice that could be missed.
     ///
-    /// Pending: the fuel belongs to the lamp, which needs the inventory; until
-    /// then it is held on the game state.
     /// </summary>
     protected virtual void BurnLight()
     {
         if (_game.PlayerLight)
         {
-            if (_game.LightFuel > 0)
+            if (Fuel > 0)
             {
-                _game.LightFuel--;
+                Fuel--;
 
-                if (_game.LightFuel == 0)
+                if (Fuel == 0)
                 {
                     _game.PlayerLight = false;
                     _display.MessagePrint("Your light has gone out!");
@@ -1237,7 +1250,7 @@ public partial class GameLoop
                     // Unlight the creatures.
                     MoveMonsters(false);
                 }
-                else if (_game.LightFuel < 40 && _game.Rng.RandInt(5) == 1
+                else if (Fuel < 40 && _game.Rng.RandInt(5) == 1
                          && Player.Blind < 1)
                 {
                     Disturb(false, false);
@@ -1251,13 +1264,25 @@ public partial class GameLoop
                 MoveMonsters(false);
             }
         }
-        else if (_game.LightFuel > 0)
+        else if (Fuel > 0)
         {
-            _game.LightFuel--;
+            Fuel--;
             _game.PlayerLight = true;
             Disturb(false, true);
             MoveMonsters(false);
         }
+    }
+
+    /// <summary>
+    /// What is left in whatever the player is holding up. A torch burns down
+    /// and a lantern burns its oil; both are counted the same way, in turns,
+    /// and both are the same field of the same slot. Umoria's
+    /// inventory[INVEN_LIGHT].p1.
+    /// </summary>
+    private int Fuel
+    {
+        get => _game.Inventory[Inventory.LightSlot].P1;
+        set => _game.Inventory[Inventory.LightSlot].P1 = (short)value;
     }
 
     /// <summary>

@@ -641,6 +641,30 @@ to the player's real save slot. A harness character turned up waiting in
 somebody's game. Every mode now redirects both paths into a scratch directory
 before it runs.
 
+## A lamp with the fuel kept somewhere else
+
+A player equipped a Brass Lantern and it lit nothing, and burned nothing while
+they stood still. The fuel was being read from a field on the game state - a
+stand-in from before the inventory was ported, left behind when it was. Three
+places used it and none of them touched the lamp, so a light source was a
+decoration.
+
+The `upkeep` mode runs the original's own loop with a lamp burning down, and it
+had been green throughout. It set `player_light = TRUE` and a fuel figure by
+hand, on both sides, and then compared what each burned - which compared the
+burning and never the lamp. Whether the player has a light is the loop's own
+conclusion from what they are holding, and the harness was answering the
+question it was supposed to be asking.
+
+It now equips an actual lantern and says nothing about the light, leaving both
+sides to work it out; and the dump carries the light and the fuel, so the burn
+is read back rather than inferred from what the map looks like.
+
+That is the second time in this file's history that the harness hid a bug by
+doing the port's work for it - the panel was the first. Both are worth stating
+as one rule: **a harness may arrange the world, but it may never set a value
+the code under test is supposed to derive.**
+
 ## Current verification
 
 The C oracle builds with gcc 16.1.0 (MSYS2 UCRT64) and `rng` matches AIrom
