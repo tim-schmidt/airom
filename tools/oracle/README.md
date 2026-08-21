@@ -507,7 +507,8 @@ types an answer for every question - including a wrong one first, so the bell
 and the redrawn prompt are compared too - rerolls the stats a few times, picks
 a class from the ones the race allows, types a name, and then prints the screen,
 the character, the forty entries of the hit-point table, and the kit they set
-out with. It matches across **64 runs**.
+out with, and then what main() does the moment creation ends. It matches
+across **64 runs**.
 
 Two divergences it found, both real:
 
@@ -664,6 +665,33 @@ That is the second time in this file's history that the harness hid a bug by
 doing the port's work for it - the panel was the first. Both are worth stating
 as one rule: **a harness may arrange the world, but it may never set a value
 the code under test is supposed to derive.**
+
+## The last thing a new character goes through
+
+A player rolled a mage and reported two things: the "You can learn some new
+spells now." message appeared twice, and resting gave no mana until they had
+studied with `G`.
+
+Both are the original, and the `create` mode now says so rather than leaving it
+to argument. It used to stop where `create_character()` stops; it now goes on to
+do what `main()` does the moment creation is over - hand over the starting kit,
+set the food, and work out the spells and the mana - and compares the message
+ring, the message flag, and the mana on either side of it.
+
+The message is printed once and shown twice. It is put up during class
+selection, and it is still standing when the screen is cleared before the spells
+are worked out, so the clear flushes it through a `-more-`. The flag goes from
+one to nought across that clear on both sides, and both rings hold exactly one
+copy of the message.
+
+The mana is nought because a mage who has learned nothing has no mana at all:
+`calc_mana()` opens with `if (spell_learned != 0)` and does nothing otherwise.
+There is nothing to regenerate until the first spell is learned.
+
+This was the last uncompared stretch a new character passed through, and the
+kind of gap is worth naming: not a file that had been skipped, but the seam
+between two files - create.c finishing and main.c continuing - which no mode had
+reason to cover.
 
 ## Current verification
 
