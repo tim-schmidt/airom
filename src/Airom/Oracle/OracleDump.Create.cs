@@ -82,6 +82,51 @@ public static partial class OracleDump
 
         static string N(int value) => value.ToString(CultureInfo.InvariantCulture);
 
+        // And what the session does the moment creation is over, which is
+        // where a spellcaster is told what they can learn and how much mana
+        // they have. Nothing else compares it, and it is the last uncompared
+        // thing a new character goes through.
+        output.Write("before-kit spells " + N(player.NewSpells)
+            + " mana " + N(player.MaxMana) + " cmana " + N(player.CurrentMana)
+            + " learned " + player.SpellLearned.ToString(CultureInfo.InvariantCulture)
+            + " msg-flag " + (display.MessageWaiting ? "1" : "0") + "\n");
+
+        maker.GiveStartingItems();
+
+        player.Food = 7500;
+        player.FoodDigested = 2;
+
+        switch (GameTables.Classes[player.Class].SpellRealm)
+        {
+            case SpellRealm.Mage:
+                display.ClearScreen();
+                loop.Magic.CalcSpells(Stat.Intelligence);
+                loop.Magic.CalcMana(Stat.Intelligence);
+                break;
+
+            case SpellRealm.Priest:
+                loop.Magic.CalcSpells(Stat.Wisdom);
+                display.ClearScreen();
+                loop.Magic.CalcMana(Stat.Wisdom);
+                break;
+        }
+
+        output.Write("after-kit spells " + N(player.NewSpells)
+            + " mana " + N(player.MaxMana) + " cmana " + N(player.CurrentMana)
+            + " learned " + player.SpellLearned.ToString(CultureInfo.InvariantCulture)
+            + " msg-flag " + (display.MessageWaiting ? "1" : "0") + "\n");
+
+        DumpScreenRows(output, screen, "after");
+
+        for (int i = 0; i < Display.SavedMessageCount; i++)
+        {
+            if (!string.IsNullOrEmpty(display.RecentMessages[i]))
+            {
+                output.Write("msg " + N(i) + " [" + display.RecentMessages[i] + "]\n");
+            }
+        }
+
+
         output.Write("who [" + player.Name + "] male " + (player.Male ? "1" : "0")
             + " race " + N(player.Race) + " class " + N(player.Class) + "\n");
 
@@ -107,9 +152,6 @@ public static partial class OracleDump
         {
             output.Write("hp " + N(i) + " " + N(player.HitPointsByLevel[i]) + "\n");
         }
-
-        // And what they are given to set out with.
-        maker.GiveStartingItems();
 
         output.Write("pack " + N(game.Inventory.Count)
             + " weight " + N(game.Inventory.Weight) + "\n");

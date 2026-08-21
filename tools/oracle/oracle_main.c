@@ -5638,6 +5638,46 @@ static void dump_create(unsigned long seed, int variation)
 
   oracle_screen_dump("scr");
 
+  /* And what main() does the moment creation is over, which is where a
+     spellcaster is told what they can learn and how much mana they have.
+     Nothing else compares it, and it is the last uncompared thing a new
+     character goes through. */
+  {
+    int i;
+
+    printf("before-kit spells %d mana %d cmana %d learned %lu msg-flag %d\n",
+           (int)py.flags.new_spells, (int)py.misc.mana, (int)py.misc.cmana,
+           (unsigned long)spell_learned, msg_flag);
+
+    probe_char_inven_init();
+
+    py.flags.food = 7500;
+    py.flags.food_digested = 2;
+
+    if (class[py.misc.pclass].spell == MAGE)
+      {
+        clear_screen();
+        calc_spells(A_INT);
+        calc_mana(A_INT);
+      }
+    else if (class[py.misc.pclass].spell == PRIEST)
+      {
+        calc_spells(A_WIS);
+        clear_screen();
+        calc_mana(A_WIS);
+      }
+
+    printf("after-kit spells %d mana %d cmana %d learned %lu msg-flag %d\n",
+           (int)py.flags.new_spells, (int)py.misc.mana, (int)py.misc.cmana,
+           (unsigned long)spell_learned, msg_flag);
+
+    oracle_screen_dump("after");
+
+    for (i = 0; i < MAX_SAVE_MSG; i++)
+      if (old_msg[i][0] != 0)
+        printf("msg %d [%s]\n", i, old_msg[i]);
+  }
+
   printf("who [%s] male %d race %d class %d\n", py.misc.name,
          (int)py.misc.male, (int)py.misc.prace, (int)py.misc.pclass);
 
@@ -5663,9 +5703,6 @@ static void dump_create(unsigned long seed, int variation)
 
   for (i = 0; i < MAX_PLAYER_LEVEL; i++)
     printf("hp %d %d\n", i, (int)player_hp[i]);
-
-  /* And what they are given to set out with. */
-  probe_char_inven_init();
 
   printf("pack %d weight %d\n", (int)inven_ctr, (int)inven_weight);
 
