@@ -34,7 +34,7 @@ public static partial class OracleDump
 
         Header(output, "messages", seed);
 
-        var game = new GameState();
+        var game = OracleGame();
         game.InitSeeds(seed);
 
         var screen = new MemoryScreen();
@@ -95,7 +95,7 @@ public static partial class OracleDump
         Header(output, "map", seed);
         output.Write("level " + level.ToString(CultureInfo.InvariantCulture) + "\n");
 
-        var game = new GameState();
+        var game = OracleGame();
         game.InitSeeds(seed);
         game.MagicInit();
         game.DungeonLevel = level;

@@ -19,7 +19,7 @@ public static partial class OracleDump
     private static (GameState Game, Display Display, MemoryScreen Screen, GameLoop Loop)
         FightingLevel(uint seed, int level, bool rollCharacter)
     {
-        var game = new GameState();
+        var game = OracleGame();
         game.InitSeeds(seed);
         game.MagicInit();
         game.Turn = 0;

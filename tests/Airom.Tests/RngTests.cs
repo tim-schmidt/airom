@@ -98,19 +98,51 @@ public class RngTests
     }
 
     /// <summary>
-    /// Pins Umoria's inexact restore. reset_seed() feeds the saved raw state
-    /// back through set_rnd_seed(), which applies (x % (M-1)) + 1 to a value
-    /// already in range, so the state returns one higher than it was.
-    ///
-    /// n+1 is adjacent numerically but not in the sequence - the generator is
-    /// multiplicative, so the restored stream is an unrelated part of the cycle.
-    /// The port reproduces this on purpose; an exact restore would change the
-    /// sequence the game sees after every town regeneration.
+    /// A restored stream carries on exactly where it left off, which is what
+    /// the town and the appearance shuffle are bracketed for.
     /// </summary>
     [Fact]
-    public void PopSeed_RestoresToNumericallyAdjacentSeed_MatchingUmoria()
+    public void PopSeed_PutsTheStreamBackWhereItWas()
     {
         var rng = new Rng(9876);
+        for (int i = 0; i < 50; i++)
+        {
+            rng.Next();
+        }
+
+        uint before = rng.State;
+        int[] expected = Enumerable.Range(0, 20).Select(_ => rng.Next()).ToArray();
+
+        var replayed = new Rng(9876);
+        for (int i = 0; i < 50; i++)
+        {
+            replayed.Next();
+        }
+
+        replayed.PushSeed(4242);
+        replayed.Next();
+        replayed.Next();
+        replayed.PopSeed();
+
+        Assert.Equal(before, replayed.State);
+        Assert.Equal(expected, Enumerable.Range(0, 20).Select(_ => replayed.Next()));
+    }
+
+    /// <summary>
+    /// The original's restore is not exact: reset_seed() feeds the saved state
+    /// back through set_rnd_seed(), which applies (x % (M-1)) + 1 to a value
+    /// already in range, so a state of n comes back as n+1 and M-1 comes back
+    /// as 1. Because the generator is multiplicative, n and n+1 are unrelated
+    /// points on the cycle - the restored stream shares nothing with the one
+    /// that was saved, which is plainly not what "reset" was meant to do.
+    ///
+    /// The port does not copy the bug, but it can, and does for the oracle
+    /// harness: the C it is compared against has it and always will.
+    /// </summary>
+    [Fact]
+    public void PopSeed_CanStillSlipTheWayUmoriaDoes()
+    {
+        var rng = new Rng(9876) { RestoresExactly = false };
         for (int i = 0; i < 50; i++)
         {
             rng.Next();
@@ -125,9 +157,9 @@ public class RngTests
     }
 
     [Fact]
-    public void PopSeed_WrapsAtTheTopOfTheRange()
+    public void PopSeed_WrapsAtTheTopOfTheRangeWhenItSlips()
     {
-        var rng = new Rng(0);
+        var rng = new Rng(0) { RestoresExactly = false };
 
         // Drive the state to M-1 = 2147483646, the value that wraps to 1.
         rng.PushSeed(2147483645);

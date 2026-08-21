@@ -46,7 +46,7 @@ public static partial class OracleDump
         Header(output, mode, seed);
         output.Write("level " + level.ToString(CultureInfo.InvariantCulture) + "\n");
 
-        var game = new GameState();
+        var game = OracleGame();
         game.InitSeeds(seed);
         game.MagicInit();
         game.DungeonLevel = level;

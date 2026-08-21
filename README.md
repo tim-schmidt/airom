@@ -107,12 +107,22 @@ monster roll and town layout from a single Park–Miller generator, so the port 
 verified against the original's own published check value — seeded at 1, the
 10,001st draw must be `1043618065`. That test runs on every build.
 
-Where the 1989 code has quirks, the port keeps them and documents why. The
-clearest example is `reset_seed()`, which restores a saved generator state to
-the *next* seed value rather than the saved one — and since the generator is
-multiplicative, that lands on an unrelated part of the cycle. Harmless in play,
-but "fixing" it would change which dungeons a given seed produces. Such places
-are marked `FAITHFUL QUIRK` in the source.
+Where the 1989 code has quirks, the port keeps them and documents why —
+`(!noscore & 0x04)`, which is always false and has never once run; a help file
+that ends on a blank page; "the Balrog" keeping its article on the score
+board. Such places are marked `FAITHFUL QUIRK` in the source.
+
+One is not kept. `reset_seed()` restores a saved generator state to the *next*
+value rather than the saved one, and since the generator is multiplicative that
+lands on an unrelated part of the cycle: a "reset" that resets nothing. It was
+reproduced for as long as the port needed to be diffed against the original,
+which is what made the differential testing possible at all, and was corrected
+once that testing was done. The oracle harness still asks for the old behaviour,
+because the C it compares against will always have it.
+
+The one thing this changes is which dungeon a given seed produces. AIrom's seed
+1 and Umoria's seed 1 are different games from the first level down — every
+other observable, including the savefile, is unchanged.
 
 One place is deliberately not a port. Umoria's score table is a single file
 shared by every player on a Unix machine: the game runs setuid, locks the file

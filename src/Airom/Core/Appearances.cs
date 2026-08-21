@@ -66,8 +66,8 @@ public sealed class Appearances
     ///
     /// The whole thing runs inside a push/pop of the generator seeded from
     /// <paramref name="randesSeed"/>, so appearances are reproducible for a
-    /// given character while the main sequence carries on elsewhere. Note the
-    /// restore is deliberately inexact - see <see cref="Rng.PopSeed"/>.
+    /// given character while the main sequence carries on elsewhere, and picks
+    /// that sequence up again exactly where it was left.
     /// </summary>
     public void Initialize(Rng rng, uint randesSeed)
     {

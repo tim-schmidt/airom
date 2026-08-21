@@ -37,7 +37,7 @@ public static partial class OracleDump
 
         output.Write("mode commands\n");
 
-        var game = new GameState();
+        var game = OracleGame();
         var screen = new MemoryScreen();
         var display = new Display(game, screen);
         var loop = new GameLoop(game, display);
@@ -75,7 +75,7 @@ public static partial class OracleDump
         Header(output, "regen", seed);
         output.Write("turns " + turns.ToString(CultureInfo.InvariantCulture) + "\n");
 
-        var game = new GameState();
+        var game = OracleGame();
         var screen = new MemoryScreen();
         var display = new Display(game, screen);
         var loop = new GameLoop(game, display);

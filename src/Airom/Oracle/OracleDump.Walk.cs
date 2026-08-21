@@ -30,7 +30,7 @@ public static partial class OracleDump
     private static (GameState Game, Display Display, MemoryScreen Screen, GameLoop Loop)
         StrippedLevel(uint seed, int level)
     {
-        var game = new GameState();
+        var game = OracleGame();
         game.InitSeeds(seed);
         game.MagicInit();
         game.Turn = 0;

@@ -34,7 +34,7 @@ public static partial class OracleDump
             return;
         }
 
-        var game = new GameState();
+        var game = OracleGame();
         game.InitSeeds(seed);
         game.MagicInit();
 

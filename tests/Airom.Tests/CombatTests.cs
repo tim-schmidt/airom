@@ -305,6 +305,18 @@ public class CombatTests
         int row = game.CharacterRow;
         int column = game.CharacterColumn + 1;
 
+        // Walled in on every side but one, so the floor it takes on is the one
+        // this test put there: the original scans the eight neighbours and
+        // stops at the first floor it finds.
+        for (int y = row - 1; y <= row + 1; y++)
+        {
+            for (int x = column - 1; x <= column + 1; x++)
+            {
+                game.Cave[y, x].Feature = CaveFeature.GraniteWall;
+                game.Cave[y, x].PermanentLight = false;
+            }
+        }
+
         game.Cave[row, column].Feature = CaveFeature.GraniteWall;
         game.Cave[row, column].LitRoom = true;
         game.Cave[row, column - 1].Feature = CaveFeature.LightFloor;

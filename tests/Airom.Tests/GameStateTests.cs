@@ -83,13 +83,15 @@ public class GameStateTests
     // ----------------------------------------------------------- magic_init
 
     /// <summary>
-    /// magic_init brackets its work in a push/pop of the generator, and the
-    /// restore is deliberately inexact - it lands one higher than it started.
-    /// This is the property the oracle measured directly, rather than the port
-    /// asserting its own reading of the C.
+    /// magic_init brackets its work in a push and a pop of the generator, so
+    /// the shuffle costs the main stream nothing at all.
+    ///
+    /// The original lands one higher than it started, its restore being a step
+    /// out of place - see Rng.RestoresExactly, which is what the oracle harness
+    /// turns back on to compare against it.
     /// </summary>
     [Fact]
-    public void MagicInit_LeavesTheGeneratorOneStepOnFromWhereItStarted()
+    public void MagicInit_LeavesTheGeneratorWhereItStarted()
     {
         var game = new GameState();
         game.InitSeeds(12345);
@@ -97,8 +99,16 @@ public class GameStateTests
 
         game.MagicInit();
 
-        Assert.Equal(before + 1, game.Rng.State);
-        Assert.Equal(1737948947u, game.Rng.State); // from the oracle
+        Assert.Equal(before, game.Rng.State);
+        Assert.Equal(1737948946u, game.Rng.State);
+
+        // And the original's answer, one higher, when asked for it.
+        var asUmoria = new GameState();
+        asUmoria.Rng.RestoresExactly = false;
+        asUmoria.InitSeeds(12345);
+        asUmoria.MagicInit();
+
+        Assert.Equal(1737948947u, asUmoria.Rng.State); // from the oracle
     }
 
     /// <summary>

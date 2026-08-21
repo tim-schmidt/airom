@@ -27,7 +27,7 @@ public static partial class OracleDump
         Header(output, "town", seed);
         output.Write("turn " + turn.ToString(CultureInfo.InvariantCulture) + "\n");
 
-        var game = new GameState();
+        var game = OracleGame();
         game.InitSeeds(seed);
         game.MagicInit();
         game.DungeonLevel = 0;

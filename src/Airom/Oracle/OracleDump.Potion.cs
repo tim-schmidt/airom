@@ -37,7 +37,7 @@ public static partial class OracleDump
         // MagicInit shuffles the appearance tables where they stand, so calling
         // it once per potion would shuffle an already-shuffled table. It runs
         // once, and only the generator is re-seeded for each potion.
-        var game = new GameState();
+        var game = OracleGame();
         game.InitSeeds(seed);
         game.MagicInit();
 

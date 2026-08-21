@@ -184,7 +184,7 @@ public static partial class OracleDump
         output.Write("variation " + variation.ToString(CultureInfo.InvariantCulture) + "\n");
         output.Write("count " + count.ToString(CultureInfo.InvariantCulture) + "\n");
 
-        var game = new GameState();
+        var game = OracleGame();
         game.InitSeeds(seed);
 
         using var bytes = new MemoryStream();
@@ -250,7 +250,7 @@ public static partial class OracleDump
     private static (GameState, MemoryScreen, Display, GameLoop) DeathSetup(
         uint seed, int variation)
     {
-        var game = new GameState();
+        var game = OracleGame();
         game.InitSeeds(seed);
         game.MagicInit();
         game.Player = new Player();

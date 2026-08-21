@@ -31,7 +31,7 @@ public static partial class OracleDump
         output.Write("first " + first.ToString(CultureInfo.InvariantCulture) + "\n");
         output.Write("count " + count.ToString(CultureInfo.InvariantCulture) + "\n");
 
-        var game = new GameState();
+        var game = OracleGame();
         game.InitSeeds(seed);
         game.MagicInit();
         game.Player = new Player { Name = "Oracle the Bold" };
@@ -134,7 +134,7 @@ public static partial class OracleDump
         output.Write("level " + level.ToString(CultureInfo.InvariantCulture) + "\n");
         output.Write("variation " + variation.ToString(CultureInfo.InvariantCulture) + "\n");
 
-        var game = new GameState();
+        var game = OracleGame();
         game.InitSeeds(seed);
         game.MagicInit();
         game.DungeonLevel = level;

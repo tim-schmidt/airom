@@ -33,7 +33,7 @@ public static partial class OracleDump
         output.Write("level " + level.ToString(CultureInfo.InvariantCulture) + "\n");
         output.Write("variation " + variation.ToString(CultureInfo.InvariantCulture) + "\n");
 
-        var game = new GameState();
+        var game = OracleGame();
         game.InitSeeds(seed);
         game.MagicInit();
 
@@ -479,7 +479,7 @@ public static partial class OracleDump
         output.Write("level " + level.ToString(CultureInfo.InvariantCulture) + "\n");
         output.Write("variation " + variation.ToString(CultureInfo.InvariantCulture) + "\n");
 
-        var game = new GameState();
+        var game = OracleGame();
         game.InitSeeds(seed);
         game.MagicInit();
 

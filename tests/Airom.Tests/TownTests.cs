@@ -241,11 +241,20 @@ public class TownTests
         Assert.True(HasWinMonster(DeepLevel(12345, 50)));
     }
 
+    /// <summary>
+    /// Whether one of the two creatures held back for the deepest levels is on
+    /// this one. They are the last rows of the table, which is exactly why the
+    /// ordinary draw stops short of them - and only one of the two, the Balrog,
+    /// actually ends the game, so it is the position that says what they are
+    /// rather than the flag.
+    /// </summary>
     private static bool HasWinMonster(GameState game)
     {
+        int first = MonsterLevels.LevelTotals[MonsterLevels.MaxMonsterLevel];
+
         for (int i = MonsterPool.FirstIndex; i < game.Monsters.Count; i++)
         {
-            if (GameTables.CreatureList[game.Monsters[i].CreatureIndex].WinsGameWhenKilled)
+            if (game.Monsters[i].CreatureIndex >= first)
             {
                 return true;
             }

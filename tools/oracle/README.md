@@ -123,10 +123,11 @@ divergence.
 | `symbol` | **Every printable symbol asked about**, with and without a memory to offer | **Verified matching** |
 | `wizard` | **The debugging commands**: lighting, editing a character, building an item | **Verified matching** |
 
-`seeds` is the one that will confirm the `reset_seed` quirk against the original
+`seeds` is the one that confirmed the `reset_seed` slip against the original
 rather than by inference: `magic_init` shuffles appearances inside a
-`set_seed`/`reset_seed` bracket, and the restore deliberately does not land
-where it started.
+`set_seed`/`reset_seed` bracket, and the restore does not land where it
+started. AIrom no longer copies that; the harness asks for it back, which is
+what keeps this mode - and every other - comparable. See below.
 
 ## Driving the real dungeon()
 
@@ -543,8 +544,8 @@ and the same sheet written out to a file, and 226 bytes of score record per run
 compared one byte at a time.
 
 `seeds` matches too — **64 seeds, 217 lines each**, covering the seeding chain,
-all six appearance shuffles and all 45 generated scroll titles. It confirms the
-`reset_seed` quirk by measurement rather than inference:
+all six appearance shuffles and all 45 generated scroll titles. It is what
+measured the `reset_seed` slip rather than inferring it:
 
 ```
 state-after-init-seeds  1737948946
@@ -553,5 +554,31 @@ state-after-magic-init  1737948947
 
 Exactly one higher, because `magic_init` brackets its shuffle in
 `set_seed`/`reset_seed` and the restore folds an already-in-range value through
-`set_rnd_seed` again. AIrom reproduces that on purpose; this is the measurement
-that says so.
+`set_rnd_seed` again.
+
+## The one thing the harness asks for that the game no longer does
+
+That slip is a bug, and now that the port is finished it is fixed: AIrom's
+`PopSeed` puts the saved state back exactly, so the stream after a town or an
+appearance shuffle carries on where it left off rather than jumping to an
+unrelated part of the cycle.
+
+The comparison would collapse if the harness did the same. Every mode calls
+`magic_init`, so every mode would differ from the C at the first draw after it,
+and the C is never going to be fixed. So `Rng.RestoresExactly` exists: true for
+the game, and false for the oracle, which builds every one of its games through
+a single helper that asks for the 1989 answer. One line, in one place, and the
+whole suite stays green — 142 runs after the change, unchanged from before it.
+
+What this costs is that the fixed path is the one thing the oracle cannot
+check, by construction. Unit tests cover it from both sides: that a restored
+stream replays exactly what the saved one would have, and that turning the slip
+back on still lands one higher.
+
+Three tests had to be re-pinned rather than repaired, which is worth recording
+because it says what kind of change this is. A different sequence after
+`magic_init` means a different dungeon, so a level that used to hold a Balrog
+now holds an Evil Iggy - the other creature held back for depth fifty - and a
+shopkeeper picks a different one of his five parting shots. Neither was a
+regression; both were tests that had quietly pinned one roll of the dice. They
+now assert the property rather than the roll.

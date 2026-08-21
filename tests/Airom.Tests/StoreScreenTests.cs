@@ -191,16 +191,18 @@ public class StoreScreenTests
     [Fact]
     public void Enter_TheAskingPriceFollowsTheCharisma()
     {
-        string PriceLine(int charisma)
+        string Prices(int charisma)
         {
             (_, MemoryScreen screen, _, GameLoop loop) = Fresh(charisma: charisma);
 
-            // The first stock line, caught while the shop is still on screen.
-            return ScreenInside(screen, loop, GeneralStore)
-                .Split('\n')[5];
+            // The stock, caught while the shop is still on screen. All of it
+            // rather than one line: an item can be cheap enough that the two
+            // adjustments round to the same price.
+            return string.Join(
+                '\n', ScreenInside(screen, loop, GeneralStore).Split('\n')[5..17]);
         }
 
-        Assert.NotEqual(PriceLine(3), PriceLine(18));
+        Assert.NotEqual(Prices(3), Prices(18));
     }
 
     /// <summary>
@@ -314,7 +316,15 @@ public class StoreScreenTests
             "the shop did not close after the insults");
 
         Assert.Equal(1, store.BadBuys);
-        Assert.Contains("Come back", Said(display), StringComparison.Ordinal);
+
+        // Which parting shot is used is a roll of its own, so any of them will
+        // do: what matters is that the shopkeeper said one.
+        string said = Said(display);
+
+        Assert.Contains("THAT DOES IT!", said, StringComparison.Ordinal);
+        Assert.Contains(
+            GameTables.ShopkeeperThrowsOut,
+            line => said.Contains(line, StringComparison.Ordinal));
     }
 
     // --------------------------------------------------------------- trading

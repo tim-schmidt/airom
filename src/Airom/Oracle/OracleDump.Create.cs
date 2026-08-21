@@ -42,7 +42,7 @@ public static partial class OracleDump
         Header(output, "create", seed);
         output.Write("variation " + variation.ToString(CultureInfo.InvariantCulture) + "\n");
 
-        var game = new GameState();
+        var game = OracleGame();
         game.InitSeeds(seed);
         game.MagicInit();
 

@@ -82,7 +82,7 @@ public static partial class OracleDump
 
         Header(output, "seeds", seed);
 
-        var game = new GameState();
+        var game = OracleGame();
         game.InitSeeds(seed);
 
         Line(output, "randes-seed", game.RandesSeed);
@@ -120,7 +120,7 @@ public static partial class OracleDump
         Header(output, "streamers", seed);
         output.Write("level " + level.ToString(CultureInfo.InvariantCulture) + "\n");
 
-        var game = new GameState();
+        var game = OracleGame();
         game.InitSeeds(seed);
         game.MagicInit();
         game.DungeonLevel = level;
@@ -221,7 +221,7 @@ public static partial class OracleDump
         output.Write("level " + level.ToString(CultureInfo.InvariantCulture) + "\n");
         output.Write("type " + type.ToString(CultureInfo.InvariantCulture) + "\n");
 
-        var game = new GameState();
+        var game = OracleGame();
         game.InitSeeds(seed);
         game.MagicInit();
         game.DungeonLevel = level;
@@ -317,7 +317,7 @@ public static partial class OracleDump
         Header(output, "tunnels", seed);
         output.Write("level " + level.ToString(CultureInfo.InvariantCulture) + "\n");
 
-        var game = new GameState();
+        var game = OracleGame();
         game.InitSeeds(seed);
         game.MagicInit();
         game.DungeonLevel = level;
@@ -461,7 +461,7 @@ public static partial class OracleDump
         Header(output, "stairs", seed);
         output.Write("level " + level.ToString(CultureInfo.InvariantCulture) + "\n");
 
-        var game = new GameState();
+        var game = OracleGame();
         game.InitSeeds(seed);
         game.MagicInit();
         game.DungeonLevel = level;
@@ -615,7 +615,7 @@ public static partial class OracleDump
                 + " " + ObjectLevels.Sorted[i].ToString(CultureInfo.InvariantCulture) + "\n");
         }
 
-        var game = new GameState();
+        var game = OracleGame();
         game.InitSeeds(seed);
         game.MagicInit();
         game.DungeonLevel = level;
@@ -656,7 +656,7 @@ public static partial class OracleDump
         output.Write("level " + level.ToString(CultureInfo.InvariantCulture) + "\n");
         output.Write("count " + count.ToString(CultureInfo.InvariantCulture) + "\n");
 
-        var game = new GameState();
+        var game = OracleGame();
         game.InitSeeds(seed);
         game.MagicInit();
         game.DungeonLevel = level;
@@ -721,7 +721,7 @@ public static partial class OracleDump
         Header(output, "populate", seed);
         output.Write("level " + level.ToString(CultureInfo.InvariantCulture) + "\n");
 
-        var game = new GameState();
+        var game = OracleGame();
         game.InitSeeds(seed);
         game.MagicInit();
         game.DungeonLevel = level;
@@ -889,6 +889,20 @@ public static partial class OracleDump
     /// Runs one of the dump modes by name, matching the C oracle's command line.
     /// </summary>
     /// <returns>A process exit code: 0 on success, 2 on misuse.</returns>
+    /// <summary>
+    /// A game whose generator restores a saved state the way the original's
+    /// does - one higher than it was, which is a bug the port does not copy but
+    /// the C it is compared against always will. Every mode builds its game
+    /// through here, so the comparison is against the C as it is rather than
+    /// against the C as it ought to be.
+    /// </summary>
+    private static GameState OracleGame()
+    {
+        var game = new GameState();
+        game.Rng.RestoresExactly = false;
+        return game;
+    }
+
     public static int Run(TextWriter output, TextWriter error, string[] arguments)
     {
         ArgumentNullException.ThrowIfNull(output);

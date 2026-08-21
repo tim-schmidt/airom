@@ -43,7 +43,7 @@ public static partial class OracleDump
         output.Write("steps " + steps.ToString(CultureInfo.InvariantCulture) + "\n");
         output.Write("variation " + variation.ToString(CultureInfo.InvariantCulture) + "\n");
 
-        var game = new GameState();
+        var game = OracleGame();
         game.InitSeeds(seed);
         game.MagicInit();
         game.Turn = 0;

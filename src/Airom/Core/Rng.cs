@@ -35,14 +35,25 @@ public sealed class Rng
 
     public Rng(uint seed = 0) => SetSeed(seed);
 
-    /// <summary>
-    /// Raw generator state, in 1 .. M-1. Mirrors get_rnd_seed().
-    ///
-    /// Note this is deliberately read-only: feeding a captured state back in
-    /// goes through <see cref="SetSeed"/>, which does not restore it exactly.
-    /// See <see cref="PopSeed"/>.
-    /// </summary>
+    /// <summary>Raw generator state, in 1 .. M-1. Mirrors get_rnd_seed().</summary>
     public uint State => _seed;
+
+    /// <summary>
+    /// Whether <see cref="PopSeed"/> puts the saved state back exactly.
+    ///
+    /// It does, and the original does not: reset_seed() feeds the saved state
+    /// back through set_rnd_seed(), which applies (x % (M-1)) + 1 to a value
+    /// that is already in range, so a state of n comes back as n+1. Because
+    /// the generator is multiplicative, n and n+1 are unrelated points on the
+    /// cycle - the restored stream shares nothing with the one that was saved,
+    /// which is plainly not what "reset" was meant to do.
+    ///
+    /// The bug is harmless in play, n+1 being as good a state as n, but it is
+    /// still a bug, and the port no longer copies it. What the port keeps is
+    /// the ability to copy it: the oracle harness turns this off, because the
+    /// C it is compared against has the bug and always will.
+    /// </summary>
+    public bool RestoresExactly { get; set; } = true;
 
     /// <summary>
     /// Reseeds the generator, folding the argument into 1 .. M-1.
@@ -65,26 +76,20 @@ public sealed class Rng
     }
 
     /// <summary>
-    /// Returns to the state saved by <see cref="PushSeed"/>.
-    /// Mirrors reset_seed() in misc1.c.
-    ///
-    /// FAITHFUL QUIRK - do not "fix" this. The original restores by calling
-    /// set_rnd_seed(old_seed), which applies (x % (M-1)) + 1 to a value that is
-    /// already in range. A saved state of n therefore restores as n+1, and M-1
-    /// restores as 1.
-    ///
-    /// Note n+1 is only numerically adjacent, not adjacent in the sequence.
-    /// Because the generator is multiplicative, n and n+1 are unrelated points
-    /// on the cycle: the restored stream shares nothing with the one that was
-    /// saved. The restore is a full displacement, not a one-draw slip.
-    ///
-    /// That is harmless in play - n+1 is as good a seed as n, so distributions
-    /// and balance are untouched - but it means the sequence after every town
-    /// generation is a deliberate part of Umoria's behaviour. Restoring exactly
-    /// would change which dungeons a given seed produces and would forfeit
-    /// differential testing against the original C.
+    /// Returns to the state saved by <see cref="PushSeed"/>. Mirrors
+    /// reset_seed() in misc1.c, less its arithmetic slip - see
+    /// <see cref="RestoresExactly"/>, which decides which of the two happens.
     /// </summary>
-    public void PopSeed() => SetSeed(_savedSeed);
+    public void PopSeed()
+    {
+        if (RestoresExactly)
+        {
+            _seed = _savedSeed;
+            return;
+        }
+
+        SetSeed(_savedSeed);
+    }
 
     /// <summary>Returns the next raw value from the set 1, 2, ..., M-1. Mirrors rnd().</summary>
     public int Next()
