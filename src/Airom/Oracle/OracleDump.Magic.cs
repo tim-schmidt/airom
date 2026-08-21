@@ -63,7 +63,6 @@ public static partial class OracleDump
         game.InitSeeds(seed);
         game.MagicInit();
 
-        uint finalState = 0;
 
         for (int spell = first; spell < first + count && spell < Magic.SpellCount; spell++)
         {
@@ -280,11 +279,13 @@ public static partial class OracleDump
                 output.Write("  state "
                     + game.Rng.State.ToString(CultureInfo.InvariantCulture) + "\n");
 
-                finalState = game.Rng.State;
             }
         }
 
-        Line(output, "final-state", finalState);
+        // The live state, not the last item's: the original prints whatever
+        // the generator holds when the loop ends, and the loop can end on a
+        // row it skipped - or run over rows that hold nothing at all.
+        Line(output, "final-state", game.Rng.State);
     }
 
     /// <summary>

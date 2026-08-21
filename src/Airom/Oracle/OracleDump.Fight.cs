@@ -234,7 +234,8 @@ public static partial class OracleDump
         output.Write("first " + first.ToString(CultureInfo.InvariantCulture) + "\n");
         output.Write("count " + count.ToString(CultureInfo.InvariantCulture) + "\n");
 
-        uint finalState = 0;
+
+        uint state = 0;
 
         for (int which = first; which < first + count && which < TrapCount; which++)
         {
@@ -296,10 +297,14 @@ public static partial class OracleDump
 
             output.Write("  message " + screen.GetRow(0).TrimEnd() + "\n");
 
-            finalState = game.Rng.State;
+            state = game.Rng.State;
+
         }
 
-        Line(output, "final-state", finalState);
+        // Each trap gets a game of its own, so the last one's generator is the
+        // one the original would be holding at the end. Unlike the item modes
+        // this loop has nothing to skip: every trap in range is sprung.
+        Line(output, "final-state", state);
     }
 
     /// <summary>How many traps there are in the table. Umoria's MAX_TRAP.</summary>

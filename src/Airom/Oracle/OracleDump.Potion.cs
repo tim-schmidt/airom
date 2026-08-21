@@ -32,7 +32,6 @@ public static partial class OracleDump
         output.Write("first " + first.ToString(CultureInfo.InvariantCulture) + "\n");
         output.Write("count " + count.ToString(CultureInfo.InvariantCulture) + "\n");
 
-        uint finalState = 0;
 
         // MagicInit shuffles the appearance tables where they stand, so calling
         // it once per potion would shuffle an already-shuffled table. It runs
@@ -45,14 +44,6 @@ public static partial class OracleDump
              which < first + count && which < GameTables.ObjectList.Length;
              which++)
         {
-            int category = GameTables.ObjectList[which].TVal;
-
-            if (category != ItemCategory.Potion1 && category != ItemCategory.Potion2
-                && category != ItemCategory.Food)
-            {
-                continue;
-            }
-
             game.InitSeeds(seed);
             game.Turn = 0;
             game.DungeonLevel = 1;
@@ -66,6 +57,21 @@ public static partial class OracleDump
             display.Panel.Resize(GameState.DungeonHeight, GameState.DungeonWidth);
 
             var loop = new GameLoop(game, display);
+
+            // Checked here rather than before the setup, because the original
+            // re-seeds first and skips afterwards. A row that is neither a
+            // potion nor food therefore leaves the generator freshly seeded,
+            // and doing the skip earlier would leave it wherever the last real
+            // item left it - a difference in the harness that would read as a
+            // difference in the game.
+            int category = GameTables.ObjectList[which].TVal;
+
+            if (category != ItemCategory.Potion1 && category != ItemCategory.Potion2
+                && category != ItemCategory.Food)
+            {
+                continue;
+            }
+
             Player player = game.Player;
 
             // A character with room to improve in every direction: hurt,
@@ -201,9 +207,11 @@ public static partial class OracleDump
             output.Write("  state "
                 + game.Rng.State.ToString(CultureInfo.InvariantCulture) + "\n");
 
-            finalState = game.Rng.State;
         }
 
-        Line(output, "final-state", finalState);
+        // The live state, not the last item's: the original prints whatever the
+        // generator holds when the loop ends, and the loop can end on a row it
+        // skipped.
+        Line(output, "final-state", game.Rng.State);
     }
 }
