@@ -67,6 +67,9 @@ Early. The foundations are in place; the game is not yet playable.
 | Looking around, with peripheral vision | Done, verified against the original |
 | The shops: stock, prices and haggling (store1.c, store2.c) | Done, verified against the original |
 | The monster memory, written out as prose (recall.c) | Done, verified against the original |
+| What a symbol on the map means (help.c) | Done, verified against the original |
+| The debugging commands (wizard.c) | Done, verified against the original |
+| Dying, the tomb and the score table (death.c, files.c) | Not started |
 | Save files | Not started |
 
 ## Building

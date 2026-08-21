@@ -117,6 +117,8 @@ divergence.
 | `look` | **Thirty-six looks**, every direction with and without mineral veins, and again recalling what it finds | **Verified matching** |
 | `store` | **Seventeen scripted visits** through each of the six shops | **Verified matching** |
 | `recall` | **Every creature described**, at four depths of knowledge and sixteen levels | **Verified matching** |
+| `symbol` | **Every printable symbol asked about**, with and without a memory to offer | **Verified matching** |
+| `wizard` | **The debugging commands**: lighting, editing a character, building an item | **Verified matching** |
 
 `seeds` is the one that will confirm the `reset_seed` quirk against the original
 rather than by inference: `magic_init` shuffles appearances inside a
@@ -297,6 +299,26 @@ That is now mirrored: writing a line or erasing one parks the cursor where the
 text starts, and drawing a single character leaves it one further on. It matters
 because the caret is something the player can see, and because the trace is only
 worth keeping if every part of it is real.
+
+## Two more files the harness can compile
+
+help.c was on the excluded list from the beginning, along with io.c, death.c,
+signals.c and files.c - the files that needed a terminal or a Unix kernel. That
+was true of it once, but ident_char() only draws and reads keys, and both of
+those the fake curses has provided since io.c itself was brought in. It is now
+compiled, and the symbol table is compared rather than reimplemented.
+
+wizard.c was never excluded; it simply had nothing calling it. Its three
+commands are now driven the way a player drives them - a run of typed answers,
+including the ones that back out part-way, since backing out of any question in
+the character editor abandons every question after it.
+
+One thing had to be allowed for. The item builder announces itself before its
+first question, and writing that question over the message line flushes the
+announcement through a -more- that takes a key with it. Every one of those
+scripts therefore opens with a space that is eaten before the real answers
+start; without it the whole script slides by one and quietly builds the wrong
+thing.
 
 ## Reaching inside generate.c and main.c
 

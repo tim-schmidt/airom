@@ -4997,6 +4997,259 @@ static void dump_recall(unsigned long seed, int variation, int first, int count)
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* ------------------------------------------------------------------ symbol */
+
+/* What a character on the map stands for.
+
+   Every printable symbol is asked about in turn, and the answer compared. The
+   monster memory is filled in for half of them first, so that the offer to
+   recall what is drawn with that symbol is taken up as well as declined - and
+   an "n" answer, a "y" answer and an escape part-way through are all covered
+   by feeding a different reply each time. */
+static int count_lit(void)
+{
+  int i, j, lit = 0;
+
+  for (i = 0; i < cur_height; i++)
+    for (j = 0; j < cur_width; j++)
+      if (cave[i][j].pl)
+        lit++;
+
+  return lit;
+}
+
+static void dump_symbol(unsigned long seed, int variation, int first, int count)
+{
+  int which;
+
+  header("symbol", seed);
+  printf("variation %d\n", variation);
+  printf("first %d\n", first);
+  printf("count %d\n", count);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+  pin_player(0);
+
+  (void) strcpy(py.misc.name, "Oracle the Bold");
+  py.misc.lev = 1 + ((variation * 5) % 30);
+
+  /* Veins are picked out on the odd variations, which is the one answer that
+     turns on a player option. */
+  highlight_seams = (variation % 2);
+
+  for (which = first; which < first + count && which < 95; which++)
+    {
+      char symbol = (char)(' ' + which);
+      char keys[600];
+      int n = 0;
+      int i;
+
+      /* Nothing known at all, then a little known about everything - so the
+         recall is both declined and offered. */
+      for (i = 0; i < MAX_CREATURES; i++)
+        {
+          (void) memset((char *)&c_recall[i], 0, sizeof(c_recall[i]));
+
+          if (variation >= 2)
+            {
+              c_recall[i].r_kills = 1 + (i % 7);
+              c_recall[i].r_attacks[0] = 1;
+            }
+        }
+
+      init_curses();
+      oracle_screen_reset();
+      msg_flag = FALSE;
+
+      keys[n++] = symbol;
+
+      /* How the offer to recall is answered: declined, taken and read to the
+         end, or taken and escaped out of part-way. */
+      if (variation % 6 < 2)
+        keys[n++] = 'n';
+      else if (variation % 6 < 4)
+        {
+          for (i = 0; i < 40; i++)
+            keys[n++] = 'y';
+        }
+      else
+        {
+          keys[n++] = 'y';
+          keys[n++] = (char)27;
+        }
+
+      for (i = n; i < 599; i++)
+        keys[i] = ' ';
+      keys[599] = 0;
+      oracle_feed_keys(keys);
+
+      ident_char();
+
+      printf("symbol %d [%c]\n", which, symbol);
+      oracle_screen_dump("scr");
+    }
+
+  highlight_seams = FALSE;
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
+/* ------------------------------------------------------------------ wizard */
+
+/* The debugging commands.
+
+   Lighting the level is compared as a whole map. Editing the character and
+   building an item by hand are both a run of typed answers, so the scripts are
+   typed exactly as a player would type them - including the ones that back out
+   part-way, since backing out of any question abandons the rest. */
+static char *wizard_scripts[] = {
+  "",                                       /* backed out of at once        */
+  "18\r18\r18\r18\r18\r18\r",               /* the stats, then out          */
+  "18\r18\r18\r18\r18\r18\r250\r99\r",      /* and the hit points and mana  */
+  "3\r118\r50\r2\r119\r18\r1\r0\r",         /* the edges of every bound     */
+  "18\r18\r18\r18\r18\r18\r250\r99\r5000\r100\r9\r100\r80\r120\r90\r180\r+++-\r",
+  "\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r"        /* nothing typed anywhere       */
+};
+
+#define WIZARD_SCRIPTS 6
+
+static char *create_scripts[] = {
+  " ",                                      /* backed out of at once        */
+  " 23\r|\r1\r100\r1\r2\r6\r5\r3\r0\r0\r0\r0\r100\r5\ry",  /* a sword       */
+  " 23\r|\r1\r100\r1\r2\r6\r5\r3\r0\r0\r0\r1f\r100\r5\ry", /* with flags    */
+  " 75\r!\r64\r4\r3\r0\r0\r0\r0\r0\r0\r500\r0\r400\r10\ry", /* a potion */
+  " 23\r|\r1\r100\r1\r2\r6\r5\r3\r0\r0\r0\r0\r100\r5\rn",  /* and abandoned */
+  " 23\r|\r1\r100\r1\r2\r6\r5\r3\r0\r"        /* backed out part-way */
+};
+
+#define CREATE_SCRIPTS 6
+
+static void dump_wizard(unsigned long seed, int level, int variation)
+{
+  int i;
+  char keys[600];
+  char *script;
+  int n = 0;
+
+  header("wizard", seed);
+  printf("level %d\n", level);
+  printf("variation %d\n", variation);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+  pin_player(level);
+  dun_level = (int16)level;
+
+  init_curses();
+  oracle_screen_reset();
+  msg_flag = FALSE;
+
+  generate_cave();
+  cave[char_row][char_col].cptr = 1;
+
+  py.misc.lev = 20;
+  py.misc.expfact = 100;
+  py.misc.au = 500;
+  py.misc.srh = 20;
+  py.misc.stl = 3;
+  py.misc.disarm = 30;
+  py.misc.save = 40;
+  py.misc.bth = 50;
+  py.misc.bthb = 45;
+  py.misc.wt = 150;
+  py.flags.food = 5000;
+
+  for (i = 0; i < 6; i++)
+    {
+      py.stats.max_stat[i] = 16;
+      py.stats.cur_stat[i] = 12;
+      py.stats.mod_stat[i] = 0;
+      set_use_stat(i);
+    }
+
+  calc_bonuses();
+
+  py.misc.mhp = 100;
+  py.misc.chp = 60;
+  py.misc.mana = 20;
+  py.misc.cmana = 10;
+
+  player_light = TRUE;
+  panel_row = panel_col = -1;
+  check_view();
+
+  msg_flag = FALSE;
+
+  /* Lighting the level is the same command whichever script follows, and it
+     toggles, so it is run twice - on and off again. */
+  wizard_light();
+  printf("lit-first %d\n", count_lit());
+  wizard_light();
+  printf("lit-second %d\n", count_lit());
+  wizard_light();
+
+  script = (variation % 2) == 0
+    ? wizard_scripts[(variation / 2) % WIZARD_SCRIPTS]
+    : create_scripts[(variation / 2) % CREATE_SCRIPTS];
+
+  for (i = 0; script[i]; i++)
+    keys[n++] = script[i];
+  for (i = n; i < 599; i++)
+    keys[i] = (char)27;
+  keys[599] = 0;
+  oracle_feed_keys(keys);
+
+  if ((variation % 2) == 0)
+    change_character();
+  else
+    wizard_create();
+
+  printf("stats %d %d %d %d %d %d\n",
+         (int)py.stats.cur_stat[0], (int)py.stats.cur_stat[1],
+         (int)py.stats.cur_stat[2], (int)py.stats.cur_stat[3],
+         (int)py.stats.cur_stat[4], (int)py.stats.cur_stat[5]);
+  printf("max %d %d %d %d %d %d\n",
+         (int)py.stats.max_stat[0], (int)py.stats.max_stat[1],
+         (int)py.stats.max_stat[2], (int)py.stats.max_stat[3],
+         (int)py.stats.max_stat[4], (int)py.stats.max_stat[5]);
+  printf("misc %d %d %d %d %ld %d %d %d %d %d %d %d %d\n",
+         (int)py.misc.mhp, (int)py.misc.chp, (int)py.misc.mana,
+         (int)py.misc.cmana, (long)py.misc.au, (int)py.misc.srh,
+         (int)py.misc.stl, (int)py.misc.disarm, (int)py.misc.save,
+         (int)py.misc.bth, (int)py.misc.bthb, (int)py.misc.wt,
+         (int)py.flags.speed);
+
+  {
+    cave_type *c_ptr = &cave[char_row][char_col];
+
+    if (c_ptr->tptr != 0)
+      {
+        inven_type *it = &t_list[c_ptr->tptr];
+        bigvtype name;
+
+        objdes(name, it, TRUE);
+        printf("floor %d %d %d %d %d %d %d %d %d %ld %lu %d %s\n",
+               (int)it->index, (int)it->tval, (int)it->subval,
+               (int)it->number, (int)it->weight, (int)it->tohit,
+               (int)it->todam, (int)it->ac, (int)it->toac, (long)it->cost,
+               (unsigned long)it->flags, (int)it->level, name);
+      }
+    else
+      printf("floor none\n");
+  }
+
+  oracle_screen_dump("scr");
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ---------------------------------------------------------------- driver */
 
 
@@ -5045,7 +5298,9 @@ static int usage(void)
           "  oracle moria4 <seed> <level> <variation>  digging, disarming, bashing, throwing\n"
           "  oracle look <seed> <level> <variation>  the cone of peripheral vision\n"
           "  oracle store <seed> <store> <variation>  a visit to a shop\n"
-          "  oracle recall <seed> <variation> <first> <count>  the monster memory\n");
+          "  oracle recall <seed> <variation> <first> <count>  the monster memory\n"
+          "  oracle symbol <seed> <variation> <first> <count>  what a symbol means\n"
+          "  oracle wizard <seed> <level> <variation>  the debugging commands\n");
   return 2;
 }
 
@@ -5298,6 +5553,29 @@ int main(int argc, char *argv[])
                   (int)strtol(argv[3], NULL, 10),
                   (int)strtol(argv[4], NULL, 10),
                   (int)strtol(argv[5], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "symbol") == 0)
+    {
+      if (argc != 6)
+        return usage();
+
+      dump_symbol(strtoul(argv[2], NULL, 10),
+                  (int)strtol(argv[3], NULL, 10),
+                  (int)strtol(argv[4], NULL, 10),
+                  (int)strtol(argv[5], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "wizard") == 0)
+    {
+      if (argc != 5)
+        return usage();
+
+      dump_wizard(strtoul(argv[2], NULL, 10),
+                  (int)strtol(argv[3], NULL, 10),
+                  (int)strtol(argv[4], NULL, 10));
       return 0;
     }
 

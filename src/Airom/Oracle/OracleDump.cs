@@ -1177,6 +1177,31 @@ public static partial class OracleDump
                 DumpRecall(output, rcSeed, rcVariation, rcFirst, rcCount);
                 return 0;
 
+            case "symbol":
+                if (arguments.Length != 5
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint sySeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int syVariation)
+                    || !int.TryParse(arguments[3], CultureInfo.InvariantCulture, out int syFirst)
+                    || !int.TryParse(arguments[4], CultureInfo.InvariantCulture, out int syCount))
+                {
+                    return Usage(error);
+                }
+
+                DumpSymbol(output, sySeed, syVariation, syFirst, syCount);
+                return 0;
+
+            case "wizard":
+                if (arguments.Length != 4
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint wzSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int wzLevel)
+                    || !int.TryParse(arguments[3], CultureInfo.InvariantCulture, out int wzVariation))
+                {
+                    return Usage(error);
+                }
+
+                DumpWizard(output, wzSeed, wzLevel, wzVariation);
+                return 0;
+
             case "potion":
                 if (arguments.Length != 4
                     || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint potSeed)
@@ -1432,6 +1457,8 @@ public static partial class OracleDump
         error.WriteLine("  airom oracle look <seed> <level> <variation>  the cone of peripheral vision");
         error.WriteLine("  airom oracle store <seed> <store> <variation>  a visit to a shop");
         error.WriteLine("  airom oracle recall <seed> <variation> <first> <count>  the monster memory");
+        error.WriteLine("  airom oracle symbol <seed> <variation> <first> <count>  what a symbol means");
+        error.WriteLine("  airom oracle wizard <seed> <level> <variation>  the debugging commands");
         error.WriteLine("  airom oracle regen <seed> <turns>  regeneration of hit points and mana");
         error.WriteLine("  airom oracle map <seed> <level>  the whole level shrunk to one screen");
         return 2;

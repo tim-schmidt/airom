@@ -53,7 +53,10 @@ fi
 # symbol.
 # io.c is now compiled: the fake curses in fake_curses.c records what it draws,
 # so the display is compared against the original rather than a reimplementation.
-EXCLUDE="main.c death.c signals.c files.c help.c generate.c dungeon.c moria3.c"
+# help.c is compiled too: ident_char() only draws and reads keys, both of which
+# the fake curses provides, so the symbol table can be compared rather than
+# reimplemented.
+EXCLUDE="main.c death.c signals.c files.c generate.c dungeon.c moria3.c"
 
 sources=()
 for file in "$SRC"/*.c; do

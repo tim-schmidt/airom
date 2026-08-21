@@ -82,6 +82,8 @@ public class GameLoop
     private Throwing _throwing;
     private StoreScreen _storeScreen;
     private MonsterRecall _monsterRecall;
+    private SymbolHelp _symbolHelp;
+    private WizardCommands _wizardCommands;
 
     public GameLoop(GameState game, Display display)
     {
@@ -113,6 +115,8 @@ public class GameLoop
         _throwing = new Throwing(game, display, this);
         _storeScreen = new StoreScreen(game, display, this);
         _monsterRecall = new MonsterRecall(game, display);
+        _symbolHelp = new SymbolHelp(game, display, this);
+        _wizardCommands = new WizardCommands(game, display, this);
     }
 
     /// <summary>What the player can see, and how the screen hears about it.</summary>
@@ -203,6 +207,12 @@ public class GameLoop
 
     /// <summary>What the player has learned about a kind of creature.</summary>
     public MonsterRecall MonsterRecall => _monsterRecall;
+
+    /// <summary>Saying what a character on the map stands for.</summary>
+    public SymbolHelp SymbolHelp => _symbolHelp;
+
+    /// <summary>The debugging commands, which only wizard mode reaches.</summary>
+    public WizardCommands WizardCommands => _wizardCommands;
 
     /// <summary>
     /// Lights the monsters without moving them, which is what creatures(FALSE)
@@ -680,6 +690,17 @@ public class GameLoop
         {
             _tunnelling.Tunnel(dig);
         }
+        else if (command == '/')
+        {
+            _symbolHelp.IdentifySymbol();
+            FreeTurn = true;
+        }
+        else if (_game.Wizard && WizardCommand(command))
+        {
+            // Every wizard command is a free move: they are for looking at the
+            // game rather than playing it.
+            FreeTurn = true;
+        }
         else if (command == 'm')
         {
             _magic.Cast();
@@ -727,6 +748,36 @@ public class GameLoop
         }
 
         LastCommand = command;
+    }
+
+    /// <summary>
+    /// The debugging commands, which only wizard mode reaches. Pending: the
+    /// rest of the block in do_command() - the object list and the wizard help
+    /// - which need files.c.
+    /// </summary>
+    /// <returns>Whether the key was one of them.</returns>
+    private bool WizardCommand(char command)
+    {
+        if (command == '*')
+        {
+            _wizardCommands.LightLevel();
+            return true;
+        }
+
+        if (command == '@')
+        {
+            _wizardCommands.CreateObject();
+            return true;
+        }
+
+        if (command == Keys.Control('E'))
+        {
+            _wizardCommands.ChangeCharacter();
+            _display.EraseLine(Display.MessageLine, 0);
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>
