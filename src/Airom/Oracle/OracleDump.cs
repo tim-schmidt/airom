@@ -1202,6 +1202,40 @@ public static partial class OracleDump
                 DumpWizard(output, wzSeed, wzLevel, wzVariation);
                 return 0;
 
+            case "death":
+                if (arguments.Length != 3
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint deSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int deVariation))
+                {
+                    return Usage(error);
+                }
+
+                DumpDeath(output, deSeed, deVariation);
+                return 0;
+
+            case "sheet":
+                if (arguments.Length != 3
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint sheSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int sheVariation))
+                {
+                    return Usage(error);
+                }
+
+                DumpSheet(output, sheSeed, sheVariation);
+                return 0;
+
+            case "score":
+                if (arguments.Length != 4
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint scoSeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int scoVariation)
+                    || !int.TryParse(arguments[3], CultureInfo.InvariantCulture, out int scoCount))
+                {
+                    return Usage(error);
+                }
+
+                DumpScore(output, scoSeed, scoVariation, scoCount);
+                return 0;
+
             case "potion":
                 if (arguments.Length != 4
                     || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint potSeed)
@@ -1459,6 +1493,9 @@ public static partial class OracleDump
         error.WriteLine("  airom oracle recall <seed> <variation> <first> <count>  the monster memory");
         error.WriteLine("  airom oracle symbol <seed> <variation> <first> <count>  what a symbol means");
         error.WriteLine("  airom oracle wizard <seed> <level> <variation>  the debugging commands");
+        error.WriteLine("  airom oracle death <seed> <variation>  the gravestone and the score");
+        error.WriteLine("  airom oracle sheet <seed> <variation>  the character sheet, screen and file");
+        error.WriteLine("  airom oracle score <seed> <variation> <count>  a score record, written and read");
         error.WriteLine("  airom oracle regen <seed> <turns>  regeneration of hit points and mana");
         error.WriteLine("  airom oracle map <seed> <level>  the whole level shrunk to one screen");
         return 2;

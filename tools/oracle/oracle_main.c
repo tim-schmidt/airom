@@ -67,6 +67,8 @@ extern void probe_hit_trap(int y, int x);
 extern void probe_carry(int y, int x, int pickup);
 extern const char *oracle_screen_row(int row);
 extern void oracle_log_keys(int on);
+extern void probe_print_tomb(void);
+extern void probe_kingly(void);
 
 /* From oracle_probe_main.c, which reaches the object sort inside main.c. */
 extern void probe_init_t_level(void);
@@ -5250,6 +5252,397 @@ static void dump_wizard(unsigned long seed, int level, int variation)
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* ------------------------------------------------------------------- death */
+
+/* The end of the game: the gravestone, the character sheet and the score.
+
+   The score *file* is not compared. It is the one part of this that was not
+   ported but rewritten: the original shares a file between every player on a
+   Unix machine, with a lock over it and a user id in every entry, and none of
+   that has any meaning here. What is compared is everything that is a port -
+   the stone, the sheet on the screen, the sheet written to a file, the score
+   arithmetic, and the encoding of a single score record, which is the save
+   file's own and has to be exact. */
+
+/* A character worth writing down: not rolled, since the point is to compare
+   the writing rather than the rolling, but filled in the same way every
+   time. */
+static void death_character(int variation)
+{
+  int i;
+
+  (void) strcpy(py.misc.name, "Alatariel");
+  py.misc.male = (variation % 2) == 0;
+  py.misc.prace = variation % MAX_RACES;
+  py.misc.pclass = variation % MAX_CLASS;
+  py.misc.age = 30 + variation;
+  py.misc.ht = 70 + variation;
+  py.misc.wt = 150 + variation;
+  py.misc.sc = 40 + variation;
+  py.misc.lev = 1 + ((variation * 3) % 40);
+  py.misc.exp = 1000L * (variation + 1);
+  py.misc.max_exp = py.misc.exp + 500;
+  py.misc.expfact = 100;
+  py.misc.au = 1234L * (variation + 1);
+  py.misc.mhp = 100 + variation;
+  py.misc.chp = 50 + variation;
+  py.misc.mana = 20 + variation;
+  py.misc.cmana = 10 + variation;
+  py.misc.max_dlv = 10 + variation;
+  py.misc.srh = 20 + variation;
+  py.misc.stl = variation % 8;
+  py.misc.fos = 10 + variation;
+  py.misc.disarm = 30 + variation;
+  py.misc.save = 40 + variation;
+  py.misc.bth = 50 + variation;
+  py.misc.bthb = 45 + variation;
+  py.misc.ptohit = 3;
+  py.misc.dis_th = 4;
+  py.misc.dis_td = 5;
+  py.misc.dis_tac = 6;
+  py.misc.dis_ac = 17;
+  py.flags.see_infra = variation % 6;
+
+  for (i = 0; i < 4; i++)
+    (void) sprintf(py.misc.history[i], "A line of history, number %d.", i);
+
+  for (i = 0; i < 6; i++)
+    {
+      py.stats.max_stat[i] = 16 + (i % 3);
+      py.stats.cur_stat[i] = 12 + (i % 5);
+      py.stats.mod_stat[i] = 0;
+      set_use_stat(i);
+    }
+
+  character_generated = TRUE;
+}
+
+/* And something for them to be carrying. */
+static void death_belongings(int variation)
+{
+  static int worn[] = { 30, 103, 96, 365, 111 };
+  static int slots[] = { INVEN_WIELD, INVEN_BODY, INVEN_HEAD, INVEN_LIGHT,
+                         INVEN_ARM };
+  int i;
+
+  inven_ctr = 0;
+  inven_weight = 0;
+  equip_ctr = 0;
+
+  if (variation % 3 != 2)
+    {
+      for (i = 0; i < 5; i++)
+        invcopy(&inventory[slots[i]], worn[i]);
+
+      inventory[INVEN_LIGHT].p1 = 5000;
+      equip_ctr = 5;
+    }
+
+  calc_bonuses();
+
+  if (variation % 3 != 1)
+    {
+      static int kinds[] = { TV_POTION1, TV_SCROLL1, TV_FOOD, TV_WAND,
+                             TV_SWORD };
+      int k;
+
+      for (k = 0; k < 5; k++)
+        for (i = 0; i < MAX_OBJECTS; i++)
+          if (object_list[i].tval == kinds[k])
+            {
+              inven_type held;
+
+              invcopy(&held, i);
+              (void) inven_carry(&held);
+              break;
+            }
+    }
+}
+
+static void dump_death(unsigned long seed, int variation)
+{
+  char keys[600];
+  int i, n = 0;
+
+  header("death", seed);
+  printf("variation %d\n", variation);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+  pin_player(0);
+
+  dun_level = 5 + (variation % 20);
+  turn = 100;
+  total_winner = (variation % 5) == 4;
+  max_score = (variation % 7) * 100;
+
+  init_curses();
+  oracle_screen_reset();
+  msg_flag = FALSE;
+
+  death_character(variation);
+  death_belongings(variation);
+
+  (void) strcpy(died_from, (variation % 4) == 0 ? "a Giant Rat"
+                : (variation % 4) == 1 ? "an Ancient Dragon"
+                : (variation % 4) == 2 ? "Quitting"
+                : "the Balrog");
+
+  printf("points %ld\n", (long)total_points());
+
+  /* The crown, for a winner. */
+  if (total_winner)
+    {
+      keys[n++] = ' ';
+
+      for (i = n; i < 599; i++)
+        keys[i] = ' ';
+      keys[599] = 0;
+      oracle_feed_keys(keys);
+
+      msg_flag = FALSE;
+      probe_kingly();
+      oracle_screen_dump("crown");
+      printf("crowned %d %ld %ld %d\n", (int)py.misc.lev, (long)py.misc.au,
+             (long)py.misc.exp, (int)dun_level);
+    }
+
+  /* Then the stone. Its one prompt does two jobs: a file name writes the
+     character out, an empty answer shows it on the screen instead, and an
+     escape leaves without either. */
+  n = 0;
+
+  if ((variation % 4) == 0)
+    keys[n++] = (char)27;                 /* abort                          */
+  else if ((variation % 4) == 1)
+    {
+      keys[n++] = '\r';                   /* show it                        */
+      keys[n++] = (char)27;               /* and skip the inventory         */
+    }
+  else if ((variation % 4) == 2)
+    {
+      keys[n++] = '\r';                   /* show it                        */
+      keys[n++] = ' ';                    /* and the inventory too          */
+      keys[n++] = ' ';
+      keys[n++] = ' ';
+    }
+  else
+    {
+      const char *written = "oracle-tomb.txt\r";
+
+      for (i = 0; written[i]; i++)
+        keys[n++] = written[i];
+    }
+
+  /* Cleared here rather than at the top: filling the character in prints
+     messages of its own, and a waiting message turns the first prompt into a
+     -more- that eats a scripted key. */
+  msg_flag = FALSE;
+
+  /* Padded with escapes: they end every prompt this can reach, so a script
+     that runs out simply stops rather than spinning. */
+  for (i = n; i < 599; i++)
+    keys[i] = (char)27;
+  keys[599] = 0;
+  oracle_feed_keys(keys);
+
+  (void) remove("oracle-tomb.txt");
+
+  probe_print_tomb();
+  oracle_screen_dump("scr");
+
+  /* And what it wrote, if it wrote anything. */
+  {
+    FILE *written = fopen("oracle-tomb.txt", "rb");
+
+    if (written != NULL)
+      {
+        char line[512];
+        int row = 0;
+
+        while (fgets(line, (int)sizeof(line), written) != NULL)
+          {
+            int len = (int)strlen(line);
+
+            while (len > 0 && (line[len-1] == '\n' || line[len-1] == '\r'))
+              line[--len] = 0;
+
+            printf("file %d %s\n", row++, line);
+          }
+
+        (void) fclose(written);
+        (void) remove("oracle-tomb.txt");
+      }
+  }
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
+/* --------------------------------------------------------------- character */
+
+/* The character sheet, on the screen and written out to a file. */
+static void dump_sheet(unsigned long seed, int variation)
+{
+  char keys[600];
+  int i;
+  FILE *written;
+  char line[512];
+
+  header("sheet", seed);
+  printf("variation %d\n", variation);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+  pin_player(0);
+
+  dun_level = 5;
+  turn = 100;
+
+  init_curses();
+  oracle_screen_reset();
+  msg_flag = FALSE;
+
+  death_character(variation);
+  death_belongings(variation);
+
+  for (i = 0; i < 599; i++)
+    keys[i] = ' ';
+  keys[599] = 0;
+  oracle_feed_keys(keys);
+
+  msg_flag = FALSE;
+  display_char();
+  oracle_screen_dump("scr");
+
+  (void) remove("oracle-sheet.txt");
+
+  if (file_character("oracle-sheet.txt"))
+    {
+      written = fopen("oracle-sheet.txt", "rb");
+
+      if (written != NULL)
+        {
+          int row = 0;
+
+          while (fgets(line, (int)sizeof(line), written) != NULL)
+            {
+              int len = (int)strlen(line);
+
+              while (len > 0 && (line[len-1] == '\n' || line[len-1] == '\r'))
+                line[--len] = 0;
+
+              printf("file %d %s\n", row++, line);
+            }
+
+          (void) fclose(written);
+        }
+    }
+
+  (void) remove("oracle-sheet.txt");
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
+/* ------------------------------------------------------------------- score */
+
+/* One score record, written and read back.
+
+   This is the save file's own encoding - every byte exclusive-ored with the one
+   before it - so the bytes themselves are compared, not merely the values that
+   come back out. */
+static void dump_score(unsigned long seed, int variation, int count)
+{
+  high_scores out, back;
+  FILE *file;
+  int i, which;
+
+  header("score", seed);
+  printf("variation %d\n", variation);
+  printf("count %d\n", count);
+
+  init_seeds((int32u)seed);
+
+  (void) remove("oracle-score.dat");
+  file = fopen("oracle-score.dat", "wb+");
+
+  if (file == NULL)
+    {
+      printf("cannot open\n");
+      return;
+    }
+
+  set_fileptr(file);
+
+  for (which = 0; which < count; which++)
+    {
+      int v = variation + which;
+
+      out.points = 1000L * (v + 1);
+      out.birth_date = 700000000L + v;
+      out.uid = 0;
+      out.mhp = 100 + v;
+      out.chp = 50 + v;
+      out.dun_level = v % 50;
+      out.lev = 1 + (v % 40);
+      out.max_dlv = 10 + (v % 30);
+      out.sex = (v % 2) == 0 ? 'M' : 'F';
+      out.race = v % MAX_RACES;
+      out.class = v % MAX_CLASS;
+      (void) memset(out.name, 0, PLAYER_NAME_SIZE);
+      (void) sprintf(out.name, "Player %d", v);
+      (void) memset(out.died_from, 0, 25);
+      (void) sprintf(out.died_from, "a Giant Rat %d", v);
+
+      wr_highscore(&out);
+    }
+
+  (void) fflush(file);
+
+  /* The bytes as they landed. */
+  {
+    long size;
+    int c;
+
+    (void) fseek(file, 0L, SEEK_END);
+    size = ftell(file);
+    (void) fseek(file, 0L, SEEK_SET);
+
+    printf("bytes %ld\n", size);
+
+    for (i = 0; i < size; i++)
+      {
+        c = getc(file);
+        printf("byte %d %d\n", i, c & 0xFF);
+      }
+  }
+
+  /* And read back, to prove the two halves agree. */
+  (void) fseek(file, 0L, SEEK_SET);
+  set_fileptr(file);
+
+  for (which = 0; which < count; which++)
+    {
+      rd_highscore(&back);
+
+      printf("read %d %ld %ld %d %d %d %d %d %d %c %d %d [%s] [%s]\n", which,
+             (long)back.points, (long)back.birth_date, (int)back.uid,
+             (int)back.mhp, (int)back.chp, (int)back.dun_level,
+             (int)back.lev, (int)back.max_dlv, back.sex, (int)back.race,
+             (int)back.class, back.name, back.died_from);
+    }
+
+  (void) fclose(file);
+  (void) remove("oracle-score.dat");
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ---------------------------------------------------------------- driver */
 
 
@@ -5300,7 +5693,10 @@ static int usage(void)
           "  oracle store <seed> <store> <variation>  a visit to a shop\n"
           "  oracle recall <seed> <variation> <first> <count>  the monster memory\n"
           "  oracle symbol <seed> <variation> <first> <count>  what a symbol means\n"
-          "  oracle wizard <seed> <level> <variation>  the debugging commands\n");
+          "  oracle wizard <seed> <level> <variation>  the debugging commands\n"
+          "  oracle death <seed> <variation>  the gravestone and the crown\n"
+          "  oracle sheet <seed> <variation>  the character sheet, screen and file\n"
+          "  oracle score <seed> <variation> <count>  the score record encoding\n");
   return 2;
 }
 
@@ -5576,6 +5972,29 @@ int main(int argc, char *argv[])
       dump_wizard(strtoul(argv[2], NULL, 10),
                   (int)strtol(argv[3], NULL, 10),
                   (int)strtol(argv[4], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "death") == 0 || strcmp(argv[1], "sheet") == 0)
+    {
+      if (argc != 4)
+        return usage();
+
+      if (strcmp(argv[1], "death") == 0)
+        dump_death(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
+      else
+        dump_sheet(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "score") == 0)
+    {
+      if (argc != 5)
+        return usage();
+
+      dump_score(strtoul(argv[2], NULL, 10),
+                 (int)strtol(argv[3], NULL, 10),
+                 (int)strtol(argv[4], NULL, 10));
       return 0;
     }
 

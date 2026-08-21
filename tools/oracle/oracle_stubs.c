@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "config.h"
 #include "constant.h"
@@ -151,20 +152,27 @@ int c;
   return strchr(s, c);
 }
 
-/* --------------------------------------------------------------- death.c */
-
-void display_scores(show_player)
-int show_player;
-{ }
-
-int duplicate_character() { return 0; }
-
-int32 total_points() { return 0; }
-
-void exit_game()
+/* death.c stamps the gravestone with today's date, which two runs at two
+   different moments can never agree on - and, on a machine where time_t is
+   wider than a long, its 1989 spelling hands ctime() a pointer to four bytes
+   and lets it read eight. The build renames ctime to this, so the stone always
+   says the same day and nothing reads past what it was given. */
+char *oracle_ctime(when)
+const time_t *when;
 {
-  fflush(stdout);
-  exit(0);
+  static char text[26];
+
+  (void) when;
+  (void) strcpy(text, "Sat Jan  1 00:00:00 2000" "\n");
+  return text;
+}
+
+/* death.c locks the score file against other players, of which there are none
+   here, so the lock always succeeds. */
+int flock(fd, operation)
+int fd, operation;
+{
+  return 0;
 }
 
 /* ------------------------------------------------------------- signals.c */
@@ -176,21 +184,7 @@ void ignore_signals() { }
 void default_signals() { }
 void restore_signals() { }
 
-/* --------------------------------------------------------------- files.c */
-
-void init_scorefile() { }
-void read_times() { }
-void print_objects() { }
-
-void helpfile(filename)
-char *filename;
-{ }
-
-int file_character(filename1)
-char *filename1;
-{
-  return 0;
-}
+/* files.c is compiled now, so nothing here stands in for it either. */
 
 /* ---------------------------------------------------------------- help.c */
 

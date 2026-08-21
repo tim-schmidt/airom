@@ -69,7 +69,8 @@ Early. The foundations are in place; the game is not yet playable.
 | The monster memory, written out as prose (recall.c) | Done, verified against the original |
 | What a symbol on the map means (help.c) | Done, verified against the original |
 | The debugging commands (wizard.c) | Done, verified against the original |
-| Dying, the tomb and the score table (death.c, files.c) | Not started |
+| Dying, the tomb and the character sheet (death.c, files.c) | Done, verified against the original |
+| The score table itself | Done, rewritten for one player on one machine |
 | Save files | Not started |
 
 ## Building
@@ -100,6 +101,16 @@ multiplicative, that lands on an unrelated part of the cycle. Harmless in play,
 but "fixing" it would change which dungeons a given seed produces. Such places
 are marked `FAITHFUL QUIRK` in the source.
 
+One place is deliberately not a port. Umoria's score table is a single file
+shared by every player on a Unix machine: the game runs setuid, locks the file
+while it writes, and stamps each entry with a user id. None of that means
+anything for one person on one Windows machine, so the table is kept as a plain
+file under the player's own application data, with no lock and a user id of
+nought throughout - which is the case the original already handles, falling back
+to the character's birth date to tell one character from another. The *record*
+inside that file is still the original's, byte for byte, and is compared as
+such.
+
 The C sources are kept outside this repository and used strictly as reference.
 
 ## Generated data
@@ -126,6 +137,7 @@ src/Airom/          the game
   Core/             engine primitives (RNG, ...)
   Data/             game tables and the types they populate
   Terminal/         the screen surface that replaces curses
+help/               the original's help text, shipped beside the program
 tests/Airom.Tests/  test suite
 tools/              code generators run against the reference sources
 ```

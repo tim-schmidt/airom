@@ -74,7 +74,8 @@ public sealed partial class Display
     /// <summary>Column the sidebar starts at. Umoria's STAT_COLUMN.</summary>
     public const int StatColumn = 0;
 
-    private static readonly string[] StatNames =
+    /// <summary>How each stat is labelled. Mirrors stat_names[].</summary>
+    public static readonly string[] StatNames =
         ["STR : ", "INT : ", "WIS : ", "DEX : ", "CON : ", "CHR : "];
 
     /// <summary>

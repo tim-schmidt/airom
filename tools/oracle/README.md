@@ -26,11 +26,14 @@ here in the first place:
 
 | Excluded | Why |
 |---|---|
-| `death.c` | `setuid`, `flock`, the shared scoreboard |
 | `signals.c` | Unix signal handling |
-| `files.c` | score file and help file I/O |
-| `help.c` | interactive help |
 | `main.c` | replaced by `oracle_main.c` |
+| `generate.c`, `dungeon.c`, `moria3.c`, `death.c` | compiled, but through a probe that reaches their static functions |
+
+`help.c`, `files.c` and `death.c` were on that list once, for the terminal and
+the Unix kernel they wanted. They are all compiled now: what they actually
+needed was a screen and a few headers, and the fake curses has supplied the
+screen since io.c was brought in.
 
 `oracle_stubs.c` supplies those symbols. Output stubs are silent; input stubs
 abort loudly, because nothing in dungeon generation should ever ask for a
@@ -381,12 +384,66 @@ final-state 96298702
 The version on the first line is `ORACLE_FORMAT` in `oracle_main.c` and
 `OracleDump.FormatVersion` in the C#. Bump both together.
 
+## The last two files, and the one that is not a port
+
+death.c and files.c came in together, since neither is much use without the
+other: the gravestone offers to write the character out, and writing the
+character out is files.c.
+
+Three headers had to be faked before death.c would compile - `pwd.h`, and the
+`L_SET` and `LOCK_*` constants of `sys/file.h` - and `flock` stubbed to succeed,
+since there is nobody to lock against. That was expected. What was not is that
+the harness segfaulted on the tomb. `date()` does this:
+
+```c
+long clockvar;
+clockvar = time((long *)0);
+return ctime(&clockvar);
+```
+
+On the LLP64 model that Windows uses, `time_t` is eight bytes and `long` is
+four, so `ctime` is handed a pointer to four bytes and reads eight. The build
+now compiles with `-Dctime=oracle_ctime`, which returns a fixed date - which the
+comparison wanted anyway, since two runs at two different moments could never
+agree on today's date. AIrom's side pins the same date by overriding one method.
+
+The tomb also caught a real porting mistake that no unit test would have. Its
+prompt has two forms in the C, and the one that reads
+
+```c
+if (get_check("Save character record?"))
+```
+
+is inside `#ifdef MAC`. The portable form is a single `get_string` where a file
+name writes the record out, an empty answer shows it on the screen, and an
+escape leaves without either - and that is what the port had to be rewritten to
+do. The four answers are each a variation of the `death` mode.
+
+One quirk of the harness is worth recording, because it cost an hour. The tomb
+script kept running out of keys. The reason was that filling the character in
+prints messages of its own - "You can learn some new prayers now." - and a
+waiting message turns the first prompt into a `-more-` that eats the first
+scripted key. Every mode that scripts a prompt now clears `msg_flag`
+immediately before feeding its keys, rather than once at the top.
+
+The score *table* is the one thing here that was rewritten rather than ported,
+so it is the one thing the oracle does not compare: Umoria's is a setuid file
+shared between every player on a Unix machine, and AIrom's is a plain file
+belonging to one player on one machine. The record inside it is still the
+original's, and `score` compares it byte for byte - every byte of the XOR chain,
+written and read back. Unit tests hold up the table around it.
+
 ## Current verification
 
 The C oracle builds with gcc 16.1.0 (MSYS2 UCRT64) and `rng` matches AIrom
 exactly: **20,000 draws across seven seeds — 140,000 values** — including the
 boundaries 0, 1, `M-1` and `UINT_MAX`, and the folded start state and final
 state in each.
+
+`death`, `sheet` and `score` match across **178 runs**: the gravestone in all
+four of its answers, the crowning of a winner, the character sheet on the screen
+and the same sheet written out to a file, and 226 bytes of score record per run
+compared one byte at a time.
 
 `seeds` matches too — **64 seeds, 217 lines each**, covering the seeding chain,
 all six appearance shuffles and all 45 generated scroll titles. It confirms the

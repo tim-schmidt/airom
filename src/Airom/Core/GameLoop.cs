@@ -84,6 +84,9 @@ public class GameLoop
     private MonsterRecall _monsterRecall;
     private SymbolHelp _symbolHelp;
     private WizardCommands _wizardCommands;
+    private CharacterSheet _characterSheet;
+    private CharacterFile _characterFile;
+    private Death _death;
 
     public GameLoop(GameState game, Display display)
     {
@@ -117,6 +120,9 @@ public class GameLoop
         _monsterRecall = new MonsterRecall(game, display);
         _symbolHelp = new SymbolHelp(game, display, this);
         _wizardCommands = new WizardCommands(game, display, this);
+        _characterSheet = new CharacterSheet(game, display);
+        _characterFile = new CharacterFile(game, display, this);
+        _death = new Death(game, display, this);
     }
 
     /// <summary>What the player can see, and how the screen hears about it.</summary>
@@ -213,6 +219,19 @@ public class GameLoop
 
     /// <summary>The debugging commands, which only wizard mode reaches.</summary>
     public WizardCommands WizardCommands => _wizardCommands;
+
+    /// <summary>The whole character on one screen.</summary>
+    public CharacterSheet CharacterSheet => _characterSheet;
+
+    /// <summary>Writing the character out, and reading the help text back in.</summary>
+    public CharacterFile CharacterFile => _characterFile;
+
+    /// <summary>What happens when the game ends.</summary>
+    public Death Death
+    {
+        get => _death;
+        set => _death = value ?? throw new ArgumentNullException(nameof(value));
+    }
 
     /// <summary>
     /// Lights the monsters without moving them, which is what creatures(FALSE)
@@ -678,6 +697,24 @@ public class GameLoop
             _looking.Look();
             FreeTurn = true;
         }
+        else if (command == '?')
+        {
+            _characterFile.ShowHelp(_game.RogueLikeCommands
+                ? "roglcmds.hlp"
+                : "origcmds.hlp");
+
+            FreeTurn = true;
+        }
+        else if (command == 'v')
+        {
+            _characterFile.ShowHelp("version.hlp");
+            FreeTurn = true;
+        }
+        else if (command == Keys.Control('V'))
+        {
+            _characterFile.ShowHelp("COPYING");
+            FreeTurn = true;
+        }
         else if (command == 'f')
         {
             _doors.Bash();
@@ -751,9 +788,7 @@ public class GameLoop
     }
 
     /// <summary>
-    /// The debugging commands, which only wizard mode reaches. Pending: the
-    /// rest of the block in do_command() - the object list and the wizard help
-    /// - which need files.c.
+    /// The debugging commands, which only wizard mode reaches.
     /// </summary>
     /// <returns>Whether the key was one of them.</returns>
     private bool WizardCommand(char command)
@@ -774,6 +809,21 @@ public class GameLoop
         {
             _wizardCommands.ChangeCharacter();
             _display.EraseLine(Display.MessageLine, 0);
+            return true;
+        }
+
+        if (command == Keys.Control('O'))
+        {
+            _characterFile.PrintObjects();
+            return true;
+        }
+
+        if (command == '\\')
+        {
+            _characterFile.ShowHelp(_game.RogueLikeCommands
+                ? "rwizcmds.hlp"
+                : "owizcmds.hlp");
+
             return true;
         }
 

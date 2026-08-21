@@ -56,7 +56,7 @@ fi
 # help.c is compiled too: ident_char() only draws and reads keys, both of which
 # the fake curses provides, so the symbol table can be compared rather than
 # reimplemented.
-EXCLUDE="main.c death.c signals.c files.c generate.c dungeon.c moria3.c"
+EXCLUDE="main.c signals.c generate.c dungeon.c moria3.c death.c"
 
 sources=()
 for file in "$SRC"/*.c; do
@@ -69,7 +69,7 @@ for file in "$SRC"/*.c; do
 done
 
 here="$(cd "$(dirname "$0")" && pwd)"
-sources+=("$here/fake_curses.c" "$here/oracle_stubs.c" "$here/oracle_probe.c" "$here/oracle_probe_dungeon.c" "$here/oracle_probe_moria3.c" "$here/oracle_probe_main.c" "$here/oracle_main.c")
+sources+=("$here/fake_curses.c" "$here/oracle_stubs.c" "$here/oracle_probe.c" "$here/oracle_probe_dungeon.c" "$here/oracle_probe_moria3.c" "$here/oracle_probe_death.c" "$here/oracle_probe_main.c" "$here/oracle_main.c")
 
 echo "compiling ${#sources[@]} files with $CC"
 
@@ -82,6 +82,7 @@ echo "compiling ${#sources[@]} files with $CC"
 "$CC" -std=gnu89 -w -O1 \
     -include "$here/oracle_shim.h" \
     -I"$here/fakeunix" \
+    -Dctime=oracle_ctime \
     -I"$SRC" \
     -o "$OUT" \
     "${sources[@]}"

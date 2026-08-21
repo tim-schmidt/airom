@@ -191,6 +191,44 @@ public sealed class GameState
     /// </summary>
     public bool ShowWeights { get; set; }
 
+    /// <summary>
+    /// Whether a character has been rolled yet. The character sheet is drawn
+    /// during creation as well as after it, and before the rolling is done
+    /// there is nothing to put in it. Mirrors character_generated.
+    /// </summary>
+    public bool CharacterGenerated { get; set; }
+
+    /// <summary>
+    /// When the character was rolled, as a count of seconds. With no user ids
+    /// to tell one player's characters from another's, this is what identifies
+    /// a character in the score table. Mirrors birth_date.
+    /// </summary>
+    public int BirthDate { get; set; }
+
+    /// <summary>
+    /// Whether this game was restored from a panic save - one written when
+    /// something went wrong rather than when the player asked. Such a game is
+    /// never scored. Mirrors panic_save.
+    /// </summary>
+    public bool PanicSaved { get; set; }
+
+    /// <summary>
+    /// Whether the character has been saved to disk. Mirrors character_saved.
+    /// </summary>
+    public bool CharacterSaved { get; set; }
+
+    /// <summary>Whether the player has won and been made king. Mirrors total_winner.</summary>
+    public bool TotalWinnerCrowned { get; set; }
+
+    /// <summary>What killed the player, as the tomb and the score table say it.</summary>
+    public string DiedFrom { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The best score this character has ever had, so that a score cannot fall
+    /// between one save and the next. Mirrors max_score.
+    /// </summary>
+    public int MaxScore { get; set; }
+
     /// <summary>Whether wizard mode is active, which forfeits the score.</summary>
     public bool Wizard { get; set; }
 
