@@ -591,6 +591,15 @@ public partial class GameLoop
                     }
                     else
                     {
+                        // The terminal may have been resized since the screen
+                        // was last laid out. This is the one place every turn
+                        // passes through with nothing half-drawn, so it is
+                        // where the view grows or shrinks to fit.
+                        if (_display.ScreenSizeChanged)
+                        {
+                            _display.DrawCave(Player);
+                        }
+
                         _display.MoveCursorRelative(_game.CharacterRow, _game.CharacterColumn);
 
                         char command;
@@ -637,7 +646,13 @@ public partial class GameLoop
             else
             {
                 // Paralysed, resting or dead: nothing to ask, so just show
-                // where the player is.
+                // where the player is - on a screen refitted if it has to be,
+                // since a rest can outlast a resize.
+                if (_display.ScreenSizeChanged)
+                {
+                    _display.DrawCave(Player);
+                }
+
                 _display.MoveCursorRelative(_game.CharacterRow, _game.CharacterColumn);
                 _display.Refresh();
             }
@@ -2019,7 +2034,13 @@ public partial class GameLoop
     {
         _display.MessageWaitingFlag = false;
 
-        char command = _display.ReadKey();
+        // The one wait where the screen holds nothing but the game, so the
+        // one where a resized terminal can be drawn for on the spot.
+        char command = _display.ReadKey(whenResized: () =>
+        {
+            _display.DrawCave(Player);
+            _display.MoveCursorRelative(_game.CharacterRow, _game.CharacterColumn);
+        });
         int count = 0;
 
         if ((_game.RogueLikeCommands && command >= '0' && command <= '9')

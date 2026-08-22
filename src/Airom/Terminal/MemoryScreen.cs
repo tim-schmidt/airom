@@ -16,7 +16,7 @@ namespace Airom.Terminal;
 /// </summary>
 public sealed class MemoryScreen : IScreen
 {
-    private readonly ScreenBuffer _buffer;
+    private ScreenBuffer _buffer;
     private readonly Queue<char> _input = new();
     private char[]? _saved;
 
@@ -30,6 +30,26 @@ public sealed class MemoryScreen : IScreen
     public int Rows => _buffer.Rows;
 
     public int Columns => _buffer.Columns;
+
+    public Action? Resized { get; set; }
+
+    /// <summary>
+    /// Changes the grid's size the way a console screen does when its window
+    /// is resized: what it held is kept, cut or padded at the bottom and
+    /// right, and whoever is waiting on <see cref="Resized"/> is told. Lets a
+    /// test resize the terminal under the game.
+    /// </summary>
+    public void Resize(int rows, int columns)
+    {
+        if (_saved is not null)
+        {
+            _saved = ScreenBuffer.Regrid(_saved, Rows, Columns, rows, columns);
+        }
+
+        _buffer = _buffer.Resized(rows, columns);
+        MoveCursor(CursorRow, CursorColumn);
+        Resized?.Invoke();
+    }
 
     /// <summary>How many times <see cref="Refresh"/> has been called.</summary>
     public int RefreshCount { get; private set; }

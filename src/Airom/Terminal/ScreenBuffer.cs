@@ -131,4 +131,41 @@ internal sealed class ScreenBuffer
     }
 
     internal char[] ToArray() => [.. _cells];
+
+    /// <summary>
+    /// A grid of another size holding what this one held, cut or padded at
+    /// the bottom and right, with every row marked for redraw.
+    /// </summary>
+    internal ScreenBuffer Resized(int rows, int columns)
+    {
+        var resized = new ScreenBuffer(rows, columns);
+        Regrid(_cells, Rows, Columns, rows, columns).CopyTo(resized._cells.AsSpan());
+        return resized;
+    }
+
+    /// <summary>
+    /// Lays cells stored row-major for one grid size out for another, keeping
+    /// the top-left corner: rows and columns beyond the new size are dropped,
+    /// and any the new size adds are blank.
+    /// </summary>
+    internal static char[] Regrid(
+        ReadOnlySpan<char> cells,
+        int rows,
+        int columns,
+        int newRows,
+        int newColumns)
+    {
+        var result = new char[newRows * newColumns];
+        result.AsSpan().Fill(' ');
+
+        int sharedRows = Math.Min(rows, newRows);
+        int sharedColumns = Math.Min(columns, newColumns);
+        for (int row = 0; row < sharedRows; row++)
+        {
+            cells.Slice(row * columns, sharedColumns)
+                .CopyTo(result.AsSpan(row * newColumns, sharedColumns));
+        }
+
+        return result;
+    }
 }

@@ -390,8 +390,8 @@ public partial class GameLoop
             // how the arithmetic reads.
             while (true)
             {
-                column += (((direction - 1) % 3) - 1) * (Panel.ViewColumns / 2);
-                row -= (((direction - 1) / 3) - 1) * (Panel.ViewRows / 2);
+                column += (((direction - 1) % 3) - 1) * (_display.Panel.ViewColumns / 2);
+                row -= (((direction - 1) / 3) - 1) * (_display.Panel.ViewRows / 2);
 
                 // FAITHFUL QUIRK: the width is checked against the width and
                 // the height against the width as well. On a level twice as
@@ -403,8 +403,8 @@ public partial class GameLoop
                 {
                     _display.MessagePrint("You've gone past the end of your map.");
 
-                    column -= (((direction - 1) % 3) - 1) * (Panel.ViewColumns / 2);
-                    row += (((direction - 1) / 3) - 1) * (Panel.ViewRows / 2);
+                    column -= (((direction - 1) % 3) - 1) * (_display.Panel.ViewColumns / 2);
+                    row += (((direction - 1) / 3) - 1) * (_display.Panel.ViewRows / 2);
                     break;
                 }
 

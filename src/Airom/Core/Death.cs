@@ -138,6 +138,8 @@ public class Death
     /// </summary>
     public void PrintTomb()
     {
+        using IDisposable centred = _display.Centred();
+
         while (true)
         {
             DrawTomb();
@@ -303,6 +305,7 @@ public class Death
         scores.Record(TotalPoints(), _game.DiedFrom);
         scores.Display(playerOnly: true);
 
+        using IDisposable centred = _display.Centred();
         _display.EraseLine(23, 0);
     }
 

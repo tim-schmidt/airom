@@ -181,6 +181,8 @@ public class ScoreFile
             return;
         }
 
+        using IDisposable centred = _display.Centred();
+
         int rank = 1;
         int at = 0;
 

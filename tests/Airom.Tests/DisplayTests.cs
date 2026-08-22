@@ -69,8 +69,8 @@ public class DisplayTests
         panel.Resize(GameState.DungeonHeight, GameState.DungeonWidth);
         panel.Follow(33, 99, force: true);
 
-        Assert.Equal(Panel.ViewRows, panel.RowMax - panel.RowMin + 1);
-        Assert.Equal(Panel.ViewColumns, panel.ColumnMax - panel.ColumnMin + 1);
+        Assert.Equal(panel.ViewRows, panel.RowMax - panel.RowMin + 1);
+        Assert.Equal(panel.ViewColumns, panel.ColumnMax - panel.ColumnMin + 1);
     }
 
     /// <summary>

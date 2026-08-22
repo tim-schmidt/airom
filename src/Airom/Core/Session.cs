@@ -237,6 +237,10 @@ public class Session
         }
         else
         {
+            // The sheet is one of the original's full screens, and sits in
+            // the middle of a bigger terminal.
+            using IDisposable centred = _display.Centred();
+
             if (!NewCharacter())
             {
                 // Q at the last prompt of creation. Nothing has been generated,
@@ -358,6 +362,8 @@ public class Session
         {
             return;
         }
+
+        using IDisposable centred = _display.Centred();
 
         _display.ClearScreen();
 

@@ -402,8 +402,8 @@ public class SaveFile
         cipher.WriteShort((ushort)_game.Monsters.BredCount);
         cipher.WriteShort((ushort)_game.Cave.Height);
         cipher.WriteShort((ushort)_game.Cave.Width);
-        cipher.WriteShort((ushort)_display.Panel.MaxRow);
-        cipher.WriteShort((ushort)_display.Panel.MaxColumn);
+        cipher.WriteShort((ushort)_display.Panel.SavedMaxRow);
+        cipher.WriteShort((ushort)_display.Panel.SavedMaxColumn);
 
         WriteCave(cipher);
 
@@ -832,7 +832,7 @@ public class SaveFile
         int maxPanelRows = (short)cipher.ReadShort();
         int maxPanelColumns = (short)cipher.ReadShort();
 
-        _display.Panel.RestoreBounds(maxPanelRows, maxPanelColumns);
+        _display.Panel.RestoreBounds(maxPanelRows, maxPanelColumns, height, width);
 
         ReadCave(cipher);
 

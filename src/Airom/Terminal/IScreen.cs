@@ -68,6 +68,17 @@ public interface IScreen
     /// <summary>Whether <see cref="ReadKey"/> would return without blocking.</summary>
     bool KeyAvailable { get; }
 
+    /// <summary>
+    /// Called from inside <see cref="ReadKey"/> if the terminal changes size
+    /// while a key is awaited. By then <see cref="Rows"/> and
+    /// <see cref="Columns"/> answer for the new size and what the grid held
+    /// has been painted again within it; the call is the chance to draw for
+    /// the new size instead. The game sets it only where it knows how to draw
+    /// everything on the screen, and a screen that cannot change size never
+    /// calls it.
+    /// </summary>
+    Action? Resized { get; set; }
+
     /// <summary>Discards type-ahead. Mirrors flush().</summary>
     void FlushInput();
 

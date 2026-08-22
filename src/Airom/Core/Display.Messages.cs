@@ -38,6 +38,13 @@ public sealed partial class Display
     /// <summary>Longest message stored. Umoria's VTYPESIZ.</summary>
     private const int MessageLength = 80;
 
+    /// <summary>
+    /// The furthest column a " -more-" can start from and still fit, which is
+    /// also as far as a question may run before " [y/n]" goes there instead.
+    /// Column 73 in the original, and seven short of the edge on any screen.
+    /// </summary>
+    private int MoreColumn => _screen.Columns - 7;
+
     private readonly string[] _oldMessages = new string[SavedMessageCount];
     private int _lastMessage;
 
@@ -103,12 +110,12 @@ public sealed partial class Display
             oldLength = _oldMessages[_lastMessage].Length + 1;
             int newLength = text?.Length ?? 0;
 
-            if (text is null || newLength + oldLength + 2 >= 73)
+            if (text is null || newLength + oldLength + 2 >= MoreColumn)
             {
                 // Keep the whole -more- visible even after a very long message.
-                if (oldLength > 73)
+                if (oldLength > MoreColumn)
                 {
-                    oldLength = 73;
+                    oldLength = MoreColumn;
                 }
 
                 PutBuffer(" -more-", MessageLine, oldLength);
@@ -128,7 +135,7 @@ public sealed partial class Display
 
         if (!combine)
         {
-            _screen.EraseLine(MessageLine, 0);
+            _screen.EraseLine(MessageLine + _originRow, _originColumn);
         }
 
         if (text is null)
@@ -178,20 +185,47 @@ public sealed partial class Display
     /// are answering about, and handles a redraw request itself rather than
     /// passing it on.
     /// </summary>
-    public char ReadKey()
+    public char ReadKey() => ReadKey(whenResized: null);
+
+    /// <summary>
+    /// Reads one key, and if the terminal changes size while the game waits
+    /// for it, has <paramref name="whenResized"/> draw the screen over again
+    /// for the new size before waiting on.
+    ///
+    /// Only the command prompt passes one. A prompt for a direction or a
+    /// shop's menu is drawn by whoever put it up, and nobody else knows how to
+    /// put it back; those waits let the screen keep what it had, and the
+    /// view is refitted the next time the loop comes round.
+    /// </summary>
+    public char ReadKey(Action? whenResized)
     {
         Refresh();
         CommandCount = 0;
 
-        while (true)
-        {
-            char key = _screen.ReadKey();
-            if (key != Keys.Redraw)
+        _screen.Resized = whenResized is null
+            ? null
+            : () =>
             {
-                return key;
-            }
+                whenResized();
+                Refresh();
+            };
 
-            _screen.Refresh();
+        try
+        {
+            while (true)
+            {
+                char key = _screen.ReadKey();
+                if (key != Keys.Redraw)
+                {
+                    return key;
+                }
+
+                _screen.Refresh();
+            }
+        }
+        finally
+        {
+            _screen.Resized = null;
         }
     }
 
@@ -242,8 +276,8 @@ public sealed partial class Display
         Print(prompt, 0, 0);
 
         // The prompt goes right after the question, or at column 73 if the
-        // question runs long.
-        int column = Math.Min(prompt.Length, 73);
+        // question runs long - the last column a " -more-" or " [y/n]" fits in.
+        int column = Math.Min(prompt.Length, MoreColumn);
         PutBuffer(" [y/n]", 0, column);
 
         char answer;
@@ -289,14 +323,14 @@ public sealed partial class Display
 
         // Clear the field, then work within it. The cursor is put back at the
         // front afterwards, which is where the typing starts.
-        _screen.Put(row, column, new string(' ', length));
+        _screen.Put(row + _originRow, column + _originColumn, new string(' ', length));
         MoveCursor(row, column);
 
         int startColumn = column;
         int endColumn = column + length - 1;
-        if (endColumn > 79)
+        if (endColumn > LastColumn - _originColumn)
         {
-            endColumn = 79;
+            endColumn = LastColumn - _originColumn;
         }
 
         var typed = new StringBuilder();
@@ -337,7 +371,7 @@ public sealed partial class Display
                 // A typed character carries the cursor along with it, so it
                 // leads what has been typed rather than sitting at the front
                 // of the field. Mirrors mvaddch(), which writes and advances.
-                _screen.Put(row, column, key);
+                _screen.Put(row + _originRow, column + _originColumn, key);
                 typed.Append(key);
                 column++;
                 MoveCursor(row, column);
