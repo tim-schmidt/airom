@@ -20,11 +20,51 @@ namespace Airom.Core;
 /// </summary>
 public sealed class Panel
 {
-    /// <summary>Rows of dungeon the map area shows. Umoria's SCREEN_HEIGHT.</summary>
-    public const int ViewRows = 22;
+    /// <summary>
+    /// Rows of dungeon a 24-row terminal shows. Umoria's SCREEN_HEIGHT.
+    ///
+    /// The original was written for one size of screen, so the same constant
+    /// sized both the view and the dungeon: rooms are carved in a grid of
+    /// half-screens, and a room is lit or darkened a block at a time. Those
+    /// blocks are part of the levels themselves and stay this size however
+    /// large the terminal is; <see cref="ViewRows"/> is the view.
+    /// </summary>
+    public const int BlockRows = 22;
 
-    /// <summary>Columns of dungeon the map area shows. Umoria's SCREEN_WIDTH.</summary>
-    public const int ViewColumns = 66;
+    /// <summary>Columns of dungeon an 80-column terminal shows. Umoria's SCREEN_WIDTH.</summary>
+    public const int BlockColumns = 66;
+
+    /// <summary>
+    /// Rows of dungeon the map area shows. Umoria's SCREEN_HEIGHT, except that
+    /// the terminal decides it: everything between the message line and the
+    /// status line.
+    /// </summary>
+    public int ViewRows { get; private set; }
+
+    /// <summary>
+    /// Columns of dungeon the map area shows. Umoria's SCREEN_WIDTH, except
+    /// that the terminal decides it: everything right of the sidebar, less the
+    /// last column, which the original never used either.
+    /// </summary>
+    public int ViewColumns { get; private set; }
+
+    private int _caveHeight;
+    private int _caveWidth;
+
+    /// <summary>A panel the size the original had, which is what a 24x80 terminal gets.</summary>
+    public Panel()
+        : this(BlockRows, BlockColumns)
+    {
+    }
+
+    public Panel(int viewRows, int viewColumns)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(viewRows, BlockRows);
+        ArgumentOutOfRangeException.ThrowIfLessThan(viewColumns, BlockColumns);
+
+        ViewRows = viewRows;
+        ViewColumns = viewColumns;
+    }
 
     /// <summary>Which panel is showing, counted in half-screens.</summary>
     public int Row { get; private set; }
@@ -96,24 +136,98 @@ public sealed class Panel
     /// </summary>
     public void Resize(int caveHeight, int caveWidth)
     {
-        // A level exactly one screen tall gives no scrolling at all, which is
-        // what the town relies on. The clamp keeps that from going negative.
-        MaxRow = Math.Max((caveHeight / ViewRows * 2) - 2, 0);
-        MaxColumn = Math.Max((caveWidth / ViewColumns * 2) - 2, 0);
+        _caveHeight = caveHeight;
+        _caveWidth = caveWidth;
+        MaxRow = LastPanel(caveHeight, ViewRows);
+        MaxColumn = LastPanel(caveWidth, ViewColumns);
         Row = MaxRow;
         Column = MaxColumn;
+    }
+
+    /// <summary>
+    /// How many half-screens the view can scroll along one axis of a level.
+    ///
+    /// The original writes this as "(cur_height / SCREEN_HEIGHT) * 2 - 2", which
+    /// is the same number for the two heights and two widths a level can have
+    /// when the view is the size it assumes, and wrong for any other: a view
+    /// taller than half a level would be told there was nothing to scroll to.
+    /// This asks the question directly - how many steps of half a view until
+    /// the last panel reaches the far edge - and the unit test holds it to the
+    /// original's answers.
+    ///
+    /// A level no larger than the view gives no scrolling at all, which is
+    /// what the town relies on.
+    /// </summary>
+    internal static int LastPanel(int caveExtent, int viewExtent)
+    {
+        int step = viewExtent / 2;
+        int beyond = caveExtent - viewExtent;
+        return beyond <= 0 ? 0 : (beyond + step - 1) / step;
+    }
+
+    /// <summary>
+    /// Gives the panel a new view size, as when the terminal has been resized.
+    /// The grid is re-counted for the level it was last sized to and the
+    /// window forgotten, so the next <see cref="Follow"/> lays it out afresh.
+    /// </summary>
+    public void SetView(int viewRows, int viewColumns)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(viewRows, BlockRows);
+        ArgumentOutOfRangeException.ThrowIfLessThan(viewColumns, BlockColumns);
+
+        ViewRows = viewRows;
+        ViewColumns = viewColumns;
+
+        if (_caveHeight > 0)
+        {
+            MaxRow = LastPanel(_caveHeight, ViewRows);
+            MaxColumn = LastPanel(_caveWidth, ViewColumns);
+        }
+
+        Invalidate();
     }
 
     /// <summary>Recomputes the visible window. Mirrors panel_bounds().</summary>
     public void Bounds()
     {
         RowMin = Row * (ViewRows / 2);
+        ColumnMin = Column * (ViewColumns / 2);
+
+        // Two things the original's arithmetic never had to meet, because at
+        // its size a level is always a whole number of half-screens and the
+        // last panel ends exactly on the level's edge. A view the level is
+        // not a whole number of half-views larger than would have its last
+        // panel hang past the edge, showing a sliver of level and a lot of
+        // nothing; it is pulled back to end on the edge instead. And a view
+        // larger than the level - the town on a tall terminal - stops at the
+        // level's edge rather than looking beyond it. Neither moves anything
+        // at the original's size.
+        if (_caveHeight > 0 && Row >= 0)
+        {
+            RowMin = Math.Min(RowMin, Math.Max(_caveHeight - ViewRows, 0));
+        }
+
+        if (_caveWidth > 0 && Column >= 0)
+        {
+            ColumnMin = Math.Min(ColumnMin, Math.Max(_caveWidth - ViewColumns, 0));
+        }
+
         RowMax = RowMin + ViewRows - 1;
         RowOffset = RowMin - 1;
-
-        ColumnMin = Column * (ViewColumns / 2);
         ColumnMax = ColumnMin + ViewColumns - 1;
-        ColumnOffset = ColumnMin - 13;
+        ColumnOffset = ColumnMin - Display.SidebarWidth;
+
+        if (_caveHeight > 0)
+        {
+            RowMax = Math.Min(RowMax, _caveHeight - 1);
+            ColumnMax = Math.Min(ColumnMax, _caveWidth - 1);
+
+            // A level smaller than the view is drawn in the middle of it
+            // rather than tucked into the top-left corner. The offsets are
+            // what place a square on the screen, so this is all it takes.
+            RowOffset -= Math.Max(ViewRows - _caveHeight, 0) / 2;
+            ColumnOffset -= Math.Max(ViewColumns - _caveWidth, 0) / 2;
+        }
     }
 
     /// <summary>
@@ -154,10 +268,21 @@ public sealed class Panel
     /// Puts the panel grid back the size a saved game says it was, without
     /// touching which panel is showing.
     /// </summary>
-    public void RestoreBounds(int maxRow, int maxColumn)
+    public void RestoreBounds(int maxRow, int maxColumn, int caveHeight, int caveWidth)
     {
+        _caveHeight = caveHeight;
+        _caveWidth = caveWidth;
         MaxRow = maxRow;
         MaxColumn = maxColumn;
+
+        // The saved figures describe the view the game was saved under. A
+        // terminal of another size needs them counted again for its own view,
+        // which for the original's size is the number that was saved.
+        if (ViewRows != BlockRows || ViewColumns != BlockColumns)
+        {
+            MaxRow = LastPanel(caveHeight, ViewRows);
+            MaxColumn = LastPanel(caveWidth, ViewColumns);
+        }
 
         // The window is deliberately not recomputed. get_char() restores how
         // far the view may scroll and nothing else, leaving the window where a
@@ -165,6 +290,25 @@ public sealed class Panel
         // Computing it here instead puts a plausible window on a level the
         // player is not standing in, which is worse than none at all.
     }
+
+    /// <summary>
+    /// What a savefile records for how far the view scrolls: the original's
+    /// count for the original's view, so a game saved here reads back into a
+    /// real Umoria - or into this port under a terminal of another size - the
+    /// way one saved there would. The same as <see cref="MaxRow"/> when the
+    /// view is the original's size, and that includes whatever a restored
+    /// game brought with it.
+    /// </summary>
+    public int SavedMaxRow =>
+        ViewRows == BlockRows && ViewColumns == BlockColumns
+            ? MaxRow
+            : LastPanel(_caveHeight, BlockRows);
+
+    /// <inheritdoc cref="SavedMaxRow"/>
+    public int SavedMaxColumn =>
+        ViewRows == BlockRows && ViewColumns == BlockColumns
+            ? MaxColumn
+            : LastPanel(_caveWidth, BlockColumns);
 
     /// <summary>Whether a dungeon square is inside the visible window. Mirrors panel_contains().</summary>
     public bool Contains(int row, int column) =>
@@ -186,8 +330,136 @@ public sealed partial class Display(GameState game, IScreen screen)
     private readonly GameState _game = game;
     private readonly IScreen _screen = screen;
 
-    /// <summary>The window onto the dungeon.</summary>
-    public Panel Panel { get; } = new();
+    /// <summary>Width of the status sidebar, which is where the map begins.</summary>
+    public const int SidebarWidth = 13;
+
+    /// <summary>
+    /// The window onto the dungeon, sized to the screen: the rows between the
+    /// message line and the status line, and the columns right of the sidebar
+    /// less the last one. On a 24x80 terminal that is the original's 22x66.
+    /// </summary>
+    public Panel Panel { get; } = new(ViewRowsFor(screen.Rows), ViewColumnsFor(screen.Columns));
+
+    /// <summary>Rows of map a screen of the given height shows.</summary>
+    public static int ViewRowsFor(int screenRows) => screenRows - 2;
+
+    /// <summary>Columns of map a screen of the given width shows.</summary>
+    public static int ViewColumnsFor(int screenColumns) => screenColumns - SidebarWidth - 1;
+
+    /// <summary>The row the status line sits on. Row 23 in the original.</summary>
+    public int StatusLine => _screen.Rows - 1;
+
+    /// <summary>The last column text may reach. Column 79 in the original.</summary>
+    private int LastColumn => _screen.Columns - 1;
+
+    /// <summary>
+    /// Where row 0, column 0 of a full-screen layout falls on the screen. Zero
+    /// except inside <see cref="Centred"/>, when the original's 24x80 layouts
+    /// - the news, the character sheet, the tomb, the scores - are set in the
+    /// middle of a bigger terminal instead of its top-left corner.
+    /// </summary>
+    private int _originRow;
+
+    /// <inheritdoc cref="_originRow"/>
+    private int _originColumn;
+
+    /// <summary>How many <see cref="Centred"/> scopes are open.</summary>
+    private int _centredDepth;
+
+    /// <summary>
+    /// Until the returned scope is disposed, text written by row and column
+    /// is placed as if the screen were the original's 24 by 80, set in the
+    /// middle of the terminal. For a terminal of that size nothing moves.
+    ///
+    /// Only the drawing that goes by screen position moves: <see cref="PutBuffer"/>,
+    /// <see cref="Print"/>, <see cref="EraseLine"/>, <see cref="ClearFrom"/>,
+    /// <see cref="MoveCursor"/>, <see cref="GetString"/> and the level map.
+    /// The dungeon map and the cursor on it are placed by the panel and are
+    /// not affected, which is why the scope must be left before the playing
+    /// screen is drawn again. Scopes nest, each setting the same origin, so a
+    /// help screen shown from inside the character sheet lands where the
+    /// sheet did.
+    ///
+    /// If the terminal changes size while a key is awaited inside the scope,
+    /// what is on the screen is moved to the middle of the new size - see
+    /// <see cref="Recentre"/>.
+    /// </summary>
+    public IDisposable Centred()
+    {
+        _centredDepth++;
+        (_originRow, _originColumn) = CentredOrigin();
+        return new OriginScope(this);
+    }
+
+    /// <summary>Where a 24x80 layout starts when set in the middle of the screen.</summary>
+    private (int Row, int Column) CentredOrigin() => (
+        Math.Max((_screen.Rows - ConsoleScreen.MinimumRows) / 2, 0),
+        Math.Max((_screen.Columns - ConsoleScreen.MinimumColumns) / 2, 0));
+
+    /// <summary>
+    /// Moves a centred layout to the middle of a screen that has changed size
+    /// under it. The screen already holds what should be shown; it is shifted
+    /// as a block, cursor included, and the origin follows, so whatever the
+    /// screen does next lands in the right place. Nothing to do outside a
+    /// <see cref="Centred"/> scope, where the game redraws for itself.
+    /// </summary>
+    private void Recentre()
+    {
+        if (_centredDepth == 0)
+        {
+            return;
+        }
+
+        (int row, int column) = CentredOrigin();
+        if (row == _originRow && column == _originColumn)
+        {
+            return;
+        }
+
+        _screen.MoveBlock(
+            _originRow, _originColumn,
+            ConsoleScreen.MinimumRows, ConsoleScreen.MinimumColumns,
+            row, column);
+        _originRow = row;
+        _originColumn = column;
+    }
+
+    private sealed class OriginScope(Display display) : IDisposable
+    {
+        private bool _disposed;
+
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            if (--display._centredDepth == 0)
+            {
+                display._originRow = 0;
+                display._originColumn = 0;
+            }
+        }
+    }
+
+    /// <summary>Writes straight to the screen, at a position inside the current origin.</summary>
+    private void Put(int row, int column, char value) =>
+        _screen.Put(row + _originRow, column + _originColumn, value);
+
+    /// <inheritdoc cref="Put(int, int, char)"/>
+    private void Put(int row, int column, ReadOnlySpan<char> text) =>
+        _screen.Put(row + _originRow, column + _originColumn, text);
+
+    /// <summary>
+    /// Whether the screen has changed size since the panel was laid out for
+    /// it. The terminal can be resized at any moment; the game notices here,
+    /// the next time it goes to draw the whole screen.
+    /// </summary>
+    public bool ScreenSizeChanged =>
+        Panel.ViewRows != ViewRowsFor(_screen.Rows)
+        || Panel.ViewColumns != ViewColumnsFor(_screen.Columns);
 
     /// <summary>
     /// Writes text at a screen position, clipped at the right edge. Mirrors
@@ -197,12 +469,15 @@ public sealed partial class Display(GameState game, IScreen screen)
     {
         ArgumentNullException.ThrowIfNull(text);
 
-        if (column > 79)
+        row += _originRow;
+        column += _originColumn;
+
+        if (column > LastColumn)
         {
-            column = 79;
+            column = LastColumn;
         }
 
-        int room = 79 - column;
+        int room = LastColumn - column;
         string written = text.Length > room ? text[..room] : text;
 
         _screen.Put(row, column, written);
@@ -223,6 +498,9 @@ public sealed partial class Display(GameState game, IScreen screen)
             MessagePrint(null);
         }
 
+        row += _originRow;
+        column += _originColumn;
+
         _screen.MoveCursor(row, column);
         _screen.EraseLine(row, column);
     }
@@ -239,7 +517,7 @@ public sealed partial class Display(GameState game, IScreen screen)
     }
 
     /// <summary>Blanks a row and everything below it. Mirrors clear_from().</summary>
-    public void ClearFrom(int row) => _screen.ClearFrom(row);
+    public void ClearFrom(int row) => _screen.ClearFrom(row + _originRow);
 
     /// <summary>
     /// Writes a line, clearing whatever was there first. Mirrors prt().
@@ -259,6 +537,10 @@ public sealed partial class Display(GameState game, IScreen screen)
         int screenRow = row - Panel.RowOffset;
         int screenColumn = column - Panel.ColumnOffset;
 
+        // Drawn wherever the arithmetic says, clipped only at the screen's
+        // edge, as curses clipped for the original. Keeping a square off the
+        // message line, the status line and the sidebar is the caller's job,
+        // as it was there - see the note on Lighting.LightRoom.
         _screen.Put(screenRow, screenColumn, symbol);
 
         // A single character does carry the cursor along with it, which is the
@@ -273,7 +555,8 @@ public sealed partial class Display(GameState game, IScreen screen)
         _screen.MoveCursor(row - Panel.RowOffset, column - Panel.ColumnOffset);
 
     /// <summary>Parks the cursor at a screen position. Mirrors move_cursor().</summary>
-    public void MoveCursor(int row, int column) => _screen.MoveCursor(row, column);
+    public void MoveCursor(int row, int column) =>
+        _screen.MoveCursor(row + _originRow, column + _originColumn);
 
     /// <summary>
     /// What a dungeon square looks like from where the player stands. Mirrors
@@ -348,19 +631,22 @@ public sealed partial class Display(GameState game, IScreen screen)
     /// <summary>
     /// Draws the visible part of the level. Mirrors prt_map().
     ///
-    /// Blank squares are skipped rather than written, because the row was
+    /// Blank squares are skipped rather than written, because the map area was
     /// cleared first - which is also why the sidebar survives: the clear starts
-    /// at column thirteen.
+    /// at column thirteen. The whole area is cleared, not only the rows the
+    /// panel covers: the original's panel always covered it all, but a level
+    /// smaller than the view - the town - covers only the middle, and what
+    /// the last level left around it has to go.
     /// </summary>
     public void PrintMap()
     {
-        int screenRow = 0;
+        for (int screenRow = 1; screenRow <= Panel.ViewRows; screenRow++)
+        {
+            _screen.EraseLine(screenRow, SidebarWidth);
+        }
 
         for (int row = Panel.RowMin; row <= Panel.RowMax; row++)
         {
-            screenRow++;
-            _screen.EraseLine(screenRow, 13);
-
             for (int column = Panel.ColumnMin; column <= Panel.ColumnMax; column++)
             {
                 char symbol = SymbolAt(row, column);

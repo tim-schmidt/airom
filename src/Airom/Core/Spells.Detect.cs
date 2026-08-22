@@ -305,8 +305,8 @@ public partial class Spells
 
         if (Cave[row, column].LitRoom && _game.DungeonLevel > 0)
         {
-            int blockHeight = Panel.ViewRows / 2;
-            int blockWidth = Panel.ViewColumns / 2;
+            int blockHeight = Panel.BlockRows / 2;
+            int blockWidth = Panel.BlockColumns / 2;
 
             int startRow = (row / blockHeight * blockHeight) + 1;
             int startColumn = (column / blockWidth * blockWidth) + 1;

@@ -331,6 +331,8 @@ public class CharacterMaker
     /// </summary>
     public void ChangeName()
     {
+        using IDisposable centred = _display.Centred();
+
         _loop.CharacterSheet.DisplayAll();
 
         while (true)

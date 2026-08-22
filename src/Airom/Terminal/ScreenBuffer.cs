@@ -120,6 +120,36 @@ internal sealed class ScreenBuffer
 
     internal void Clear() => ClearFrom(0);
 
+    /// <summary>
+    /// Moves a rectangle to another position and blanks everything else.
+    /// Parts of the rectangle that fall off the grid, before or after, are
+    /// dropped.
+    /// </summary>
+    internal void MoveBlock(int fromRow, int fromColumn, int rows, int columns, int toRow, int toColumn)
+    {
+        var block = new char[rows * columns];
+        block.AsSpan().Fill(' ');
+
+        for (int row = 0; row < rows; row++)
+        {
+            for (int column = 0; column < columns; column++)
+            {
+                if (InBounds(fromRow + row, fromColumn + column))
+                {
+                    block[(row * columns) + column] =
+                        _cells[((fromRow + row) * Columns) + fromColumn + column];
+                }
+            }
+        }
+
+        Clear();
+
+        for (int row = 0; row < rows; row++)
+        {
+            Put(toRow + row, toColumn, block.AsSpan(row * columns, columns));
+        }
+    }
+
     /// <summary>Copies the grid contents into <paramref name="destination"/>.</summary>
     internal void CopyTo(char[] destination) => _cells.AsSpan().CopyTo(destination);
 
@@ -131,4 +161,41 @@ internal sealed class ScreenBuffer
     }
 
     internal char[] ToArray() => [.. _cells];
+
+    /// <summary>
+    /// A grid of another size holding what this one held, cut or padded at
+    /// the bottom and right, with every row marked for redraw.
+    /// </summary>
+    internal ScreenBuffer Resized(int rows, int columns)
+    {
+        var resized = new ScreenBuffer(rows, columns);
+        Regrid(_cells, Rows, Columns, rows, columns).CopyTo(resized._cells.AsSpan());
+        return resized;
+    }
+
+    /// <summary>
+    /// Lays cells stored row-major for one grid size out for another, keeping
+    /// the top-left corner: rows and columns beyond the new size are dropped,
+    /// and any the new size adds are blank.
+    /// </summary>
+    internal static char[] Regrid(
+        ReadOnlySpan<char> cells,
+        int rows,
+        int columns,
+        int newRows,
+        int newColumns)
+    {
+        var result = new char[newRows * newColumns];
+        result.AsSpan().Fill(' ');
+
+        int sharedRows = Math.Min(rows, newRows);
+        int sharedColumns = Math.Min(columns, newColumns);
+        for (int row = 0; row < sharedRows; row++)
+        {
+            cells.Slice(row * columns, sharedColumns)
+                .CopyTo(result.AsSpan(row * newColumns, sharedColumns));
+        }
+
+        return result;
+    }
 }

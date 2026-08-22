@@ -65,6 +65,7 @@ public class CharacterFile
         }
 
         using StreamReader file = File.OpenText(path);
+        using IDisposable centred = _display.Centred();
 
         _display.SaveScreen();
 

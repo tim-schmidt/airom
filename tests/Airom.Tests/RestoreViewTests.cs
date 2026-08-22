@@ -127,7 +127,7 @@ public class RestoreViewTests
         (GameState game, Display display, _, _) = Game();
 
         display.Panel.Invalidate();
-        display.Panel.RestoreBounds(4, 4);
+        display.Panel.RestoreBounds(4, 4, GameState.DungeonHeight, GameState.DungeonWidth);
 
         Assert.Equal(4, display.Panel.MaxRow);
         Assert.Equal(4, display.Panel.MaxColumn);

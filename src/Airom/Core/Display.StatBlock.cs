@@ -209,8 +209,8 @@ public sealed partial class Display
             depth == 0
                 ? "Town level"
                 : depth.ToString(CultureInfo.InvariantCulture) + " feet",
-            23,
-            65);
+            StatusLine,
+            _screen.Columns - 15);
     }
 
     /// <summary>Writes one stat line. Mirrors prt_stat().</summary>
@@ -230,6 +230,15 @@ public sealed partial class Display
     /// </summary>
     public void DrawCave(Player player)
     {
+        // A terminal resized since the panel was laid out gets a panel cut
+        // to its new size before anything is drawn into it. At the size the
+        // original assumed this never fires, and draw_cave() is as it was.
+        if (ScreenSizeChanged)
+        {
+            Panel.SetView(ViewRowsFor(_screen.Rows), ViewColumnsFor(_screen.Columns));
+            Panel.Follow(_game.CharacterRow, _game.CharacterColumn, force: true);
+        }
+
         ClearScreen();
         PrintStatBlock(player);
         PrintMap();
@@ -317,14 +326,14 @@ public sealed partial class Display
         string text = (player.Status & PlayerStatus.Weak) != 0 ? "Weak  "
             : (player.Status & PlayerStatus.Hungry) != 0 ? "Hungry"
             : "      ";
-        PutBuffer(text, 23, 0);
+        PutBuffer(text, StatusLine, 0);
     }
 
     /// <summary>Mirrors prt_blind().</summary>
     public void PrintBlind(Player player)
     {
         ArgumentNullException.ThrowIfNull(player);
-        PutBuffer((player.Status & PlayerStatus.Blind) != 0 ? "Blind" : "     ", 23, 7);
+        PutBuffer((player.Status & PlayerStatus.Blind) != 0 ? "Blind" : "     ", StatusLine, 7);
     }
 
     /// <summary>Mirrors prt_confused().</summary>
@@ -332,14 +341,14 @@ public sealed partial class Display
     {
         ArgumentNullException.ThrowIfNull(player);
         PutBuffer(
-            (player.Status & PlayerStatus.Confused) != 0 ? "Confused" : "        ", 23, 13);
+            (player.Status & PlayerStatus.Confused) != 0 ? "Confused" : "        ", StatusLine, 13);
     }
 
     /// <summary>Mirrors prt_afraid().</summary>
     public void PrintAfraid(Player player)
     {
         ArgumentNullException.ThrowIfNull(player);
-        PutBuffer((player.Status & PlayerStatus.Afraid) != 0 ? "Afraid" : "      ", 23, 22);
+        PutBuffer((player.Status & PlayerStatus.Afraid) != 0 ? "Afraid" : "      ", StatusLine, 22);
     }
 
     /// <summary>Mirrors prt_poisoned().</summary>
@@ -347,7 +356,7 @@ public sealed partial class Display
     {
         ArgumentNullException.ThrowIfNull(player);
         PutBuffer(
-            (player.Status & PlayerStatus.Poisoned) != 0 ? "Poisoned" : "        ", 23, 29);
+            (player.Status & PlayerStatus.Poisoned) != 0 ? "Poisoned" : "        ", StatusLine, 29);
     }
 
     /// <summary>
@@ -383,12 +392,12 @@ public sealed partial class Display
                 : "Repeat";
 
             player.Status |= PlayerStatus.Repeating;
-            PutBuffer(text, 23, 38);
+            PutBuffer(text, StatusLine, 38);
 
             // Searching overwrites the repeat count when both apply.
             if ((player.Status & PlayerStatus.Searching) != 0)
             {
-                PutBuffer("Search", 23, 38);
+                PutBuffer("Search", StatusLine, 38);
             }
 
             return;
@@ -403,7 +412,7 @@ public sealed partial class Display
             text = new string(' ', 10);
         }
 
-        PutBuffer(text, 23, 38);
+        PutBuffer(text, StatusLine, 38);
     }
 
     /// <summary>
@@ -431,7 +440,7 @@ public sealed partial class Display
             _ => "Very Fast",
         };
 
-        PutBuffer(text, 23, 49);
+        PutBuffer(text, StatusLine, 49);
     }
 
     /// <summary>Mirrors prt_study().</summary>
@@ -440,7 +449,7 @@ public sealed partial class Display
         ArgumentNullException.ThrowIfNull(player);
 
         player.Status &= ~PlayerStatus.CanStudy;
-        PutBuffer(player.NewSpells == 0 ? "     " : "Study", 23, 59);
+        PutBuffer(player.NewSpells == 0 ? "     " : "Study", StatusLine, 59);
     }
 
     /// <summary>

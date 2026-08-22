@@ -54,6 +54,7 @@ character, so the next game reads what they learned and then asks who you are.
 | Character creation | Done, verified against the original |
 
 | Terminal surface | Done — System.Console, no third-party library |
+| The view fills the terminal, and follows it when the window is resized | Done — 24x80 gives the original's 22x66 map, verified against the original; anything larger shows more dungeon |
 | Display: panel window and map drawing | Done, verified against the original |
 | Messages, prompts, input handling | Done, verified against the original |
 | Status sidebar (prt_stat_block) | Done, verified against the original |

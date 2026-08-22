@@ -16,7 +16,9 @@ namespace Airom.Terminal;
 /// </summary>
 public sealed class MemoryScreen : IScreen
 {
-    private readonly ScreenBuffer _buffer;
+    private ScreenBuffer _buffer;
+    private int _rows;
+    private int _columns;
     private readonly Queue<char> _input = new();
     private char[]? _saved;
 
@@ -25,11 +27,47 @@ public sealed class MemoryScreen : IScreen
         int columns = ConsoleScreen.MinimumColumns)
     {
         _buffer = new ScreenBuffer(rows, columns);
+        _rows = rows;
+        _columns = columns;
     }
 
-    public int Rows => _buffer.Rows;
+    public int Rows => _rows;
 
-    public int Columns => _buffer.Columns;
+    public int Columns => _columns;
+
+    public Action? Resized { get; set; }
+
+    /// <summary>
+    /// Changes the grid's size the way a console screen does when its window
+    /// is resized: what it held is kept, cut or padded at the bottom and
+    /// right, and whoever is waiting on <see cref="Resized"/> is told - with
+    /// the grid still large enough for both sizes, so what is about to be cut
+    /// can be moved first. Lets a test resize the terminal under the game.
+    /// </summary>
+    public void Resize(int rows, int columns)
+    {
+        Regrid(Math.Max(rows, _buffer.Rows), Math.Max(columns, _buffer.Columns));
+        _rows = rows;
+        _columns = columns;
+        Resized?.Invoke();
+        Regrid(rows, columns);
+        MoveCursor(CursorRow, CursorColumn);
+    }
+
+    private void Regrid(int rows, int columns)
+    {
+        if (rows == _buffer.Rows && columns == _buffer.Columns)
+        {
+            return;
+        }
+
+        if (_saved is not null)
+        {
+            _saved = ScreenBuffer.Regrid(_saved, _buffer.Rows, _buffer.Columns, rows, columns);
+        }
+
+        _buffer = _buffer.Resized(rows, columns);
+    }
 
     /// <summary>How many times <see cref="Refresh"/> has been called.</summary>
     public int RefreshCount { get; private set; }
@@ -86,6 +124,17 @@ public sealed class MemoryScreen : IScreen
 
     public void Clear() => _buffer.Clear();
 
+    public void MoveBlock(int fromRow, int fromColumn, int rows, int columns, int toRow, int toColumn)
+    {
+        _buffer.MoveBlock(fromRow, fromColumn, rows, columns, toRow, toColumn);
+
+        if (CursorRow >= fromRow && CursorRow < fromRow + rows
+            && CursorColumn >= fromColumn && CursorColumn < fromColumn + columns)
+        {
+            MoveCursor(CursorRow - fromRow + toRow, CursorColumn - fromColumn + toColumn);
+        }
+    }
+
     public void MoveCursor(int row, int column)
     {
         CursorRow = Math.Clamp(row, 0, Rows - 1);
@@ -103,7 +152,7 @@ public sealed class MemoryScreen : IScreen
 
     public void SaveScreen()
     {
-        _saved ??= new char[Rows * Columns];
+        _saved ??= new char[_buffer.Rows * _buffer.Columns];
         _buffer.CopyTo(_saved);
     }
 

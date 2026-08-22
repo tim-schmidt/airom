@@ -76,11 +76,20 @@ public sealed class Lighting
     ///
     /// Objects lying in the room are noticed as it lights, but only the ones
     /// worth remembering - an invisible trap stays unnoticed.
+    ///
+    /// Only the squares inside the panel are drawn. The original drew them
+    /// all and never had to check: with panels and blocks both laid out in
+    /// half-screens, the block the player stands in lies inside the panel.
+    /// A view of another size has panel edges that cut across the blocks,
+    /// and a room straddling one would otherwise spill its far side onto the
+    /// status line, the message line or the sidebar - and leave it there,
+    /// since only the map is redrawn when the panel moves. The same goes for
+    /// the squares a step lights, in <see cref="MoveLight"/>.
     /// </summary>
     public void LightRoom(int row, int column)
     {
-        int blockHeight = Panel.ViewRows / 2;
-        int blockWidth = Panel.ViewColumns / 2;
+        int blockHeight = Panel.BlockRows / 2;
+        int blockWidth = Panel.BlockColumns / 2;
 
         int startRow = row / blockHeight * blockHeight;
         int startColumn = column / blockWidth * blockWidth;
@@ -113,7 +122,10 @@ public sealed class Lighting
                     }
                 }
 
-                _display.PrintAt(_display.SymbolAt(y, x), y, x);
+                if (_display.Panel.Contains(y, x))
+                {
+                    _display.PrintAt(_display.SymbolAt(y, x), y, x);
+                }
             }
         }
     }
@@ -224,7 +236,7 @@ public sealed class Lighting
         {
             for (int x = left; x <= right; x++)
             {
-                _display.PrintAt(_display.SymbolAt(y, x), y, x);
+                LightSpot(y, x);
             }
         }
     }
@@ -245,7 +257,7 @@ public sealed class Lighting
                 for (int x = fromColumn - 1; x <= fromColumn + 1; x++)
                 {
                     _game.Cave[y, x].TemporaryLight = false;
-                    _display.PrintAt(_display.SymbolAt(y, x), y, x);
+                    LightSpot(y, x);
                 }
             }
 
@@ -253,12 +265,15 @@ public sealed class Lighting
         }
         else if (!_game.Running || _game.ShowSelfWhileRunning)
         {
-            _display.PrintAt(_display.SymbolAt(fromRow, fromColumn), fromRow, fromColumn);
+            LightSpot(fromRow, fromColumn);
         }
 
         if (!_game.Running || _game.ShowSelfWhileRunning)
         {
-            _display.PrintAt('@', toRow, toColumn);
+            if (_display.Panel.Contains(toRow, toColumn))
+            {
+                _display.PrintAt('@', toRow, toColumn);
+            }
         }
     }
 
