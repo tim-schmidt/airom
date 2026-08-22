@@ -363,6 +363,9 @@ public sealed partial class Display(GameState game, IScreen screen)
     /// <inheritdoc cref="_originRow"/>
     private int _originColumn;
 
+    /// <summary>How many <see cref="Centred"/> scopes are open.</summary>
+    private int _centredDepth;
+
     /// <summary>
     /// Until the returned scope is disposed, text written by row and column
     /// is placed as if the screen were the original's 24 by 80, set in the
@@ -370,28 +373,84 @@ public sealed partial class Display(GameState game, IScreen screen)
     ///
     /// Only the drawing that goes by screen position moves: <see cref="PutBuffer"/>,
     /// <see cref="Print"/>, <see cref="EraseLine"/>, <see cref="ClearFrom"/>,
-    /// <see cref="MoveCursor"/> and <see cref="GetString"/>. The map and the
-    /// cursor on it are placed by the panel and are not affected, which is
-    /// why the scope must be left before the playing screen is drawn again.
-    /// Scopes nest, each setting the same origin, so a help screen shown from
-    /// inside the character sheet lands where the sheet did.
+    /// <see cref="MoveCursor"/>, <see cref="GetString"/> and the level map.
+    /// The dungeon map and the cursor on it are placed by the panel and are
+    /// not affected, which is why the scope must be left before the playing
+    /// screen is drawn again. Scopes nest, each setting the same origin, so a
+    /// help screen shown from inside the character sheet lands where the
+    /// sheet did.
+    ///
+    /// If the terminal changes size while a key is awaited inside the scope,
+    /// what is on the screen is moved to the middle of the new size - see
+    /// <see cref="Recentre"/>.
     /// </summary>
     public IDisposable Centred()
     {
-        var scope = new OriginScope(this, _originRow, _originColumn);
-        _originRow = Math.Max((_screen.Rows - ConsoleScreen.MinimumRows) / 2, 0);
-        _originColumn = Math.Max((_screen.Columns - ConsoleScreen.MinimumColumns) / 2, 0);
-        return scope;
+        _centredDepth++;
+        (_originRow, _originColumn) = CentredOrigin();
+        return new OriginScope(this);
     }
 
-    private sealed class OriginScope(Display display, int row, int column) : IDisposable
+    /// <summary>Where a 24x80 layout starts when set in the middle of the screen.</summary>
+    private (int Row, int Column) CentredOrigin() => (
+        Math.Max((_screen.Rows - ConsoleScreen.MinimumRows) / 2, 0),
+        Math.Max((_screen.Columns - ConsoleScreen.MinimumColumns) / 2, 0));
+
+    /// <summary>
+    /// Moves a centred layout to the middle of a screen that has changed size
+    /// under it. The screen already holds what should be shown; it is shifted
+    /// as a block, cursor included, and the origin follows, so whatever the
+    /// screen does next lands in the right place. Nothing to do outside a
+    /// <see cref="Centred"/> scope, where the game redraws for itself.
+    /// </summary>
+    private void Recentre()
     {
+        if (_centredDepth == 0)
+        {
+            return;
+        }
+
+        (int row, int column) = CentredOrigin();
+        if (row == _originRow && column == _originColumn)
+        {
+            return;
+        }
+
+        _screen.MoveBlock(
+            _originRow, _originColumn,
+            ConsoleScreen.MinimumRows, ConsoleScreen.MinimumColumns,
+            row, column);
+        _originRow = row;
+        _originColumn = column;
+    }
+
+    private sealed class OriginScope(Display display) : IDisposable
+    {
+        private bool _disposed;
+
         public void Dispose()
         {
-            display._originRow = row;
-            display._originColumn = column;
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            if (--display._centredDepth == 0)
+            {
+                display._originRow = 0;
+                display._originColumn = 0;
+            }
         }
     }
+
+    /// <summary>Writes straight to the screen, at a position inside the current origin.</summary>
+    private void Put(int row, int column, char value) =>
+        _screen.Put(row + _originRow, column + _originColumn, value);
+
+    /// <inheritdoc cref="Put(int, int, char)"/>
+    private void Put(int row, int column, ReadOnlySpan<char> text) =>
+        _screen.Put(row + _originRow, column + _originColumn, text);
 
     /// <summary>
     /// Whether the screen has changed size since the panel was laid out for

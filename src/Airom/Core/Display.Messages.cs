@@ -202,13 +202,15 @@ public sealed partial class Display
         Refresh();
         CommandCount = 0;
 
-        _screen.Resized = whenResized is null
-            ? null
-            : () =>
-            {
-                whenResized();
-                Refresh();
-            };
+        // A resize while waiting: a centred layout moves to the middle of
+        // the new size, the command prompt draws the game for it, and either
+        // way the result is shown at once.
+        _screen.Resized = () =>
+        {
+            Recentre();
+            whenResized?.Invoke();
+            Refresh();
+        };
 
         try
         {
@@ -323,7 +325,7 @@ public sealed partial class Display
 
         // Clear the field, then work within it. The cursor is put back at the
         // front afterwards, which is where the typing starts.
-        _screen.Put(row + _originRow, column + _originColumn, new string(' ', length));
+        Put(row, column, new string(' ', length));
         MoveCursor(row, column);
 
         int startColumn = column;
@@ -371,7 +373,7 @@ public sealed partial class Display
                 // A typed character carries the cursor along with it, so it
                 // leads what has been typed rather than sitting at the front
                 // of the field. Mirrors mvaddch(), which writes and advances.
-                _screen.Put(row + _originRow, column + _originColumn, key);
+                Put(row, column, key);
                 typed.Append(key);
                 column++;
                 MoveCursor(row, column);
@@ -451,9 +453,9 @@ public sealed partial class Display
         ClearScreen();
 
         // Top border.
-        _screen.Put(0, 0, '+');
-        _screen.Put(0, 1, new string('-', mapWidth));
-        _screen.Put(0, mapWidth + 1, '+');
+        Put(0, 0, '+');
+        Put(0, 1, new string('-', mapWidth));
+        Put(0, mapWidth + 1, '+');
 
         int lastMapRow = -1;
         int playerRow = -1;
@@ -499,11 +501,11 @@ public sealed partial class Display
         }
 
         // Bottom border.
-        _screen.Put(lastMapRow + 2, 0, '+');
-        _screen.Put(lastMapRow + 2, 1, new string('-', mapWidth));
-        _screen.Put(lastMapRow + 2, mapWidth + 1, '+');
+        Put(lastMapRow + 2, 0, '+');
+        Put(lastMapRow + 2, 1, new string('-', mapWidth));
+        Put(lastMapRow + 2, mapWidth + 1, '+');
 
-        _screen.Put(23, 23, "Hit any key to continue");
+        Put(23, 23, "Hit any key to continue");
 
         if (playerColumn > 0)
         {
@@ -515,8 +517,8 @@ public sealed partial class Display
 
     private void WriteMapRow(int mapRow, char[] row, int mapWidth)
     {
-        _screen.Put(mapRow + 1, 0, '|');
-        _screen.Put(mapRow + 1, 1, new string(row, 0, mapWidth));
-        _screen.Put(mapRow + 1, mapWidth + 1, '|');
+        Put(mapRow + 1, 0, '|');
+        Put(mapRow + 1, 1, new string(row, 0, mapWidth));
+        Put(mapRow + 1, mapWidth + 1, '|');
     }
 }

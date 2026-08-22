@@ -120,6 +120,36 @@ internal sealed class ScreenBuffer
 
     internal void Clear() => ClearFrom(0);
 
+    /// <summary>
+    /// Moves a rectangle to another position and blanks everything else.
+    /// Parts of the rectangle that fall off the grid, before or after, are
+    /// dropped.
+    /// </summary>
+    internal void MoveBlock(int fromRow, int fromColumn, int rows, int columns, int toRow, int toColumn)
+    {
+        var block = new char[rows * columns];
+        block.AsSpan().Fill(' ');
+
+        for (int row = 0; row < rows; row++)
+        {
+            for (int column = 0; column < columns; column++)
+            {
+                if (InBounds(fromRow + row, fromColumn + column))
+                {
+                    block[(row * columns) + column] =
+                        _cells[((fromRow + row) * Columns) + fromColumn + column];
+                }
+            }
+        }
+
+        Clear();
+
+        for (int row = 0; row < rows; row++)
+        {
+            Put(toRow + row, toColumn, block.AsSpan(row * columns, columns));
+        }
+    }
+
     /// <summary>Copies the grid contents into <paramref name="destination"/>.</summary>
     internal void CopyTo(char[] destination) => _cells.AsSpan().CopyTo(destination);
 

@@ -552,4 +552,131 @@ public class ResizeTests
         Assert.Equal('y', screen.GetRow(4)[10]);
         Assert.Equal('z', screen.GetRow(2)[0]);
     }
+    /// <summary>
+    /// A layout waiting inside a centred scope follows the middle of a
+    /// terminal that changes size under it: what is on the screen moves as a
+    /// block, cursor and all, and later writes land in the new place.
+    /// </summary>
+    [Fact]
+    public void Centred_MovesTheLayoutWhenTheScreenIsResizedWhileWaiting()
+    {
+        var screen = new MemoryScreen(24, 80);
+        var display = new Display(new GameState(), screen);
+
+        using (display.Centred())
+        {
+            display.Print("hello", 0, 0);
+            display.PutBuffer("[Press any key to continue.]", 23, 23);
+            display.MoveCursor(23, 51);
+
+            screen.BeforeReadKey = () =>
+            {
+                screen.BeforeReadKey = null;
+                screen.Resize(30, 100);
+            };
+            screen.SendKeys(' ');
+            display.ReadKey();
+
+            Assert.Equal("hello", screen.GetRow(3)[10..15]);
+            Assert.Equal("[Press any key", screen.GetRow(26)[33..47]);
+            Assert.Equal(string.Empty, screen.GetRow(0).Trim());
+            Assert.Equal(string.Empty, screen.GetRow(23).Trim());
+            Assert.Equal(26, screen.CursorRow);
+            Assert.Equal(61, screen.CursorColumn);
+
+            // And a later write goes by the new origin.
+            display.Print("after", 1, 0);
+            Assert.Equal("after", screen.GetRow(4)[10..15]);
+
+            // Shrinking back moves it back to the corner.
+            screen.BeforeReadKey = () =>
+            {
+                screen.BeforeReadKey = null;
+                screen.Resize(24, 80);
+            };
+            screen.SendKeys(' ');
+            display.ReadKey();
+
+            Assert.Equal("hello", screen.GetRow(0)[..5]);
+            Assert.Equal("after", screen.GetRow(1)[..5]);
+        }
+    }
+
+    [Fact]
+    public void MoveBlock_MovesTheRectangleAndBlanksTheRest()
+    {
+        var screen = new MemoryScreen(10, 20);
+        screen.Put(0, 0, "abc");
+        screen.Put(1, 0, "def");
+        screen.Put(5, 5, "stray");
+        screen.MoveCursor(1, 1);
+
+        screen.MoveBlock(0, 0, 2, 3, 4, 6);
+
+        Assert.Equal("abc", screen.GetRow(4)[6..9]);
+        Assert.Equal("def", screen.GetRow(5)[6..9]);
+        Assert.Equal(string.Empty, screen.GetRow(0).Trim());
+        Assert.Equal(string.Empty, screen.GetRow(5)[9..].Trim());
+        Assert.Equal(5, screen.CursorRow);
+        Assert.Equal(7, screen.CursorColumn);
+    }
+
+    /// <summary>The level map (M) is one of the centred layouts.</summary>
+    [Fact]
+    public void ScreenMap_IsCentredOnABiggerScreen()
+    {
+        (_, _, Display display, MemoryScreen screen) = Level(30, 100);
+
+        using (display.Centred())
+        {
+            display.ScreenMap();
+        }
+
+        Assert.Equal('+', screen.GetRow(3)[10]);
+        Assert.Equal("Hit any key to continue", screen.GetRow(26)[33..56]);
+        Assert.Equal(' ', screen.GetRow(0)[0]);
+    }
+    /// <summary>
+    /// Shrinking the terminal under a centred layout and growing it again
+    /// loses nothing: the far corner of the layout, which the smaller grid
+    /// had no room for, is moved inward before the grid is cut.
+    /// </summary>
+    [Fact]
+    public void Centred_LosesNothingWhenShrunkThenGrown()
+    {
+        var screen = new MemoryScreen(50, 120);
+        var display = new Display(new GameState(), screen);
+
+        using (display.Centred())
+        {
+            display.PutBuffer("corner", 23, 74);
+            display.PutBuffer("top", 0, 0);
+
+            // Origin at (13, 20): the corner text ends at row 36, column 99.
+            Assert.Equal("corner", screen.GetRow(36)[94..100]);
+
+            screen.BeforeReadKey = () =>
+            {
+                screen.BeforeReadKey = null;
+                screen.Resize(30, 100);
+            };
+            screen.SendKeys(' ');
+            display.ReadKey();
+
+            // Origin now (3, 10): the whole layout fits and is all there.
+            Assert.Equal("top", screen.GetRow(3)[10..13]);
+            Assert.Equal("corner", screen.GetRow(26)[84..90]);
+
+            screen.BeforeReadKey = () =>
+            {
+                screen.BeforeReadKey = null;
+                screen.Resize(50, 120);
+            };
+            screen.SendKeys(' ');
+            display.ReadKey();
+
+            Assert.Equal("top", screen.GetRow(13)[20..23]);
+            Assert.Equal("corner", screen.GetRow(36)[94..100]);
+        }
+    }
 }

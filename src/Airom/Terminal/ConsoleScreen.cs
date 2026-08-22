@@ -44,6 +44,21 @@ public sealed class ConsoleScreen : IScreen
 
     private ScreenBuffer _buffer;
     private char[] _onScreen;
+
+    /// <summary>
+    /// The size the game is told, which is the grid's size except for the
+    /// moment in <see cref="FitToWindow"/> when the grid is being changed:
+    /// then the grid is as large as both the old size and the new, so that
+    /// whoever is told of the change can move what is on it before anything
+    /// is cut, and these already answer for the new size.
+    /// </summary>
+    private int _rows;
+
+    /// <inheritdoc cref="_rows"/>
+    private int _columns;
+
+    /// <summary>True while <see cref="Resized"/> is being called; painting waits.</summary>
+    private bool _resizing;
     private readonly StringBuilder _pending = new(1024);
     private char[]? _saved;
     private int _cursorRow;
@@ -70,6 +85,8 @@ public sealed class ConsoleScreen : IScreen
         _windowRows = rows;
         _windowColumns = columns;
         _buffer = new ScreenBuffer(Math.Max(rows, MinimumRows), Math.Max(columns, MinimumColumns));
+        _rows = _buffer.Rows;
+        _columns = _buffer.Columns;
         _onScreen = new char[_buffer.Rows * _buffer.Columns];
         // Nothing has been painted yet, so every cell must count as different.
         _onScreen.AsSpan().Clear();
@@ -77,9 +94,9 @@ public sealed class ConsoleScreen : IScreen
         _headless = Console.IsOutputRedirected;
     }
 
-    public int Rows => _buffer.Rows;
+    public int Rows => _rows;
 
-    public int Columns => _buffer.Columns;
+    public int Columns => _columns;
 
     public Action? Resized { get; set; }
 
@@ -148,7 +165,17 @@ public sealed class ConsoleScreen : IScreen
         Console.CursorVisible = true;
         Console.Write(DefaultCursor);
         Console.ResetColor();
-        Console.SetCursorPosition(0, Math.Max(Console.WindowHeight - 1, 0));
+
+        try
+        {
+            Console.SetCursorPosition(0, Math.Max(Console.WindowHeight - 1, 0));
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            // A window being resized at the very moment of leaving. The
+            // prompt comes back wherever the cursor is, which is fine.
+        }
+
         Console.WriteLine();
     }
 
@@ -189,6 +216,12 @@ public sealed class ConsoleScreen : IScreen
 
     public void Refresh()
     {
+        if (_resizing)
+        {
+            // The grid is mid-change; everything is painted once it is done.
+            return;
+        }
+
         if (_headless)
         {
             // Still reconcile, so tests observe the same buffer the console would.
@@ -201,23 +234,47 @@ public sealed class ConsoleScreen : IScreen
             return;
         }
 
-        for (int row = 0; row < Rows; row++)
+        try
         {
-            if (!_buffer.RowChanged(row))
+            for (int row = 0; row < Rows; row++)
             {
-                continue;
+                if (!_buffer.RowChanged(row))
+                {
+                    continue;
+                }
+
+                WriteChangedRuns(row);
+                _buffer.Row(row).CopyTo(_onScreen.AsSpan(row * Columns, Columns));
+                _buffer.MarkRowClean(row);
             }
 
-            WriteChangedRuns(row);
-            _buffer.Row(row).CopyTo(_onScreen.AsSpan(row * Columns, Columns));
-            _buffer.MarkRowClean(row);
+            // The cursor stays inside the window even when the grid does not.
+            Console.SetCursorPosition(
+                Math.Min(_cursorColumn, _windowColumns - 1),
+                Math.Min(_cursorRow, _windowRows - 1));
+            Console.Out.Flush();
         }
+        catch (Exception error) when (error is ArgumentOutOfRangeException or IOException)
+        {
+            // The window shrank between being measured and being written to -
+            // a drag of its edge is many sizes in quick succession, and the
+            // console refuses a position outside whatever it is at the moment.
+            // Nothing is lost: forgetting the measured size makes the next look
+            // at the window find it changed, rebuild for the size it has then,
+            // and paint everything again.
+            ForgetWindow();
+        }
+    }
 
-        // The cursor stays inside the window even when the grid does not.
-        Console.SetCursorPosition(
-            Math.Min(_cursorColumn, _windowColumns - 1),
-            Math.Min(_cursorRow, _windowRows - 1));
-        Console.Out.Flush();
+    /// <summary>
+    /// Marks the window's size as unknown, so <see cref="FitToWindow"/> is
+    /// bound to measure it afresh and repaint.
+    /// </summary>
+    private void ForgetWindow()
+    {
+        _windowRows = 0;
+        _windowColumns = 0;
+        _buffer.MarkAllDirty();
     }
 
     /// <summary>
@@ -306,7 +363,7 @@ public sealed class ConsoleScreen : IScreen
 
     public void SaveScreen()
     {
-        _saved ??= new char[Rows * Columns];
+        _saved ??= new char[_buffer.Rows * _buffer.Columns];
         _buffer.CopyTo(_saved);
     }
 
@@ -352,11 +409,7 @@ public sealed class ConsoleScreen : IScreen
         // be watched while the player makes up their mind.
         while (!Console.KeyAvailable)
         {
-            if (FitToWindow())
-            {
-                Resized?.Invoke();
-            }
-
+            FitToWindow();
             Thread.Sleep(PollMilliseconds);
         }
 
@@ -369,10 +422,15 @@ public sealed class ConsoleScreen : IScreen
 
     /// <summary>
     /// Brings the grid into line with the console window, if the window has
-    /// changed size since it was last looked at. What the grid held is kept
-    /// and painted again - the console reflows or loses it when the window
-    /// changes, and until the game draws for the new size it is still the
-    /// screen the player is looking at.
+    /// changed size since it was last looked at, and tells <see cref="Resized"/>.
+    /// What the grid held is kept and painted again - the console reflows or
+    /// loses it when the window changes, and until the game draws for the
+    /// new size it is still the screen the player is looking at.
+    ///
+    /// When the grid shrinks, whatever lies beyond the new size has to go -
+    /// but not before <see cref="Resized"/> has had the chance to move it.
+    /// So the grid is first made large enough for both sizes, the new size
+    /// is reported, the call is made, and only then is the grid cut.
     /// </summary>
     /// <returns>Whether the window had changed.</returns>
     private bool FitToWindow()
@@ -382,9 +440,21 @@ public sealed class ConsoleScreen : IScreen
             return false;
         }
 
-        int rows = Console.WindowHeight;
-        int columns = Console.WindowWidth;
-        if (rows == _windowRows && columns == _windowColumns)
+        // The window's size, or the buffer's if that is somehow smaller: a
+        // position is refused outside the buffer, whatever the window says.
+        int rows;
+        int columns;
+        try
+        {
+            rows = Math.Min(Console.WindowHeight, Console.BufferHeight);
+            columns = Math.Min(Console.WindowWidth, Console.BufferWidth);
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+
+        if (rows < 1 || columns < 1 || (rows == _windowRows && columns == _windowColumns))
         {
             return false;
         }
@@ -396,22 +466,72 @@ public sealed class ConsoleScreen : IScreen
         int gridColumns = Math.Max(columns, MinimumColumns);
         if (gridRows != Rows || gridColumns != Columns)
         {
-            if (_saved is not null)
+            Regrid(Math.Max(gridRows, _buffer.Rows), Math.Max(gridColumns, _buffer.Columns));
+            _rows = gridRows;
+            _columns = gridColumns;
+
+            _resizing = true;
+            try
             {
-                _saved = ScreenBuffer.Regrid(_saved, Rows, Columns, gridRows, gridColumns);
+                Resized?.Invoke();
+            }
+            finally
+            {
+                _resizing = false;
             }
 
-            _buffer = _buffer.Resized(gridRows, gridColumns);
-            _onScreen = new char[gridRows * gridColumns];
+            Regrid(gridRows, gridColumns);
             MoveCursor(_cursorRow, _cursorColumn);
+        }
+        else
+        {
+            Resized?.Invoke();
         }
 
         // Whatever the console made of the old contents, none of it is trusted.
-        Console.Clear();
+        try
+        {
+            Console.Clear();
+        }
+        catch (IOException)
+        {
+            ForgetWindow();
+            return false;
+        }
+
         _onScreen.AsSpan().Clear();
         _buffer.MarkAllDirty();
         Refresh();
         return true;
+    }
+
+    /// <summary>Gives the grid another size, keeping what it held, top-left anchored.</summary>
+    private void Regrid(int rows, int columns)
+    {
+        if (rows == _buffer.Rows && columns == _buffer.Columns)
+        {
+            return;
+        }
+
+        if (_saved is not null)
+        {
+            _saved = ScreenBuffer.Regrid(_saved, _buffer.Rows, _buffer.Columns, rows, columns);
+        }
+
+        _buffer = _buffer.Resized(rows, columns);
+        _onScreen = new char[rows * columns];
+    }
+
+    public void MoveBlock(int fromRow, int fromColumn, int rows, int columns, int toRow, int toColumn)
+    {
+        _buffer.MoveBlock(fromRow, fromColumn, rows, columns, toRow, toColumn);
+
+        // The cursor goes with the block if it was inside it.
+        if (_cursorRow >= fromRow && _cursorRow < fromRow + rows
+            && _cursorColumn >= fromColumn && _cursorColumn < fromColumn + columns)
+        {
+            MoveCursor(_cursorRow - fromRow + toRow, _cursorColumn - fromColumn + toColumn);
+        }
     }
 
     public void FlushInput()

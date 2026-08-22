@@ -777,8 +777,14 @@ public partial class GameLoop
         }
         else if (command == 'M')
         {
-            _display.ScreenMap();
-            _display.ReadKey();
+            // One of the original's full screens, set in the middle of a
+            // bigger terminal like the others.
+            using (_display.Centred())
+            {
+                _display.ScreenMap();
+                _display.ReadKey();
+            }
+
             _display.RestoreScreen();
             FreeTurn = true;
         }

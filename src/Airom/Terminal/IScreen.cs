@@ -42,6 +42,14 @@ public interface IScreen
     /// <summary>Blanks the whole grid. Mirrors clear_screen().</summary>
     void Clear();
 
+    /// <summary>
+    /// Moves a rectangle of the grid to another position, blanking everything
+    /// else, and takes the cursor along if it was inside. What a full-screen
+    /// layout needs when the terminal changes size under it: the screen
+    /// already holds exactly what should be shown, only somewhere else.
+    /// </summary>
+    void MoveBlock(int fromRow, int fromColumn, int rows, int columns, int toRow, int toColumn);
+
     /// <summary>Parks the cursor. Mirrors move_cursor().</summary>
     void MoveCursor(int row, int column);
 
