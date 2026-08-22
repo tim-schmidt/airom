@@ -114,6 +114,7 @@ divergence.
 | `staff` | **Every staff in the table**, used on a generated level | **Verified matching** |
 | `spell` | **Every mage spell**, cast twice on a generated level - with mana and without | **Verified matching** |
 | `prayer` | **Every prayer**, recited the same way | **Verified matching** |
+| `study` | **Sixteen studies**: the list of spells on offer, redrawn after every pick | **Verified matching** |
 | `inven` | **Twenty scripted runs of the inventory mode**, screen and pack compared | **Verified matching** |
 | `getitem` | **Ten runs of the prompt that asks which item** | **Verified matching** |
 | `moria4` | **Ten scripted arrangements**: digging, disarming, bashing, throwing | **Verified matching** |
@@ -218,6 +219,35 @@ clears everything else and have to be cleared by hand between casts; and they
 are set after the stats rather than before, since setting a casting stat is what
 makes the game work out which spells the character is entitled to, and it would
 forget the ones it had just been given.
+
+## Comparing a list that is redrawn between keys
+
+`study` drives `gain_spells()`, the "G" command. A mage is shown every spell
+they are entitled to and picks them one at a time, and the list is redrawn
+after each pick because the spell just learned comes out of it.
+
+Nothing of that list survives the command: it saves the screen going in and
+puts it back coming out, so a dump taken afterwards shows what the list was
+drawn over and not the list. Both sides therefore dump the *whole screen* at
+every prompt, not just the message line and the cursor - the redraw only exists
+between one key and the next.
+
+That is not a hypothetical. The port erased the row it had just picked and then
+redrew a list one row shorter, leaving the old last row standing underneath;
+picking the top spell of several left a duplicate of the last one on the screen
+for the rest of the command. Every mode there was stayed green, because no mode
+printed the list while it existed.
+
+The variations cover both classes and both edges of the list: four books at
+once, which puts thirty-one spells on offer and shows the twenty-two that fit;
+a low level, which puts most of the book out of reach; more picks saved up than
+the book can satisfy, which is what "You seem to be missing a book" is for; and
+each of the three ways the command refuses to start - blind, unlit, confused.
+A priest is not asked anything at all, so what is compared there is the draw,
+the message and the order the prayers are learned in.
+
+The mana is left at zero rather than set, since learning a first spell is what
+`calc_mana()` is called for; stating it would hide the call.
 
 ## Comparing a screen that puts itself away
 
