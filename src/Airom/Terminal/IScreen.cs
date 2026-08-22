@@ -1,0 +1,76 @@
+// The terminal surface AIrom draws on. Replaces the curses layer that Umoria
+// 5.6 used in source/io.c.
+//
+// Copyright (C) 1989-2008 James E. Wilson, Robert A. Koeneke, David J. Grabiner
+// Copyright (C) 2026 AIrom contributors
+// Licensed under the GNU General Public License v3 or later. See LICENSE.
+
+namespace Airom.Terminal;
+
+/// <summary>
+/// A character grid with deferred output, matching how Umoria's io.c drives
+/// curses: drawing calls modify an off-screen buffer and nothing reaches the
+/// terminal until <see cref="Refresh"/>.
+///
+/// The game is strictly monochrome. Umoria 5.6's portable build makes no
+/// attribute calls at all - the only standout handling in io.c is inside the
+/// Mac branch, which encoded it in a character's sign bit - so there is
+/// deliberately no colour or emphasis in this interface.
+///
+/// Positions are row-then-column and zero-based, matching the C.
+/// </summary>
+public interface IScreen
+{
+    /// <summary>Rows available. Umoria requires at least 24.</summary>
+    int Rows { get; }
+
+    /// <summary>Columns available. Umoria requires at least 80.</summary>
+    int Columns { get; }
+
+    /// <summary>Writes one character. Out-of-range positions are ignored.</summary>
+    void Put(int row, int column, char value);
+
+    /// <summary>Writes a string, clipped at the right edge.</summary>
+    void Put(int row, int column, ReadOnlySpan<char> text);
+
+    /// <summary>Blanks from the given column to the end of the row. Mirrors erase_line().</summary>
+    void EraseLine(int row, int column);
+
+    /// <summary>Blanks the given row and everything below it. Mirrors clear_from().</summary>
+    void ClearFrom(int row);
+
+    /// <summary>Blanks the whole grid. Mirrors clear_screen().</summary>
+    void Clear();
+
+    /// <summary>Parks the cursor. Mirrors move_cursor().</summary>
+    void MoveCursor(int row, int column);
+
+    /// <summary>Sends pending changes to the terminal. Mirrors put_qio() and curses refresh().</summary>
+    void Refresh();
+
+    /// <summary>
+    /// Snapshots the grid so an overlay can be drawn over it. Mirrors
+    /// save_screen(), which copied stdscr into a spare full-screen window.
+    /// Umoria never nests these, so a single slot is enough.
+    /// </summary>
+    void SaveScreen();
+
+    /// <summary>Puts back what <see cref="SaveScreen"/> captured. Mirrors restore_screen().</summary>
+    void RestoreScreen();
+
+    /// <summary>
+    /// Blocks for one keypress and returns it, without echoing. Control keys
+    /// arrive as their control characters, since Umoria binds several of them
+    /// as commands.
+    /// </summary>
+    char ReadKey();
+
+    /// <summary>Whether <see cref="ReadKey"/> would return without blocking.</summary>
+    bool KeyAvailable { get; }
+
+    /// <summary>Discards type-ahead. Mirrors flush().</summary>
+    void FlushInput();
+
+    /// <summary>Rings the terminal bell. Mirrors bell().</summary>
+    void Bell();
+}

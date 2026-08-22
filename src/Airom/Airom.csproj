@@ -1,0 +1,42 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Airom</RootNamespace>
+    <AssemblyName>airom</AssemblyName>
+  </PropertyGroup>
+
+  <!-- Ship as one double-clickable file with no .NET install required.
+       Build with: dotnet publish -c Release
+
+       Trimmed: the game is a port of 1989 C, so it uses none of the framework
+       that makes trimming risky - no reflection, no dynamic loading, no
+       serialization. The trimmer says so too, emitting no warnings at all,
+       which takes the executable from 36.8 MB to 11.2 MB.
+
+       NativeAOT would take it to about 5 MB and start instantly, and this
+       codebase is a good candidate for exactly the same reasons. It needs the
+       MSVC linker - the "Desktop development with C++" workload - which is a
+       several-gigabyte install, so it is left as a later choice rather than a
+       requirement for building the game. -->
+  <PropertyGroup>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>full</TrimMode>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+
+  <!-- The help text, which the game reads at run time rather than embedding:
+       it is the original's own, and a player may want to read or edit it. -->
+  <ItemGroup>
+    <Content Include="..\..\help\*">
+      <Link>help\%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>
