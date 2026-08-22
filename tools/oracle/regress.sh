@@ -145,6 +145,12 @@ for s in $SEEDS; do
     run staff $s 5 293 25
     run spell $s 5 0 31
     run prayer $s 5 0 31
+
+    # Learning them: sixteen arrangements, the screen dumped at every prompt.
+    for v in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+        run study $s $v
+    done
+
     run inven $s 0
     run inven $s 3
     run getitem $s 0

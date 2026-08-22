@@ -86,6 +86,7 @@ extern int mvcur(int oldrow, int oldcol, int row, int col);
 /* Harness hooks, not part of curses. */
 extern void oracle_screen_reset(void);
 extern void oracle_screen_dump(const char *label);
+extern void oracle_log_key_screens(int on);
 extern void oracle_snapshot_next_key(void);
 extern void oracle_snapshot_dump(const char *label);
 

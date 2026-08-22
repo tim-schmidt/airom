@@ -955,6 +955,40 @@ public static partial class OracleDump
         return () => screen.BeforeReadKey = null;
     }
 
+    /// <summary>
+    /// The same, and the whole screen with it.
+    ///
+    /// A list that is redrawn between keys - the spells on offer while learning
+    /// them, above all - only exists between one key and the next: the command
+    /// saves the screen on the way in and puts it back on the way out, so
+    /// nothing of it survives to be dumped afterwards. What is not printed is
+    /// not compared, and a row left over from a longer list is exactly the kind
+    /// of thing that hides there.
+    /// </summary>
+    private static Action LogKeysAndScreens(TextWriter output, MemoryScreen screen)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+        ArgumentNullException.ThrowIfNull(screen);
+
+        int asked = 0;
+
+        screen.BeforeReadKey = () =>
+        {
+            output.Write(string.Join(
+                ' ', "ask", asked.ToString(CultureInfo.InvariantCulture),
+                "at", screen.CursorRow.ToString(CultureInfo.InvariantCulture),
+                screen.CursorColumn.ToString(CultureInfo.InvariantCulture),
+                screen.GetRow(0).TrimEnd()) + "\n");
+
+            DumpScreenRows(
+                output, screen, "scr" + asked.ToString(CultureInfo.InvariantCulture));
+
+            asked++;
+        };
+
+        return () => screen.BeforeReadKey = null;
+    }
+
     public static int Run(TextWriter output, TextWriter error, string[] arguments)
     {
         ArgumentNullException.ThrowIfNull(output);
@@ -1175,6 +1209,17 @@ public static partial class OracleDump
                 }
 
                 DumpMagic(output, arguments[0], magSeed, magLevel, magFirst, magCount);
+                return 0;
+
+            case "study":
+                if (arguments.Length != 3
+                    || !uint.TryParse(arguments[1], CultureInfo.InvariantCulture, out uint studySeed)
+                    || !int.TryParse(arguments[2], CultureInfo.InvariantCulture, out int studyVariation))
+                {
+                    return Usage(error);
+                }
+
+                DumpStudy(output, studySeed, studyVariation);
                 return 0;
 
             case "inven":
@@ -1610,6 +1655,7 @@ public static partial class OracleDump
         error.WriteLine("  airom oracle staff <seed> <level> <first> <count>  using staffs");
         error.WriteLine("  airom oracle spell <seed> <level> <first> <count>  casting spells");
         error.WriteLine("  airom oracle prayer <seed> <level> <first> <count>  reciting prayers");
+        error.WriteLine("  airom oracle study <seed> <variation>  learning spells and prayers");
         error.WriteLine("  airom oracle inven <seed> <variation>  the inventory screens");
         error.WriteLine("  airom oracle getitem <seed> <variation>  the prompt that asks which item");
         error.WriteLine("  airom oracle moria4 <seed> <level> <variation>  digging, disarming, bashing, throwing");

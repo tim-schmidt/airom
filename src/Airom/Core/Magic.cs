@@ -1324,8 +1324,11 @@ public class Magic
                         choices[j] = j + 1 < choices.Length ? choices[j + 1] : 0;
                     }
 
+                    // The list shortens by one, so the row that must be wiped
+                    // is the last row of the old list, not the row picked.
+                    int lastRow = count;
                     count--;
-                    _display.EraseLine(picked + 1, 31);
+                    _display.EraseLine(lastRow + 1, 31);
                     PrintSpells(choices, count, comment: false, -1);
                 }
                 else

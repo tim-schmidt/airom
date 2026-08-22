@@ -68,6 +68,7 @@ extern void probe_hit_trap(int y, int x);
 extern void probe_carry(int y, int x, int pickup);
 extern const char *oracle_screen_row(int row);
 extern void oracle_log_keys(int on);
+extern void oracle_log_key_screens(int on);
 extern void probe_print_tomb(void);
 extern void probe_char_inven_init(void);
 extern int _save_char(char *fnam);
@@ -3716,6 +3717,244 @@ static void dump_magic(const char *mode, unsigned long seed, int level,
   printf("final-state %lu\n", (unsigned long)get_rnd_seed());
 }
 
+/* ------------------------------------------------------------------- study */
+
+/* Learning spells: the "G" command, gain_spells().
+
+   A mage is shown every spell they are entitled to and picks them one at a
+   time, and the list is redrawn after each pick because the one just learned
+   comes out of it. That redraw only exists between one key and the next - the
+   command saves the screen going in and puts it back coming out - so the screen
+   is dumped at every prompt rather than at the end. A row left standing from the
+   longer list is invisible to any dump taken afterwards, which is exactly where
+   that bug lived.
+
+   A priest is not asked at all: the prayer is picked for them, so what is
+   compared there is the draw, the message and the order they are learned in.
+
+   The variations cover both, along with everything that stops the command
+   before it starts - blind, unlit, confused, nothing left to learn - and the
+   two edges of the list: more spells on offer than the twenty-two the screen
+   shows, and fewer spells on offer than the character has picks for. */
+
+struct study_case {
+  int mage;         /* mage picks, priest is picked for                    */
+  int level;        /* character level, which limits what can be learned   */
+  int newspells;    /* how many picks they have saved up                   */
+  int books;        /* how many of the class's books they carry            */
+  int32u known;     /* spells already learned, which come out of the list  */
+  int blind;
+  int lit;          /* whether the torch they carry has any oil in it      */
+  int confused;
+  char *keys;
+};
+
+static struct study_case study_cases[] = {
+  /* Picking the top of the list over and over: every pick shortens the list
+     by one, so every pick redraws it one row shorter. */
+  { TRUE,  40, 4, 1, 0,          0, TRUE,  0, "aaaa"    },
+  /* Picking from the bottom and the middle instead. */
+  { TRUE,  40, 3, 1, 0,          0, TRUE,  0, "cba"     },
+  /* Keys that are not on offer at all, then one that is. */
+  { TRUE,  40, 2, 1, 0,          0, TRUE,  0, "z0a"     },
+  /* Four books at once: thirty-one spells on offer, twenty-two shown. */
+  { TRUE,  40, 5, 4, 0,          0, TRUE,  0, "aaaaa"   },
+  /* The last row shown, then the row past it, which is refused. */
+  { TRUE,  40, 3, 4, 0,          0, TRUE,  0, "vwa"     },
+  /* A low level, so most of the book is still out of reach. */
+  { TRUE,   5, 2, 1, 0,          0, TRUE,  0, "aa"      },
+  /* No book: nothing is on offer and the picks are kept. */
+  { TRUE,  40, 3, 0, 0,          0, TRUE,  0, "a"       },
+  /* More picks than the book can satisfy. */
+  { TRUE,   1, 4, 1, 0,          0, TRUE,  0, "aa"      },
+  /* Nothing saved up to spend. */
+  { TRUE,  40, 0, 1, 0,          0, TRUE,  0, "a"       },
+  /* Blind, unlit and confused: three ways to be turned away. */
+  { TRUE,  40, 2, 1, 0,         10, TRUE,  0, "a"       },
+  { TRUE,  40, 2, 1, 0,          0, FALSE, 0, "a"       },
+  { TRUE,  40, 2, 1, 0,          0, TRUE, 10, "a"       },
+  /* Backing out with a pick still in hand. */
+  { TRUE,  40, 2, 1, 0,          0, TRUE,  0, "\033"    },
+  /* Some of the book already known, so those rows are not offered again. */
+  { TRUE,  40, 2, 1, 0x0000000BL, 0, TRUE,  0, "ab"     },
+  /* A priest, who is told what they learned rather than asked. */
+  { FALSE, 40, 3, 0, 0,          0, TRUE,  0, ""        },
+  { FALSE, 10, 5, 0, 0,          0, TRUE,  0, ""        }
+};
+
+#define STUDY_CASES ((int)(sizeof(study_cases)/sizeof(study_cases[0])))
+
+static void dump_study(unsigned long seed, int variation)
+{
+  struct study_case *c;
+  int book_tval;
+  int i;
+  int carried;
+  int32u holder;
+  int stat;
+
+  c = &study_cases[variation % STUDY_CASES];
+  book_tval = c->mage ? TV_MAGIC_BOOK : TV_PRAYER_BOOK;
+  stat = c->mage ? A_INT : A_WIS;
+
+  header("study", seed);
+  printf("variation %d\n", variation);
+  printf("mage %d level %d newspells %d books %d known %lu\n",
+         c->mage ? 1 : 0, c->level, c->newspells, c->books,
+         (unsigned long)c->known);
+
+  probe_init_t_level();
+  probe_init_m_level();
+
+  init_seeds((int32u)seed);
+  magic_init();
+
+  init_seeds((int32u)seed);
+  pin_player(5);
+  py.misc.pclass = c->mage ? 1 : 2;   /* class 0 is the warrior */
+  dun_level = 5;
+
+  /* These live outside the player struct, so pin_player() does not clear
+     them. */
+  spell_learned = 0;
+  spell_worked = 0;
+  spell_forgotten = 0;
+  for (i = 0; i < 32; i++)
+    spell_order[i] = 99;
+
+  init_curses();
+  oracle_screen_reset();
+  msg_flag = FALSE;
+
+  generate_cave();
+  cave[char_row][char_col].cptr = 1;
+
+  py.misc.lev = (int16u)c->level;
+  py.misc.expfact = 100;
+  py.misc.hitdie = 10;
+  py.flags.food = 5000;
+
+  for (i = 0; i < 6; i++)
+    {
+      py.stats.max_stat[i] = 18;
+      py.stats.cur_stat[i] = 18;
+      py.stats.mod_stat[i] = 0;
+      set_use_stat(i);
+    }
+
+  (void) memset((char *)object_ident, 0, OBJECT_IDENT_SIZE);
+
+  inven_ctr = 0;
+  inven_weight = 0;
+  equip_ctr = 0;
+
+  invcopy(&inventory[INVEN_WIELD], 30);   /* a stiletto         */
+  invcopy(&inventory[INVEN_BODY], 103);   /* soft leather armor */
+  invcopy(&inventory[INVEN_LIGHT], 365);  /* a wooden torch     */
+
+  /* An empty torch is how the mode arranges darkness: whether the square ends
+     up lit is for the game to work out from what is being carried. */
+  inventory[INVEN_LIGHT].p1 = c->lit ? 5000 : 0;
+  equip_ctr = 3;
+
+  calc_bonuses();
+
+  py.misc.mhp = 500;
+  py.misc.chp = 500;
+
+  probe_enter_level();
+
+  /* The books, in the order the object table holds them, so both sides carry
+     the same ones and the letters do not move. */
+  carried = 0;
+
+  for (i = 0; i < MAX_OBJECTS && carried < c->books; i++)
+    if (object_list[i].tval == book_tval)
+      {
+        inven_type held;
+
+        invcopy(&held, i);
+        (void) inven_carry(&held);
+        carried++;
+      }
+
+  /* Set after set_use_stat(), which works out what the character is entitled
+     to and would forget anything given to them before it. */
+  spell_learned = c->known;
+  spell_worked = 0;
+  spell_forgotten = 0;
+
+  for (i = 0; i < 32; i++)
+    spell_order[i] = 99;
+
+  /* Learning writes at the first free slot, so what is already known has to be
+     in the order as well as in the mask. */
+  holder = c->known;
+  i = 0;
+
+  while (holder)
+    {
+      int32u bit = holder;
+
+      spell_order[i++] = (int8u)bit_pos(&bit);
+      holder = bit;
+    }
+
+  py.flags.blind = (int16u)c->blind;
+  py.flags.confused = (int16u)c->confused;
+  py.flags.new_spells = (int8u)c->newspells;
+  py.flags.status = 0;
+
+  /* Zero, so that the mana a first spell brings with it is worked out by
+     calc_mana() rather than stated here. */
+  py.misc.mana = 0;
+  py.misc.cmana = 0;
+  py.misc.cmana_frac = 0;
+
+  msg_flag = FALSE;
+  free_turn_flag = FALSE;
+
+  {
+    char keys[600];
+    int n = 0;
+
+    for (i = 0; c->keys[i]; i++)
+      keys[n++] = c->keys[i];
+    for (i = n; i < 599; i++)
+      keys[i] = (char)27;
+    keys[599] = 0;
+    oracle_feed_keys(keys);
+  }
+
+  /* The list only exists between one key and the next, so both the cursor and
+     the whole screen are logged at every prompt. */
+  oracle_log_keys(1);
+  oracle_log_key_screens(1);
+  gain_spells();
+  oracle_log_key_screens(0);
+  oracle_log_keys(0);
+
+  printf("learned %lu worked %lu forgot %lu\n",
+         (unsigned long)spell_learned, (unsigned long)spell_worked,
+         (unsigned long)spell_forgotten);
+  printf("newspells %d status %lu free %d\n", (int)py.flags.new_spells,
+         (unsigned long)py.flags.status, free_turn_flag ? 1 : 0);
+  printf("mana %d cmana %d frac %d stat %d\n", (int)py.misc.mana,
+         (int)py.misc.cmana, (int)py.misc.cmana_frac, stat);
+  printf("packed %d message %s\n", (int)inven_ctr, oracle_screen_row(0));
+
+  printf("order");
+  for (i = 0; i < 32; i++)
+    printf(" %d", (int)spell_order[i]);
+  printf("\n");
+
+  /* The screen as gain_spells() left it, which is what proves the restore put
+     back what the list was drawn over. */
+  oracle_screen_dump("scr");
+
+  printf("final-state %lu\n", (unsigned long)get_rnd_seed());
+}
+
 /* ------------------------------------------------------------------- inven */
 
 /* The inventory screens, and the prompt that asks which item.
@@ -6510,6 +6749,7 @@ static int usage(void)
           "  oracle wand <seed> <level> <first> <count>  aiming wands\n"
           "  oracle staff <seed> <level> <first> <count>  using staffs\n"
           "  oracle spell <seed> <level> <first> <count>  casting spells\n"
+          "  oracle study <seed> <variation>       learning spells\n"
           "  oracle prayer <seed> <level> <first> <count>  reciting prayers\n"
           "  oracle inven <seed> <variation>  the inventory screens\n"
           "  oracle getitem <seed> <variation>  the prompt that asks which item\n"
@@ -6727,6 +6967,15 @@ int main(int argc, char *argv[])
                  (int)strtol(argv[3], NULL, 10),
                  (int)strtol(argv[4], NULL, 10),
                  (int)strtol(argv[5], NULL, 10));
+      return 0;
+    }
+
+  if (strcmp(argv[1], "study") == 0)
+    {
+      if (argc != 4)
+        return usage();
+
+      dump_study(strtoul(argv[2], NULL, 10), (int)strtol(argv[3], NULL, 10));
       return 0;
     }
 
