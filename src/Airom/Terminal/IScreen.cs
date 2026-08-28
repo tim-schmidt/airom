@@ -73,6 +73,14 @@ public interface IScreen
     /// </summary>
     char ReadKey();
 
+    /// <summary>
+    /// Which keyset the keypad and the arrow keys spell their directions in.
+    /// The MSDOS build's bios_getch() translated keypad scan codes through one
+    /// of two tables chosen by rogue_like_commands; the game keeps this flag
+    /// in line with that option so <see cref="ReadKey"/> can do the same.
+    /// </summary>
+    bool RogueLikeKeypad { get; set; }
+
     /// <summary>Whether <see cref="ReadKey"/> would return without blocking.</summary>
     bool KeyAvailable { get; }
 

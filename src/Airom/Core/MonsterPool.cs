@@ -126,15 +126,6 @@ public sealed class MonsterPool
     }
 
     /// <summary>
-    /// Claims the next free slot. Mirrors popm().
-    ///
-    /// Umoria calls compact_monsters() when the list fills, deleting distant
-    /// ones to make room, and place_monster simply fails if that cannot help.
-    /// Compaction is not ported yet, so this throws rather than failing quietly:
-    /// a silently missing monster would diverge from the original with no
-    /// visible symptom.
-    /// </summary>
-    /// <summary>
     /// Which monster creatures() is part way through, or -1 when nothing is
     /// scanning. Mirrors hack_monptr, which the original calls a horrible hack
     /// and which decides whether a death can be finished at once.

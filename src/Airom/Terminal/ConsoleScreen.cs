@@ -415,9 +415,74 @@ public sealed class ConsoleScreen : IScreen
 
         ConsoleKeyInfo key = Console.ReadKey(intercept: true);
 
+        char keypad = TranslateKeypad(key);
+        if (keypad != '\0')
+        {
+            return keypad;
+        }
+
         // Umoria's inkey() deals in plain characters. Keys that produce none -
         // arrows, function keys - come back as '\0' for the caller to map.
         return key.KeyChar;
+    }
+
+    public bool RogueLikeKeypad { get; set; }
+
+    /// <summary>
+    /// Turns an arrow or keypad key into the command character the keyset
+    /// binds to that direction, or '\0' for any other key. Mirrors the two
+    /// tables in the MSDOS build's bios_getch() (ibmpc/ms_misc.c).
+    ///
+    /// The DOS tables had three columns - plain, shift and NumLock - with
+    /// NumLock holding the control characters that tunnel. A modern NumLock
+    /// puts digits on the keypad before the game ever sees them, which is the
+    /// original keyset's own walking commands, so here the third column is
+    /// reached with Ctrl instead: plain walks, Shift runs, Ctrl tunnels. The
+    /// original keyset's columns were all the same, so its modifiers change
+    /// nothing, exactly as on DOS.
+    ///
+    /// Add and Subtract are the keypad's own + and - keys; the row's + and -
+    /// arrive as OemPlus and OemMinus and pass through untranslated.
+    /// </summary>
+    private char TranslateKeypad(ConsoleKeyInfo key)
+    {
+        char walk = key.Key switch
+        {
+            ConsoleKey.Home => RogueLikeKeypad ? 'y' : '7',
+            ConsoleKey.UpArrow => RogueLikeKeypad ? 'k' : '8',
+            ConsoleKey.PageUp => RogueLikeKeypad ? 'u' : '9',
+            ConsoleKey.LeftArrow => RogueLikeKeypad ? 'h' : '4',
+
+            // The keypad's 5 with NumLock off, which both tables bind to
+            // standing still.
+            ConsoleKey.Clear => RogueLikeKeypad ? '.' : '5',
+            ConsoleKey.RightArrow => RogueLikeKeypad ? 'l' : '6',
+            ConsoleKey.End => RogueLikeKeypad ? 'b' : '1',
+            ConsoleKey.DownArrow => RogueLikeKeypad ? 'j' : '2',
+            ConsoleKey.PageDown => RogueLikeKeypad ? 'n' : '3',
+            ConsoleKey.Insert => 'i',
+            ConsoleKey.Delete => '.',
+            ConsoleKey.Subtract => RogueLikeKeypad ? '.' : '-',
+            ConsoleKey.Add => RogueLikeKeypad
+                ? Airom.Core.Keys.Control('P')
+                : Airom.Core.Keys.Return,
+            _ => '\0',
+        };
+
+        if (RogueLikeKeypad && char.IsAsciiLetterLower(walk) && walk != 'i')
+        {
+            if ((key.Modifiers & ConsoleModifiers.Control) != 0)
+            {
+                return Airom.Core.Keys.Control(char.ToUpperInvariant(walk));
+            }
+
+            if ((key.Modifiers & ConsoleModifiers.Shift) != 0)
+            {
+                return char.ToUpperInvariant(walk);
+            }
+        }
+
+        return walk;
     }
 
     /// <summary>

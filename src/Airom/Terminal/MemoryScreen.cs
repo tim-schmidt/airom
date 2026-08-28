@@ -38,6 +38,12 @@ public sealed class MemoryScreen : IScreen
     public Action? Resized { get; set; }
 
     /// <summary>
+    /// Kept for the interface. A memory screen is fed characters directly, so
+    /// there is no keypad to translate and the flag changes nothing.
+    /// </summary>
+    public bool RogueLikeKeypad { get; set; }
+
+    /// <summary>
     /// Changes the grid's size the way a console screen does when its window
     /// is resized: what it held is kept, cut or padded at the bottom and
     /// right, and whoever is waiting on <see cref="Resized"/> is told - with
@@ -165,6 +171,10 @@ public sealed class MemoryScreen : IScreen
     }
 
     public bool KeyAvailable => TypeAheadVisible && _input.Count > 0;
+
+    /// <summary>How much of the script is still unread, for tests that need
+    /// to catch the screen at a particular key.</summary>
+    public int PendingKeys => _input.Count;
 
     /// <summary>
     /// Whether queued keys count as type-ahead. The oracle turns this off: its
