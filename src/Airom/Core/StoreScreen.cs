@@ -66,6 +66,14 @@ public partial class StoreScreen
         _display.ClearScreen();
         _display.PutBuffer(GameTables.Owners[store.Owner].Name, 3, 9);
         _display.PutBuffer("Item", 4, 3);
+
+        // Not in the original, which never shows weights in a shop; here the
+        // show-weights option covers this list too.
+        if (_game.ShowWeights)
+        {
+            _display.PutBuffer("Weight", 4, 51);
+        }
+
         _display.PutBuffer("Asking Price", 4, 60);
 
         PrintGold();
@@ -128,9 +136,29 @@ public partial class StoreScreen
             }
 
             string description = _game.Names.Describe(item, withArticle: true);
+            int shown = item.Number;
             item.Number = number;
 
+            // The weight column is not in the original; it appears only when
+            // the show-weights option is on, and weighs what the description
+            // describes, since the price beside it is priced the same way.
+            if (_game.ShowWeights && description.Length > 45)
+            {
+                description = description[..45];
+            }
+
             _display.Print((char)('a' + line) + ") " + description, line + 5, 0);
+
+            if (_game.ShowWeights)
+            {
+                int total = item.Weight * shown;
+
+                _display.Print(
+                    (total / 10).ToString(CultureInfo.InvariantCulture).PadLeft(3)
+                    + "." + (total % 10).ToString(CultureInfo.InvariantCulture)
+                    + " lb", line + 5, 51);
+            }
+
             _display.Print(DescribeCost(store.Stock[start].Cost), line + 5, 59);
 
             line++;
