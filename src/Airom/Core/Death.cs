@@ -268,6 +268,10 @@ public class Death
         _display.MessagePrint(null);
         _display.FlushInput();
 
+        // Can't interrupt or suspend: the original calls nosignals() here, so
+        // a Ctrl-C over the tomb or the score table goes back to being a key.
+        _display.Interrupted = null;
+
         // A saved game sets the turn to -1, which is what stops the tomb being
         // printed for a character who merely stopped playing.
         if (_game.Turn >= 0)

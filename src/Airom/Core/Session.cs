@@ -168,11 +168,30 @@ public class Session
     }
 
     /// <summary>
+    /// Plays a game, and buries the character if the game ends by interrupt:
+    /// the original's signal handler called exit_game() from wherever the
+    /// signal landed, which here is a throw from however deep the key wait was.
+    /// </summary>
+    /// <returns>The process exit code.</returns>
+    public int Play(Options options)
+    {
+        try
+        {
+            return PlayGame(options);
+        }
+        catch (GameInterruptedException)
+        {
+            _loop.Death.ExitGame();
+            return 0;
+        }
+    }
+
+    /// <summary>
     /// Plays a game. Mirrors main(), less the parts that belong to a 1989 Unix
     /// machine.
     /// </summary>
     /// <returns>The process exit code.</returns>
-    public int Play(Options options)
+    private int PlayGame(Options options)
     {
         ArgumentNullException.ThrowIfNull(options);
 

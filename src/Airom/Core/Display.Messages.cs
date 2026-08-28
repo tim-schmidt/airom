@@ -23,6 +23,13 @@ public static class Keys
     /// <summary>Redraw the screen. The one key inkey() handles itself.</summary>
     public static readonly char Redraw = Control('R');
 
+    /// <summary>
+    /// Ctrl-C, which reaches the game as a key because the console is told not
+    /// to raise it as an event. The original received it as SIGINT instead;
+    /// see <see cref="Display.Interrupted"/>.
+    /// </summary>
+    public static readonly char Interrupt = Control('C');
+
     public static readonly char Backspace = Control('H');
 
     public static readonly char LineFeed = Control('J');
@@ -53,6 +60,28 @@ public sealed partial class Display
     /// next message has to deal with it before overwriting.
     /// </summary>
     public bool MessageWaiting { get; private set; }
+
+    /// <summary>
+    /// What a Ctrl-C does while the game waits for a key. Mirrors the SIGINT
+    /// half of signal_handler() in signals.c: the session installs
+    /// <see cref="Signals.Interrupt"/> here, which may put up the suicide
+    /// prompt and quits by throwing <see cref="GameInterruptedException"/>.
+    /// Left null - by the oracle and the tests - Ctrl-C stays an ordinary key.
+    /// </summary>
+    public Action? Interrupted { get; set; }
+
+    /// <summary>
+    /// Whether <see cref="Interrupted"/> is already running, in which case
+    /// further Ctrl-Cs are swallowed - the original ignores all second
+    /// signals for the same reason.
+    /// </summary>
+    private bool _inInterrupt;
+
+    /// <summary>
+    /// Whether a " -more-" is being waited on, so an interrupt that declines
+    /// to quit knows to paint it back. Mirrors wait_for_more.
+    /// </summary>
+    private bool _waitingForMore;
 
     /// <summary>
     /// Clears the waiting flag without printing. The command loop does this
@@ -120,12 +149,20 @@ public sealed partial class Display
 
                 PutBuffer(" -more-", MessageLine, oldLength);
 
-                char key;
-                do
+                _waitingForMore = true;
+                try
                 {
-                    key = ReadKey();
+                    char key;
+                    do
+                    {
+                        key = ReadKey();
+                    }
+                    while (key != ' ' && key != Keys.Escape && key != '\n' && key != '\r');
                 }
-                while (key != ' ' && key != Keys.Escape && key != '\n' && key != '\r');
+                finally
+                {
+                    _waitingForMore = false;
+                }
             }
             else
             {
@@ -202,6 +239,10 @@ public sealed partial class Display
         Refresh();
         CommandCount = 0;
 
+        // The keypad spells directions in whichever keyset is in force, and
+        // the option can change at any time, so it is told before every wait.
+        _screen.RogueLikeKeypad = _game.RogueLikeCommands;
+
         // A resize while waiting: a centred layout moves to the middle of
         // the new size, the command prompt draws the game for it, and either
         // way the result is shown at once.
@@ -217,12 +258,44 @@ public sealed partial class Display
             while (true)
             {
                 char key = _screen.ReadKey();
-                if (key != Keys.Redraw)
+
+                if (key == Keys.Redraw)
                 {
-                    return key;
+                    _screen.Refresh();
+                    continue;
                 }
 
-                _screen.Refresh();
+                if (key == Keys.Interrupt && Interrupted is not null)
+                {
+                    // A second Ctrl-C while the first is being asked about is
+                    // ignored, as the original ignores all second signals.
+                    if (!_inInterrupt)
+                    {
+                        _inInterrupt = true;
+                        try
+                        {
+                            Interrupted();
+                        }
+                        finally
+                        {
+                            _inInterrupt = false;
+                        }
+
+                        // In case control-c was typed during msg_print, as the
+                        // original puts it: the suicide prompt took the message
+                        // line, so the -more- being waited on goes back up.
+                        if (_waitingForMore)
+                        {
+                            PutBuffer(" -more-", MessageLine, 0);
+                        }
+
+                        Refresh();
+                    }
+
+                    continue;
+                }
+
+                return key;
             }
         }
         finally

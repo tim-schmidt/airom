@@ -38,7 +38,31 @@ try
     var display = new Display(game, screen);
     var loop = new GameLoop(game, display);
 
-    return new Session(game, display, loop).Play(options);
+    // The port of init_signals(): Ctrl-C becomes the suicide prompt, and the
+    // console closing under a live character becomes a panic save.
+    var signals = new Signals(game, display, loop);
+    display.Interrupted = signals.Interrupt;
+    signals.InstallConsoleHandlers();
+
+    try
+    {
+        return new Session(game, display, loop).Play(options);
+    }
+    catch (Exception)
+    {
+        // The fatal half of signal_handler(). The rethrow is this port's core
+        // dump: the trace prints once the terminal is put back.
+        try
+        {
+            signals.Panic();
+        }
+        catch (Exception)
+        {
+            // The bug wins; the trace below is all that can be offered.
+        }
+
+        throw;
+    }
 }
 finally
 {
