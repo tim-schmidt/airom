@@ -1055,6 +1055,18 @@ public partial class GameLoop
             return true;
         }
 
+        if (command == Keys.Control('A'))
+        {
+            _wizardCommands.CureAll();
+            return true;
+        }
+
+        if (command == Keys.Control('D'))
+        {
+            _wizardCommands.GotoLevel();
+            return true;
+        }
+
         if (command == Keys.Control('E'))
         {
             _wizardCommands.ChangeCharacter();
@@ -1062,9 +1074,51 @@ public partial class GameLoop
             return true;
         }
 
+        if (command == Keys.Control('F'))
+        {
+            _spells.MassGenocide();
+            return true;
+        }
+
+        if (command == Keys.Control('G'))
+        {
+            _wizardCommands.Treasure();
+            return true;
+        }
+
+        if (command == Keys.Control('I'))
+        {
+            _spells.IdentSpell();
+            return true;
+        }
+
         if (command == Keys.Control('O'))
         {
             _characterFile.PrintObjects();
+            return true;
+        }
+
+        if (command == Keys.Control('T'))
+        {
+            Teleport(100);
+            return true;
+        }
+
+        if (command == ':')
+        {
+            _spells.MapArea();
+            return true;
+        }
+
+        if (command == '+')
+        {
+            _wizardCommands.BoostExperience();
+            return true;
+        }
+
+        if (command == '&')
+        {
+            _wizardCommands.Summon();
             return true;
         }
 
