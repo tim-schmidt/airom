@@ -430,6 +430,134 @@ public class WizardCommands
         _display.MessagePrint("Allocated.");
     }
 
+    /// <summary>
+    /// Cures every affliction at once and restores every stat. Mirrors the ^A
+    /// branch of do_command().
+    ///
+    /// FAITHFUL QUIRK: every affliction is cut to its last turn rather than
+    /// removed - the cures set their counters to one, and the command itself
+    /// is a free move - so nothing actually clears until a real turn is spent
+    /// and its upkeep ticks the counters off. The original behaves the same
+    /// way.
+    /// </summary>
+    public void CureAll()
+    {
+        Spells spells = _loop.Spells;
+        spells.RemoveCurse();
+        spells.CureBlindness();
+        spells.CureConfusion();
+        spells.CurePoison();
+        spells.RemoveFear();
+
+        for (int stat = 0; stat < Stat.Count; stat++)
+        {
+            _loop.Stats.Restore(stat);
+        }
+
+        if (Player.Slowed > 1)
+        {
+            Player.Slowed = 1;
+        }
+
+        if (Player.Hallucinating > 1)
+        {
+            Player.Hallucinating = 1;
+        }
+    }
+
+    /// <summary>
+    /// Jumps to any level of the dungeon. Mirrors the ^D branch of
+    /// do_command().
+    ///
+    /// A count on the command is the level, so a hundred or more of them means
+    /// the town; otherwise the level is asked for, and escape stays put.
+    /// </summary>
+    public void GotoLevel()
+    {
+        int level;
+
+        if (_display.CommandCount > 0)
+        {
+            level = _display.CommandCount > 99 ? 0 : _display.CommandCount;
+            _display.CommandCount = 0;
+        }
+        else
+        {
+            _display.Print("Go to which level (0-99) ? ", 0, 0);
+            level = -1;
+
+            if (_display.GetString(0, 27, 10, out string typed))
+            {
+                level = ParseNumber(typed);
+            }
+        }
+
+        if (level > -1)
+        {
+            _game.DungeonLevel = Math.Min(level, 99);
+            _loop.NewLevel = true;
+        }
+        else
+        {
+            _display.EraseLine(Display.MessageLine, 0);
+        }
+    }
+
+    /// <summary>
+    /// Drops random treasure underfoot, as many pieces as the count asked for.
+    /// Mirrors the ^G branch of do_command().
+    /// </summary>
+    public void Treasure()
+    {
+        int count = 1;
+
+        if (_display.CommandCount > 0)
+        {
+            count = _display.CommandCount;
+            _display.CommandCount = 0;
+        }
+
+        new DungeonGenerator(_game, _display)
+            .RandomObject(_game.CharacterRow, _game.CharacterColumn, count);
+        _display.PrintMap();
+    }
+
+    /// <summary>
+    /// Sets the experience to the count, or doubles it without one. Mirrors
+    /// the + branch of do_command().
+    /// </summary>
+    public void BoostExperience()
+    {
+        if (_display.CommandCount > 0)
+        {
+            Player.Experience = _display.CommandCount;
+            _display.CommandCount = 0;
+        }
+        else if (Player.Experience == 0)
+        {
+            Player.Experience = 1;
+        }
+        else
+        {
+            Player.Experience *= 2;
+        }
+
+        _loop.Levelling.PrintExperience();
+    }
+
+    /// <summary>
+    /// Summons a monster next to the player, asleep, and gives the creatures a
+    /// quiet turn so it settles in. Mirrors the &amp; branch of do_command().
+    /// </summary>
+    public void Summon()
+    {
+        int row = _game.CharacterRow;
+        int column = _game.CharacterColumn;
+
+        new DungeonGenerator(_game, _display).SummonMonster(ref row, ref column, asleep: true);
+        _loop.MonsterAi.Creatures(attack: false);
+    }
+
     /// <summary>Puts a question on the message line and reads the answer.</summary>
     private bool Ask(string prompt, int column, int length, out string typed)
     {
