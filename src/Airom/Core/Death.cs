@@ -102,6 +102,8 @@ public class Death
         Player.MaxExperience += 5000000;
         Player.Experience = Player.MaxExperience;
 
+        using IDisposable centred = _display.Centred();
+
         _display.ClearScreen();
         _display.PutBuffer("#", 1, 34);
         _display.PutBuffer("#####", 2, 32);
