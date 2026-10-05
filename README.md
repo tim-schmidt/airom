@@ -1,8 +1,8 @@
 # AIrom
 
 A C# port of [Umoria](https://en.wikipedia.org/wiki/Moria_(video_game)) 5.6 —
-the 1980s dungeon-crawling roguelike — targeting Windows as a native terminal
-application.
+the 1980s dungeon-crawling roguelike — as a native terminal application for
+Windows, macOS and Linux.
 
 The name is *Moria* backwards.
 
@@ -10,8 +10,9 @@ The name is *Moria* backwards.
 
 The original is K&R C from 1989, written for UNIX and later carried to a dozen
 dead platforms. The practical way to play it on Windows today is a DOS build
-under DOSBox. This port removes that step: one self-contained `.exe`, no
-emulator, no runtime install.
+under DOSBox, and on a modern Mac it takes some coaxing to build at all. This
+port removes that step: one self-contained executable, no emulator, no runtime
+install.
 
 ## Status
 
@@ -97,13 +98,41 @@ Requires the [.NET 9 SDK](https://dotnet.microsoft.com/download).
 ```
 dotnet test                              # run the test suite
 dotnet run --project src/Airom           # run from source
-dotnet publish src/Airom -c Release      # produce a standalone exe
+dotnet publish src/Airom -c Release      # produce a standalone executable
 ```
 
-The published binary lands in
-`src/Airom/bin/Release/net9.0/win-x64/publish/airom.exe` and needs nothing
-installed to run. It is one trimmed, self-contained, compressed file of about
-11 MB.
+The published binary is for the machine that built it, and lands in
+`src/Airom/bin/Release/net9.0/<rid>/publish/` - `win-x64/airom.exe` on Windows,
+`osx-arm64/airom` on an Apple Silicon Mac, `linux-x64/airom` on Linux. It needs
+nothing installed to run, and is one trimmed, self-contained, compressed file
+of 11-13 MB. Any target can be built from any machine:
+
+```
+dotnet publish src/Airom -c Release -r osx-arm64   # Apple Silicon Mac
+dotnet publish src/Airom -c Release -r osx-x64     # Intel Mac
+dotnet publish src/Airom -c Release -r linux-x64   # Linux
+dotnet publish src/Airom -c Release -r win-x64     # Windows
+```
+
+Every platform plays the same game: the same keys, the same savefile, the same
+panic save if the terminal is closed under a live character. A game saved on
+one can be carried to another.
+
+### On a Mac
+
+Double-clicking `airom` opens it in Terminal, which starts at the 80x24 the
+game needs. The binary is signed ad hoc but not notarized, so the first time a
+downloaded copy is opened macOS will refuse it; right-click it and choose
+*Open*, or clear the quarantine flag once:
+
+```
+xattr -d com.apple.quarantine airom
+```
+
+Ship it as a `.tar.gz` rather than a zip made on Windows, which loses the
+executable bit. Terminal keeps Home, End, Page Up and Page Down for its own
+scrolling, so the keypad diagonals are best reached with the number keys or,
+in the rogue-like keyset, `yubn`.
 
 Trimming is safe here for the same reason the port is a good candidate for
 NativeAOT: it is a translation of 1989 C, so it touches none of the framework
@@ -111,9 +140,11 @@ that trimming has trouble with — no reflection, no dynamic loading, no
 serialization. The trimmer agrees, and emits no warnings.
 
 NativeAOT would take it to roughly 5 MB and start with no warm-up at all. It
-needs the MSVC linker — the *Desktop development with C++* workload, several
-gigabytes of it — so it is not a requirement for building the game. If you have
-that installed already:
+needs the platform's native linker — on Windows the MSVC *Desktop development
+with C++* workload, several gigabytes of it; on a Mac the Xcode command-line
+tools — and unlike the ordinary publish it only builds for the machine it runs
+on, so it is not a requirement for building the game. If you have that
+installed already:
 
 ```
 dotnet publish src/Airom -c Release -p:PublishAot=true -p:PublishSingleFile=false
@@ -158,7 +189,7 @@ other observable, including the savefile, is unchanged.
 One place is deliberately not a port. Umoria's score table is a single file
 shared by every player on a Unix machine: the game runs setuid, locks the file
 while it writes, and stamps each entry with a user id. None of that means
-anything for one person on one Windows machine, so the table is kept as a plain
+anything for one person on one machine, so the table is kept as a plain
 file under the player's own application data, with no lock and a user id of
 nought throughout - which is the case the original already handles, falling back
 to the character's birth date to tell one character from another. The *record*

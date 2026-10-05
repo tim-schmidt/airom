@@ -90,7 +90,7 @@ public static partial class OracleDump
     /// Three of them open a help file, and the original was compiled with the
     /// author's own home directory baked into the name, so the two sides
     /// disagree about a path rather than about a command. One saves the game,
-    /// Two ask for a shell, which Windows does not have and the original
+    /// Two ask for a shell, which the port does not offer and the original
     /// refuses anyway. What each key did is still compared - the turn, the
     /// move, the level - only what it said is not.
     /// </summary>

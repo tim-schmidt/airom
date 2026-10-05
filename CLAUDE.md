@@ -1,11 +1,14 @@
 # AIrom
 
-A C# port of Umoria 5.6 for Windows. The 1989 C original lives at `c:\code\moria`
-and is **reference only — never modify it**.
+A C# port of Umoria 5.6 for Windows, macOS and Linux. The 1989 C original lives
+at `c:\code\moria` and is **reference only — never modify it**.
 
-Windows only. No code for other operating systems, no platform branches: where
-the original has an `#ifdef`, the port takes the branch Windows would take and
-says so in a comment.
+One game on every platform, and no platform branches. The game reaches the
+machine only through what .NET already makes portable - `System.Console`,
+`PosixSignalRegistration`, `Environment.SpecialFolder` - so there is nothing to
+branch on. Where the original has an `#ifdef`, the port took the branch Windows
+(or DOS) would take and says so in a comment; that choice holds on a Mac or
+Linux too, so all three play the same game and read the same savefile.
 
 ## Building and running
 
@@ -13,11 +16,15 @@ says so in a comment.
 dotnet publish src/Airom -c Release
 ```
 
-That is the whole of it, and it puts the game here:
+That is the whole of it, and it builds for the machine it runs on, putting the
+game here:
 
 ```
-src\Airom\bin\Release\net9.0\win-x64\publish\airom.exe
+src\Airom\bin\Release\net9.0\<rid>\publish\airom[.exe]
 ```
+
+where `<rid>` is `win-x64`, `osx-arm64`, `linux-x64` and so on. Add `-r <rid>`
+to build for another platform; every target publishes from every host.
 
 **Publish there and nowhere else.** It is tempting to pass `-o` and put a copy
 somewhere convenient - the oracle wants a path to an executable, and a scratch
@@ -45,6 +52,12 @@ CC=/c/msys64/ucrt64/bin/gcc.exe bash tools/oracle/build.sh   # build the C side
 bash tools/oracle/compare.sh <mode> <args>                   # one comparison
 bash tools/oracle/regress.sh                                 # all of them
 ```
+
+The oracle is built and run on Windows, and stays there. Windows is LLP64, with
+a 32-bit `long`; macOS and Linux are LP64, with a 64-bit one, and 1989 C that
+assumed the first can disagree with itself on the second for reasons that have
+nothing to do with the port. The C# side is platform-free managed code, so a
+comparison made on Windows holds for every build.
 
 Both take the game's path from `$AIROM`. Without it, `compare.sh` falls back to
 `dotnet run` - always current, and slow enough that `regress.sh` instead defaults

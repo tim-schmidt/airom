@@ -18,9 +18,13 @@
        codebase is a good candidate for exactly the same reasons. It needs the
        MSVC linker - the "Desktop development with C++" workload - which is a
        several-gigabyte install, so it is left as a later choice rather than a
-       requirement for building the game. -->
+       requirement for building the game.
+
+       The executable is for whatever machine builds it - win-x64, osx-arm64,
+       linux-x64 and so on - and lands under that name in bin/. Pass -r to
+       build for another: every target can be published from every host. -->
   <PropertyGroup>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <UseCurrentRuntimeIdentifier>true</UseCurrentRuntimeIdentifier>
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
     <PublishTrimmed>true</PublishTrimmed>
