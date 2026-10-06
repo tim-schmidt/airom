@@ -12,7 +12,7 @@ namespace Airom.Tests;
 /// encoding are all diffed against the C oracle - 160 death and sheet runs and
 /// 18 score runs, the last of which compares every byte. The table itself is
 /// the one part that was rewritten rather than ported, since the original's
-/// shared setuid file has no meaning on a single-player Windows machine, so it
+/// shared setuid file has no meaning for one player on one machine, so it
 /// is these tests that hold it up.
 /// </summary>
 [Collection("game files")]

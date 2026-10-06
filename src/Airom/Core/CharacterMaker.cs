@@ -290,7 +290,7 @@ public class CharacterMaker
     /// Asks for a name. Mirrors get_name().
     ///
     /// An empty answer is taken as a request for the name the machine knows the
-    /// player by, which on Windows is whoever is logged in.
+    /// player by, which is whoever is logged in.
     /// </summary>
     public void GetName()
     {
@@ -311,7 +311,8 @@ public class CharacterMaker
 
     /// <summary>
     /// Whoever is logged in, cut to what the name field holds. Mirrors
-    /// user_name(), which reads the password file; here it is the Windows user.
+    /// user_name(), which reads the password file; here it is the login .NET
+    /// reports, which on macOS and Linux comes from that same file.
     /// </summary>
     protected virtual string UserName()
     {

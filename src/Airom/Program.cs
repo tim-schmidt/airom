@@ -1,4 +1,4 @@
-// AIrom - a C# port of Umoria 5.6 for Windows.
+// AIrom - a C# port of Umoria 5.6 for Windows, macOS and Linux.
 //
 // Copyright (C) 1989-2008 James E. Wilson, Robert A. Koeneke, David J. Grabiner
 // Copyright (C) 2026 AIrom contributors
@@ -39,10 +39,10 @@ try
     var loop = new GameLoop(game, display);
 
     // The port of init_signals(): Ctrl-C becomes the suicide prompt, and the
-    // console closing under a live character becomes a panic save.
+    // terminal going away under a live character becomes a panic save.
     var signals = new Signals(game, display, loop);
     display.Interrupted = signals.Interrupt;
-    signals.InstallConsoleHandlers();
+    signals.InstallHangupHandlers();
 
     try
     {

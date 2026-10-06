@@ -1,13 +1,15 @@
 // Ported from Umoria 5.6 source/signals.c - what an interrupt and a dying
 // process do to a running game.
 //
-// The original installed signal handlers; a Windows console has no signals.
-// Ctrl-C arrives as a key, because the terminal is told to pass it through,
-// and reaches Interrupt() from inside the game's own key wait - which is where
-// a DOS signal effectively arrived too, delivery there being tied to I/O.
-// A fatal error reaches Panic() from the handler of last resort around the
-// whole game, and the console being closed reaches PanicQuietly() through
-// SetConsoleCtrlHandler, which is the Windows answer to a hangup.
+// The original installed signal handlers for everything. Here Ctrl-C arrives
+// as a key, because the terminal is told to pass it through, and reaches
+// Interrupt() from inside the game's own key wait - which is where a DOS
+// signal effectively arrived too, delivery there being tied to I/O. A fatal
+// error reaches Panic() from the handler of last resort around the whole game.
+// Only the terminal going away is still a signal: a hangup or a termination
+// reaches PanicQuietly() through PosixSignalRegistration, which .NET delivers
+// as a real signal on macOS and Linux and as the matching console event on
+// Windows - the window closing, a logoff, a shutdown, Ctrl-Break.
 //
 // Copyright (C) 1989-2008 James E. Wilson, Robert A. Koeneke, David J. Grabiner
 // Copyright (C) 2026 AIrom contributors
@@ -40,7 +42,7 @@ public sealed class GameInterruptedException : Exception
     }
 }
 
-/// <summary>The port of signal_handler(), split by what Windows can deliver.</summary>
+/// <summary>The port of signal_handler(), split by what a modern console can deliver.</summary>
 public sealed class Signals
 {
     private readonly GameState _game;
@@ -155,53 +157,48 @@ public sealed class Signals
         _loop.SaveFile.Save(_loop.SaveFile.CurrentPath);
     }
 
-    private const uint CtrlBreakEvent = 1;
-    private const uint CtrlCloseEvent = 2;
-    private const uint CtrlLogoffEvent = 5;
-    private const uint CtrlShutdownEvent = 6;
-
-    private delegate bool ConsoleCtrlDelegate(uint controlType);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern bool SetConsoleCtrlHandler(ConsoleCtrlDelegate handler, bool add);
+    /// <summary>
+    /// The signals that mean the terminal is gone or going. On Windows .NET
+    /// raises SIGHUP for the console window closing, SIGTERM for a logoff or
+    /// a shutdown, and SIGQUIT for Ctrl-Break - the four events this game has
+    /// always answered with a panic save.
+    /// </summary>
+    private static readonly PosixSignal[] Hangups =
+        [PosixSignal.SIGHUP, PosixSignal.SIGTERM, PosixSignal.SIGQUIT];
 
     /// <summary>
-    /// Kept alive in a field: the console calls back through this delegate,
-    /// and the collector cannot see that from managed code.
+    /// Kept alive in a field: a registration is undone when it is collected.
     /// </summary>
-    private ConsoleCtrlDelegate? _consoleHandler;
+    private readonly List<PosixSignalRegistration> _registrations = [];
 
     /// <summary>
-    /// Registers for the events the console delivers instead of signals. The
-    /// handler runs on a thread of the system's choosing while the game is in
-    /// the middle of whatever it was doing; a torn save is possible, and is
-    /// still better than the certain loss of not writing one.
+    /// Registers for the signals a hangup arrives as. The handler runs on a
+    /// thread of the runtime's choosing while the game is in the middle of
+    /// whatever it was doing; a torn save is possible, and is still better
+    /// than the certain loss of not writing one.
     /// </summary>
-    public void InstallConsoleHandlers()
+    public void InstallHangupHandlers()
     {
-        _consoleHandler = controlType =>
+        foreach (PosixSignal signal in Hangups)
         {
-            if (controlType is CtrlBreakEvent or CtrlCloseEvent
-                or CtrlLogoffEvent or CtrlShutdownEvent)
-            {
-                try
-                {
-                    PanicQuietly();
-                }
-                catch (Exception)
-                {
-                    // The process is ending; there is nowhere left to report to.
-                }
+            _registrations.Add(PosixSignalRegistration.Create(signal, OnHangup));
+        }
+    }
 
-                // The close events end the process when this returns; a
-                // Ctrl-Break would play on with a game already marked saved,
-                // so it ends the same way.
-                Environment.Exit(1);
-            }
+    private void OnHangup(PosixSignalContext context)
+    {
+        try
+        {
+            PanicQuietly();
+        }
+        catch (Exception)
+        {
+            // The process is ending; there is nowhere left to report to.
+        }
 
-            return false;
-        };
-
-        SetConsoleCtrlHandler(_consoleHandler, add: true);
+        // A closing console ends the process when this returns anyway; the
+        // others would play on with a game already marked saved, so they end
+        // the same way.
+        Environment.Exit(1);
     }
 }

@@ -158,7 +158,9 @@ public class Session
     /// <summary>
     /// Where a saved game is looked for when the command line does not say.
     /// The original consults MORIA_SAV, then HOME; here it is the player's own
-    /// application data, which is the Windows answer to the same question.
+    /// application data - %LOCALAPPDATA% on Windows, Application Support on a
+    /// Mac, ~/.local/share on Linux - which is the modern answer to the same
+    /// question.
     /// </summary>
     public static string DefaultSaveFile()
     {

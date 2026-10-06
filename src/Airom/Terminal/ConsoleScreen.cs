@@ -8,7 +8,8 @@ using System.Text;
 namespace Airom.Terminal;
 
 /// <summary>
-/// Draws AIrom on a Windows console.
+/// Draws AIrom on a console - the Windows console, or a terminal on macOS
+/// and Linux.
 ///
 /// Deliberately built on System.Console with no third-party terminal library.
 /// The game needs cursor positioning, character output, clearing and raw key
@@ -25,7 +26,8 @@ namespace Airom.Terminal;
 /// waits for a key the window is watched, and a change of size rebuilds the
 /// grid, repaints what was on it, and tells whoever is waiting through
 /// <see cref="Resized"/>. Windows has no signal for this - curses had SIGWINCH,
-/// and the original ignored even that - so the watching is done by looking.
+/// and the original ignored even that - so the watching is done by looking,
+/// the same way on every platform.
 /// </summary>
 public sealed class ConsoleScreen : IScreen
 {
