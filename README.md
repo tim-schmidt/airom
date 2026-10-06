@@ -1,23 +1,20 @@
 # AIrom
 
-A C# port of [Umoria](https://en.wikipedia.org/wiki/Moria_(video_game)) 5.6 —
-the 1980s dungeon-crawling roguelike — as a native terminal application for
-Windows, macOS and Linux.
+A C# port of [Umoria](https://en.wikipedia.org/wiki/Moria_(video_game)) 5.6 — the 1980s dungeon-crawling roguelike — as a native terminal application for Windows, macOS and Linux.
 
-The name is *Moria* backwards.
+The name is *Moria* backwards, with a nod to the AI being used to generate this (Claude Opus 5.5, with a dash of Fable 5).
+
+This was done for purely nostalgic, and selfish, reasons. I just wanted to be able to easily play a game from my past on a modern machine.
 
 ## Why
 
-The original is K&R C from 1989, written for UNIX and later carried to a dozen
-dead platforms. The practical way to play it on Windows today is a DOS build
-under DOSBox, and on a modern Mac it takes some coaxing to build at all. This
+The original is K&R C, written for UNIX and later carried to a dozen dead platforms. The practical way to play it on Windows today is a DOS build under DOSBox, and on a modern Mac it takes some coaxing to build at all. This
 port removes that step: one self-contained executable, no emulator, no runtime
 install.
 
 ## Status
 
-Playable. Every file of the original has been ported and diffed against it;
-what remains is play-testing rather than porting.
+Playable. Every file of the original has been ported and diffed against it; what remains is play-testing rather than porting.
 
 ```
 airom              play, picking up a saved game if there is one
@@ -26,11 +23,9 @@ airom -S           the score table
 airom -w           wizard mode, which forfeits the score
 ```
 
-A game saved by a real Umoria 5.6 can be opened here, and one saved here can
-be taken back to it: the savefile is the original's, byte for byte.
+A game saved by a real Umoria 5.6 can be opened here, and one saved here can be taken back to it: the savefile is the original's, byte for byte.
 
-Death is permanent, and the savefile is how: dying writes over it with the dead
-character, so the next game reads what they learned and then asks who you are.
+Death is permanent, and the savefile is how: dying writes over it with the dead character, so the next game reads what they learned and then asks who you are.
 
 | Area | State |
 |---|---|
@@ -53,7 +48,6 @@ character, so the next game reads what they learned and then asks who you are.
 | Win monsters (depth 50+) | Done, verified against the original |
 | **The complete town, shops included** | **Done, verified against the original** |
 | Character creation | Done, verified against the original |
-
 | Terminal surface | Done — System.Console, no third-party library |
 | The view fills the terminal, and follows it when the window is resized | Done — 24x80 gives the original's 22x66 map, verified against the original; anything larger shows more dungeon |
 | Display: panel window and map drawing | Done, verified against the original |
@@ -101,11 +95,7 @@ dotnet run --project src/Airom           # run from source
 dotnet publish src/Airom -c Release      # produce a standalone executable
 ```
 
-The published binary is for the machine that built it, and lands in
-`src/Airom/bin/Release/net9.0/<rid>/publish/` - `win-x64/airom.exe` on Windows,
-`osx-arm64/airom` on an Apple Silicon Mac, `linux-x64/airom` on Linux. It needs
-nothing installed to run, and is one trimmed, self-contained, compressed file
-of 11-13 MB. Any target can be built from any machine:
+The published binary is for the machine that built it, and lands in `src/Airom/bin/Release/net9.0/<rid>/publish/` - `win-x64/airom.exe` on Windows, `osx-arm64/airom` on an Apple Silicon Mac, `linux-x64/airom` on Linux. It needs nothing installed to run, and is one trimmed, self-contained, compressed file of 11-13 MB. Any target can be built from any machine:
 
 ```
 dotnet publish src/Airom -c Release -r osx-arm64   # Apple Silicon Mac
@@ -114,36 +104,22 @@ dotnet publish src/Airom -c Release -r linux-x64   # Linux
 dotnet publish src/Airom -c Release -r win-x64     # Windows
 ```
 
-Every platform plays the same game: the same keys, the same savefile, the same
-panic save if the terminal is closed under a live character. A game saved on
-one can be carried to another.
+Every platform plays the same game: the same keys, the same savefile, the same panic save if the terminal is closed under a live character. A game saved on one can be carried to another.
 
 ### On a Mac
 
-Double-clicking `airom` opens it in Terminal, which starts at the 80x24 the
-game needs. The binary is signed ad hoc but not notarized, so the first time a
-downloaded copy is opened macOS will refuse it; right-click it and choose
-*Open*, or clear the quarantine flag once:
+Double-clicking `airom` opens it in Terminal, which starts at the 80x24 the game needs. The binary is signed ad hoc but not notarized, so the first time a downloaded copy is opened macOS will refuse it; right-click it and choose *Open*, or clear the quarantine flag once:
 
 ```
 xattr -d com.apple.quarantine airom
 ```
 
 Ship it as a `.tar.gz` rather than a zip made on Windows, which loses the
-executable bit. Terminal keeps Home, End, Page Up and Page Down for its own
-scrolling, so the keypad diagonals are best reached with the number keys or,
-in the rogue-like keyset, `yubn`.
+executable bit. Terminal keeps Home, End, Page Up and Page Down for its own scrolling, so the keypad diagonals are best reached with the number keys or, in the rogue-like keyset, `yubn`.
 
-Trimming is safe here for the same reason the port is a good candidate for
-NativeAOT: it is a translation of 1989 C, so it touches none of the framework
-that trimming has trouble with — no reflection, no dynamic loading, no
-serialization. The trimmer agrees, and emits no warnings.
+Trimming is safe here for the same reason the port is a good candidate for NativeAOT: it is a translation of 1989 C, so it touches none of the framework that trimming has trouble with — no reflection, no dynamic loading, no serialization. The trimmer agrees, and emits no warnings.
 
-NativeAOT would take it to roughly 5 MB and start with no warm-up at all. It
-needs the platform's native linker — on Windows the MSVC *Desktop development
-with C++* workload, several gigabytes of it; on a Mac the Xcode command-line
-tools — and unlike the ordinary publish it only builds for the machine it runs
-on, so it is not a requirement for building the game. If you have that
+NativeAOT would take it to roughly 5 MB and start with no warm-up at all. It needs the platform's native linker — on Windows the MSVC *Desktop development with C++* workload, several gigabytes of it; on a Mac the Xcode command-line tools — and unlike the ordinary publish it only builds for the machine it runs on, so it is not a requirement for building the game. If you have that
 installed already:
 
 ```
@@ -152,64 +128,29 @@ dotnet publish src/Airom -c Release -p:PublishAot=true -p:PublishSingleFile=fals
 
 ## Fidelity
 
-The goal is the *same game*, not a game like it. Umoria derives every dungeon,
-monster roll and town layout from a single Park–Miller generator, so the port is
-verified against the original's own published check value — seeded at 1, the
-10,001st draw must be `1043618065`. That test runs on every build.
+The goal is the *same game*, not a game like it. Umoria derives every dungeon, monster roll and town layout from a single Park–Miller generator, so the port is verified against the original's own published check value — seeded at 1, the 10,001st draw must be `1043618065`. That test runs on every build.
 
-Where the 1989 code has quirks, the port keeps them and documents why —
-`(!noscore & 0x04)`, which is always false and has never once run; a help file
-that ends on a blank page; "the Balrog" keeping its article on the score
-board; the message telling a new mage what they can learn, printed once and
-shown twice. Such places are marked `FAITHFUL QUIRK` in the source, and
-listing them is one command:
+Where the 1989 code has quirks, the port keeps them and documents why — `(!noscore & 0x04)`, which is always false and has never once run; a help file that ends on a blank page; "the Balrog" keeping its article on the score board; the message telling a new mage what they can learn, printed once and shown twice. Such places are marked `FAITHFUL QUIRK` in the source, and listing them is one command:
 
 ```
 grep -rn "FAITHFUL QUIRK" src tests
 ```
 
-That marker is a backlog as much as an explanation. Each one is a decision
-already made and written down, so a later pass can go through them and settle
-which are worth keeping as the game's character and which were only ever
-somebody's slip — a question about what AIrom should be, and one to answer
-deliberately rather than while porting.
+That marker is a backlog as much as an explanation. Each one is a decision already made and written down, so a later pass can go through them and settle which are worth keeping as the game's character and which were only ever somebody's slip — a question about what AIrom should be, and one to answer deliberately rather than while porting.
 
-One is not kept. `reset_seed()` restores a saved generator state to the *next*
-value rather than the saved one, and since the generator is multiplicative that
-lands on an unrelated part of the cycle: a "reset" that resets nothing. It was
-reproduced for as long as the port needed to be diffed against the original,
-which is what made the differential testing possible at all, and was corrected
-once that testing was done. The oracle harness still asks for the old behaviour,
-because the C it compares against will always have it.
+One is not kept. `reset_seed()` restores a saved generator state to the *next* value rather than the saved one, and since the generator is multiplicative that lands on an unrelated part of the cycle: a "reset" that resets nothing. It was reproduced for as long as the port needed to be diffed against the original, which is what made the differential testing possible at all, and was corrected once that testing was done. The oracle harness still asks for the old behavior, because the C it compares against will always have it.
 
-The one thing this changes is which dungeon a given seed produces. AIrom's seed
-1 and Umoria's seed 1 are different games from the first level down — every
-other observable, including the savefile, is unchanged.
+The one thing this changes is which dungeon a given seed produces. AIrom's seed 1 and Umoria's seed 1 are different games from the first level down — every other observable, including the savefile, is unchanged.
 
-One place is deliberately not a port. Umoria's score table is a single file
-shared by every player on a Unix machine: the game runs setuid, locks the file
-while it writes, and stamps each entry with a user id. None of that means
-anything for one person on one machine, so the table is kept as a plain
-file under the player's own application data, with no lock and a user id of
-nought throughout - which is the case the original already handles, falling back
-to the character's birth date to tell one character from another. The *record*
-inside that file is still the original's, byte for byte, and is compared as
-such.
+One place is deliberately not a port. Umoria's score table is a single file shared by every player on a Unix machine: the game runs setuid, locks the file while it writes, and stamps each entry with a user id. None of that means anything for one person on one machine, so the table is kept as a plain file under the player's own application data, with no lock and a user id of nought throughout - which is the case the original already handles, falling back to the character's birth date to tell one character from another. The *record* inside that file is still the original's, byte for byte, and is compared as such.
 
-Save files are the original's, byte for byte. A game saved by a real Umoria
-5.6 can be picked up here and a game saved here can be taken back, which is
-what the version bytes at the front of every file are for: the format was
-frozen at 5.2.2, and everything from 5.0.14 on is read.
+Save files are the original's, byte for byte. A game saved by a real Umoria 5.6 can be picked up here and a game saved here can be taken back, which is what the version bytes at the front of every file are for: the format was frozen at 5.2.2, and everything from 5.0.14 on is read.
 
 The C sources are kept outside this repository and used strictly as reference.
 
 ## The limits
 
-Umoria's `MAX_*` constants are 1989 memory budgets rather than design. They
-were left exactly as they were for as long as the port was being diffed against
-the original, since every one of them changes what a seed produces and a
-changed one turns the comparison into noise. That is over, so here is what each
-group actually costs to move.
+Umoria's `MAX_*` constants are 1989 memory budgets rather than design. They were left exactly as they were for as long as the port was being diffed against the original, since every one of them changes what a seed produces and a changed one turns the comparison into noise. That is over, so here is what each group actually costs to move.
 
 | Group | Examples | What holds it |
 |---|---|---|
@@ -219,26 +160,18 @@ group actually costs to move.
 | Content | `MAX_OBJECTS` 420, `MAX_CREATURES` 279 | Append freely; never insert or reorder. Rows are addressed by position by the `OBJ_*` constants, by the win-monster arithmetic, and by every savefile ever written. |
 | Dungeon size | `MAX_HEIGHT` 66, `MAX_WIDTH` 198 | Real work. The panel arithmetic wants a whole number of half-screens, not the byte-wide coordinate fields, which reach 255. Also a save-format bump: the cave is swept as `MAX_HEIGHT * MAX_WIDTH` and range-checked on the way back in. |
 
-Nothing in the port depends on any of these being what they are, beyond the
-savefile compatibility noted above — the game reads its own limits everywhere,
-and a level that fills one compacts to make room rather than giving up.
+Nothing in the port depends on any of these being what they are, beyond the savefile compatibility noted above — the game reads its own limits everywhere, and a level that fills one compacts to make room rather than giving up.
 
 ## Generated data
 
-The object, monster, owner and appearance tables are ~800 rows of C struct
-initialisers. They are generated rather than transcribed, by
-`tools/gen_tables.py`, so the field mapping is written down once and the result
-is reproducible:
+The object, monster, owner and appearance tables are ~800 rows of C struct initialisers. They are generated rather than transcribed, by `tools/gen_tables.py`, so the field mapping is written down once and the result is reproducible:
 
 ```
 python tools/gen_tables.py            # regenerate
 python tools/gen_tables.py --check    # fail if the committed files are stale
 ```
 
-The generator resolves `#ifdef` branches the way a compiler would, picking the
-portable build, and skips character literals when matching braces — the object
-table draws bows as `'}'` and arrows as `'{'`, which naive brace counting reads
-as structure.
+The generator resolves `#ifdef` branches the way a compiler would, picking the portable build, and skips character literals when matching braces — the object table draws bows as `'}'` and arrows as `'{'`, which naive brace counting reads as structure.
 
 ## Layout
 
@@ -256,8 +189,6 @@ tools/              code generators run against the reference sources
 
 GPL-3.0-or-later, inherited from Umoria. See [LICENSE](LICENSE).
 
-Umoria is copyright © 1989–2008 James E. Wilson, Robert A. Koeneke and
-David J. Grabiner. This port is a derivative work and carries the same license.
+Umoria is copyright © 1989–2008 James E. Wilson, Robert A. Koeneke and David J. Grabiner. This port is a derivative work and carries the same license.
 
-Per the original authors' request, this project is deliberately *not* named
-`umoria`, so it is not confused with their version.
+Per the original authors' request, this project is deliberately *not* named `umoria`, so it is not confused with their version.
