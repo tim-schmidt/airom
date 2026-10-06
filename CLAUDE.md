@@ -64,7 +64,7 @@ Both take the game's path from `$AIROM`. Without it, `compare.sh` falls back to
 to the publish directory above. So publish first, then run the sweep.
 
 Run the full sweep before committing anything that touches shared state. It is
-664 comparisons and takes a few minutes.
+728 comparisons and takes a few minutes.
 
 ## Two rules the harness earned the hard way
 
