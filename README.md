@@ -87,7 +87,7 @@ Death is permanent, and the savefile is how: dying writes over it with the dead 
 
 ## Building
 
-Requires the [.NET 9 SDK](https://dotnet.microsoft.com/download).
+Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download).
 
 ```
 dotnet test                              # run the test suite
@@ -95,7 +95,7 @@ dotnet run --project src/Airom           # run from source
 dotnet publish src/Airom -c Release      # produce a standalone executable
 ```
 
-The published binary is for the machine that built it, and lands in `src/Airom/bin/Release/net9.0/<rid>/publish/` - `win-x64/airom.exe` on Windows, `osx-arm64/airom` on an Apple Silicon Mac, `linux-x64/airom` on Linux. It needs nothing installed to run, and is one trimmed, self-contained, compressed file of 11-13 MB. Any target can be built from any machine:
+The published binary is for the machine that built it, and lands in `src/Airom/bin/Release/net10.0/<rid>/publish/` - `win-x64/airom.exe` on Windows, `osx-arm64/airom` on an Apple Silicon Mac, `linux-x64/airom` on Linux. It needs nothing installed to run, and is one trimmed, self-contained, compressed file of 11-13 MB. Any target can be built from any machine:
 
 ```
 dotnet publish src/Airom -c Release -r osx-arm64   # Apple Silicon Mac
