@@ -23,8 +23,13 @@ game here:
 src\Airom\bin\Release\net10.0\<rid>\publish\airom[.exe]
 ```
 
-where `<rid>` is `win-x64`, `osx-arm64`, `linux-x64` and so on. Add `-r <rid>`
-to build for another platform; every target publishes from every host.
+where `<rid>` is `win-x64`, `osx-arm64`, `linux-x64` and so on. The game is
+compiled with NativeAOT, which links with the platform's own toolchain, so a
+machine builds only for itself. On Windows that needs the Visual Studio Build
+Tools with the C++ workload; if the link step reports `'vswhere.exe' is not
+recognized`, the folder `Visual Studio\Installer` under Program Files (x86) is
+missing from PATH. Release downloads for every platform are built by the
+Release workflow, `.github/workflows/release.yml`.
 
 **Publish there and nowhere else.** It is tempting to pass `-o` and put a copy
 somewhere convenient - the oracle wants a path to an executable, and a scratch

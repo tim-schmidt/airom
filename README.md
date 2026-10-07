@@ -87,7 +87,7 @@ Death is permanent, and the savefile is how: dying writes over it with the dead 
 
 ## Building
 
-Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download).
+Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download), and to publish, the platform's native toolchain: on Windows the Visual Studio Build Tools with the *Desktop development with C++* workload, on Linux `clang` and `zlib1g-dev`, on a Mac the Xcode command-line tools.
 
 ```
 dotnet test                              # run the test suite
@@ -95,14 +95,9 @@ dotnet run --project src/Airom           # run from source
 dotnet publish src/Airom -c Release      # produce a standalone executable
 ```
 
-The published binary is for the machine that built it, and lands in `src/Airom/bin/Release/net10.0/<rid>/publish/` - `win-x64/airom.exe` on Windows, `osx-arm64/airom` on an Apple Silicon Mac, `linux-x64/airom` on Linux. It needs nothing installed to run, and is one trimmed, self-contained, compressed file of 11-13 MB. Any target can be built from any machine:
+The published binary is for the machine that built it, and lands in `src/Airom/bin/Release/net10.0/<rid>/publish/` - `win-x64/airom.exe` on Windows, `osx-arm64/airom` on an Apple Silicon Mac, `linux-x64/airom` on Linux. It is compiled ahead of time with NativeAOT into one native executable of about 3 MB, which needs nothing installed to run and starts in a few tens of milliseconds. Because it links with the platform's own toolchain, each platform's build is made on that platform; the release downloads come from the Release workflow, which builds all three.
 
-```
-dotnet publish src/Airom -c Release -r osx-arm64   # Apple Silicon Mac
-dotnet publish src/Airom -c Release -r osx-x64     # Intel Mac
-dotnet publish src/Airom -c Release -r linux-x64   # Linux
-dotnet publish src/Airom -c Release -r win-x64     # Windows
-```
+NativeAOT is safe here because the port is a translation of 1989 C, which touches none of the framework that ahead-of-time compilation has trouble with — no reflection, no dynamic loading, no serialization. The compiler agrees, and emits no trim or AOT warnings.
 
 Every platform plays the same game: the same keys, the same savefile, the same panic save if the terminal is closed under a live character. A game saved on one can be carried to another.
 
@@ -114,17 +109,7 @@ Double-clicking `airom` opens it in Terminal, which starts at the 80x24 the game
 xattr -d com.apple.quarantine airom
 ```
 
-Ship it as a `.tar.gz` rather than a zip made on Windows, which loses the
-executable bit. Terminal keeps Home, End, Page Up and Page Down for its own scrolling, so the keypad diagonals are best reached with the number keys or, in the rogue-like keyset, `yubn`.
-
-Trimming is safe here for the same reason the port is a good candidate for NativeAOT: it is a translation of 1989 C, so it touches none of the framework that trimming has trouble with — no reflection, no dynamic loading, no serialization. The trimmer agrees, and emits no warnings.
-
-NativeAOT would take it to roughly 5 MB and start with no warm-up at all. It needs the platform's native linker — on Windows the MSVC *Desktop development with C++* workload, several gigabytes of it; on a Mac the Xcode command-line tools — and unlike the ordinary publish it only builds for the machine it runs on, so it is not a requirement for building the game. If you have that
-installed already:
-
-```
-dotnet publish src/Airom -c Release -p:PublishAot=true -p:PublishSingleFile=false
-```
+Ship it as a `.tar.gz`, which keeps the executable bit. Terminal keeps Home, End, Page Up and Page Down for its own scrolling, so the keypad diagonals are best reached with the number keys or, in the rogue-like keyset, `yubn`.
 
 ## Fidelity
 

@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -6,32 +6,27 @@
     <AssemblyName>airom</AssemblyName>
   </PropertyGroup>
 
-  <!-- Ship as one double-clickable file with no .NET install required.
+  <!-- Ship as one native executable with no .NET install required.
        Build with: dotnet publish -c Release
 
-       Trimmed: the game is a port of 1989 C, so it uses none of the framework
-       that makes trimming risky - no reflection, no dynamic loading, no
-       serialization. The trimmer says so too, emitting no warnings at all,
-       which takes the executable from 36.8 MB to 11.2 MB.
+       NativeAOT: the game is compiled to machine code ahead of time, so it
+       starts with no warm-up. That is safe here because the game is a port of
+       1989 C and uses none of the framework that AOT cannot see through - no
+       reflection, no dynamic loading, no serialization. The analyzers agree,
+       emitting no trim or AOT warnings at all.
 
-       NativeAOT would take it to about 5 MB and start instantly, and this
-       codebase is a good candidate for exactly the same reasons. It needs the
-       MSVC linker - the "Desktop development with C++" workload - which is a
-       several-gigabyte install, so it is left as a later choice rather than a
-       requirement for building the game.
+       AOT links with the platform's own native toolchain, so the executable
+       can only be built for the machine that builds it: on Windows the MSVC
+       "Desktop development with C++" workload, on Linux clang and zlib's
+       headers, on a Mac the Xcode command-line tools. It lands in bin/ under
+       that machine's runtime identifier - win-x64, osx-arm64, linux-x64.
 
-       The executable is for whatever machine builds it - win-x64, osx-arm64,
-       linux-x64 and so on - and lands under that name in bin/. Pass -r to
-       build for another: every target can be published from every host. -->
+       No debug symbols: they would sit beside the executable at several times
+       its size, for no player's benefit. A crash still names its methods. -->
   <PropertyGroup>
     <UseCurrentRuntimeIdentifier>true</UseCurrentRuntimeIdentifier>
-    <SelfContained>true</SelfContained>
-    <PublishSingleFile>true</PublishSingleFile>
-    <PublishTrimmed>true</PublishTrimmed>
-    <TrimMode>full</TrimMode>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
-    <DebugType>embedded</DebugType>
+    <PublishAot>true</PublishAot>
+    <DebugType>none</DebugType>
   </PropertyGroup>
 
   <!-- The help text, which the game reads at run time rather than embedding:

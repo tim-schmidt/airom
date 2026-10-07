@@ -29,6 +29,12 @@ dotnet test tests/Airom.Tests
 
 Both must pass. Warnings are treated as errors.
 
+Publishing compiles the game with NativeAOT, which needs your platform's native
+toolchain as well as the .NET 10 SDK: on Windows the Visual Studio Build Tools
+with the *Desktop development with C++* workload, on Linux `clang` and
+`zlib1g-dev`, on a Mac the Xcode command-line tools. The tests need only the
+SDK, and the pull request's checks build and test on all three platforms.
+
 Keep each pull request to one change, and say in its description what you
 checked. A change to how the game plays should say which part of the original
 it follows, by file and function.

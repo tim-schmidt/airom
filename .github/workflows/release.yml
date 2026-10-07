@@ -1,0 +1,117 @@
+# Builds every download for a release that already exists, and attaches them.
+#
+# The game is compiled ahead of time with each platform's own native toolchain,
+# so each download is built on its own platform. A Mac build also needs a Mac
+# for the ad hoc signature, without which Apple Silicon will not run it.
+#
+# Run it from the Actions tab, naming the release's tag. The builds are made
+# from that tag, not from main.
+
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag of the existing release to attach the downloads to
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.rid }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { os: windows-latest, rid: win-x64,   exe: airom.exe, archive: zip }
+          - { os: ubuntu-latest,  rid: linux-x64, exe: airom,     archive: tar.gz }
+          - { os: macos-latest,   rid: osx-arm64, exe: airom,     archive: tar.gz }
+    runs-on: ${{ matrix.os }}
+    env:
+      TAG: ${{ inputs.tag }}
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag }}
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Publish
+        run: dotnet publish src/Airom -c Release
+
+      - name: Test
+        run: dotnet test tests/Airom.Tests
+
+      # The tar keeps file modes: 644 throughout, 755 for the game itself.
+      - name: Package
+        run: |
+          name="airom-${TAG#v}-${{ matrix.rid }}"
+          stage="$RUNNER_TEMP/$name"
+          mkdir -p "$stage" "$RUNNER_TEMP/out"
+          cp -R "src/Airom/bin/Release/net10.0/${{ matrix.rid }}/publish/." "$stage/"
+          cp LICENSE README.md "$stage/"
+          if [ "${{ matrix.archive }}" = zip ]; then
+            (cd "$RUNNER_TEMP" && 7z a -tzip "out/$name.zip" "$name" > /dev/null)
+          else
+            find "$stage" -type d -exec chmod 755 {} +
+            find "$stage" -type f -exec chmod 644 {} +
+            chmod 755 "$stage/${{ matrix.exe }}"
+            tar -czf "$RUNNER_TEMP/out/$name.tar.gz" -C "$RUNNER_TEMP" "$name"
+          fi
+          echo "NAME=$name" >> "$GITHUB_ENV"
+
+      # Unpack the archive as a player would and start the game. MORIA_SAV and
+      # MORIA_TOP keep it off any real files.
+      - name: Check the archive
+        run: |
+          check="$RUNNER_TEMP/check"
+          mkdir -p "$check"
+          if [ "${{ matrix.archive }}" = zip ]; then
+            7z x -o"$check" "$RUNNER_TEMP/out/$NAME.zip" > /dev/null
+          else
+            tar -xzf "$RUNNER_TEMP/out/$NAME.tar.gz" -C "$check"
+          fi
+          exe="$check/$NAME/${{ matrix.exe }}"
+          ls -lR "$check/$NAME"
+          if [ "${{ runner.os }}" = macOS ]; then
+            codesign --verify --verbose "$exe"
+            codesign --display --verbose=2 "$exe" 2>&1 | grep -E "Signature|Format"
+          fi
+          MORIA_SAV="$check/sav" MORIA_TOP="$check/top" "$exe" -S < /dev/null
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.rid }}
+          path: ${{ runner.temp }}/out/*
+          retention-days: 7
+
+  attach:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: out
+          merge-multiple: true
+
+      - name: Attach to the release
+        run: |
+          cd out
+          sha256sum * | sed 's/  / */' > SHA256SUMS
+          cat SHA256SUMS
+          gh release upload "$TAG" * --repo "$GITHUB_REPOSITORY" --clobber
