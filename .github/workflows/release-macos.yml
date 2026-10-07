@@ -1,0 +1,78 @@
+# Builds the macOS download for a release that already exists, and attaches it.
+#
+# It runs on a Mac because Apple Silicon refuses to run an unsigned binary, and
+# the ad hoc signature that lets a downloaded copy run at all is made by the
+# SDK on macOS. The archive is a .tar.gz, which keeps the executable bit.
+#
+# Run it from the Actions tab, naming the release's tag. The build is made from
+# that tag, not from main, so it matches the release's other downloads.
+
+name: Release macOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag of the existing release to attach the macOS build to
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    env:
+      TAG: ${{ inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag }}
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Publish
+        run: dotnet publish src/Airom -c Release -r osx-arm64
+
+      - name: Test
+        run: dotnet test tests/Airom.Tests
+
+      - name: Package
+        run: |
+          name="airom-${TAG#v}-osx-arm64"
+          stage="$RUNNER_TEMP/$name"
+          mkdir -p "$stage"
+          cp -R src/Airom/bin/Release/net10.0/osx-arm64/publish/. "$stage/"
+          cp LICENSE README.md "$stage/"
+          find "$stage" -type d -exec chmod 755 {} +
+          find "$stage" -type f -exec chmod 644 {} +
+          chmod 755 "$stage/airom"
+          tar -czf "$RUNNER_TEMP/$name.tar.gz" -C "$RUNNER_TEMP" "$name"
+          echo "NAME=$name" >> "$GITHUB_ENV"
+
+      # Unpack the archive as a player would, check the signature survived, and
+      # start the game. MORIA_SAV and MORIA_TOP keep it off any real files.
+      - name: Check the archive
+        run: |
+          check="$RUNNER_TEMP/check"
+          mkdir -p "$check"
+          tar -xzf "$RUNNER_TEMP/$NAME.tar.gz" -C "$check"
+          exe="$check/$NAME/airom"
+          ls -lR "$check/$NAME"
+          codesign --verify --verbose "$exe"
+          codesign --display --verbose=2 "$exe" 2>&1 | grep -E "Signature|Identifier|Format"
+          MORIA_SAV="$check/sav" MORIA_TOP="$check/top" "$exe" -S < /dev/null
+
+      - name: Attach to the release
+        run: |
+          cd "$RUNNER_TEMP"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern SHA256SUMS
+          grep -v osx-arm64 SHA256SUMS > SHA256SUMS.new || true
+          shasum -a 256 "$NAME.tar.gz" | sed 's/  / */' >> SHA256SUMS.new
+          mv SHA256SUMS.new SHA256SUMS
+          cat SHA256SUMS
+          gh release upload "$TAG" "$NAME.tar.gz" SHA256SUMS --repo "$GITHUB_REPOSITORY" --clobber
