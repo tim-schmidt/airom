@@ -21,12 +21,15 @@
        headers, on a Mac the Xcode command-line tools. It lands in bin/ under
        that machine's runtime identifier - win-x64, osx-arm64, linux-x64.
 
-       No debug symbols: they would sit beside the executable at several times
-       its size, for no player's benefit. A crash still names its methods. -->
+       No debug symbols beside the executable: they would ship at several times
+       its size, for no player's benefit. A crash still names its methods.
+       DebugType stops them being made at all; on a Mac the strip step makes a
+       .dSYM regardless, and the second property keeps it out of publish/. -->
   <PropertyGroup>
     <UseCurrentRuntimeIdentifier>true</UseCurrentRuntimeIdentifier>
     <PublishAot>true</PublishAot>
     <DebugType>none</DebugType>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
   </PropertyGroup>
 
   <!-- The help text, which the game reads at run time rather than embedding:
