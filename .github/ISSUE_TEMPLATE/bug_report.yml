@@ -1,0 +1,56 @@
+name: Bug report
+description: Something in the game does not work, or does not match Umoria 5.6.
+labels: ["bug"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: AIrom version
+      description: The release you downloaded, or the commit you built from.
+      placeholder: "1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+  - type: input
+    id: terminal
+    attributes:
+      label: Terminal and size
+      description: The terminal the game was running in, and its size if you know it.
+      placeholder: "Windows Terminal, 120x30"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: What you did
+      description: Step by step, as far as you can.
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+  - type: dropdown
+    id: original
+    attributes:
+      label: Does a real Umoria 5.6 do the same?
+      options:
+        - I don't know
+        - "No, the original does it differently"
+        - "Yes, the original does this too"
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: A savefile that shows the problem is the best evidence there is; attach it here if you can.
