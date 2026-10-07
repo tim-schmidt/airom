@@ -67,3 +67,17 @@ Copyright (c) 1989-94 James E. Wilson, Robert A. Keoneke
   included in all such copies.
 
 Umoria Version 5.5, patch level 1
+                        AIrom 1.0 (Umoria 5.6 in C#)
+Port begun   : 08/17/26
+Version 1.0  : 10/07/26
+
+Port :
+     Every file of Umoria 5.6     - ported to C#, and diffed
+                                    against the original in C
+     Windows, macOS and Linux     - one game, one savefile
+
+Tim Schmidt
+Claude (Anthropic) - Opus 5.5, with a dash of Fable 5
+
+  AIrom is a modified version of Umoria 5.6, and is free software
+  under the GNU GPL, version 3 or later.  See LICENSE.
