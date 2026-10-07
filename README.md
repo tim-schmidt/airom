@@ -130,7 +130,7 @@ dotnet publish src/Airom -c Release -p:PublishAot=true -p:PublishSingleFile=fals
 
 The goal is the *same game*, not a game like it. Umoria derives every dungeon, monster roll and town layout from a single Park–Miller generator, so the port is verified against the original's own published check value — seeded at 1, the 10,001st draw must be `1043618065`. That test runs on every build.
 
-Where the 1989 code has quirks, the port keeps them and documents why — `(!noscore & 0x04)`, which is always false and has never once run; a help file that ends on a blank page; "the Balrog" keeping its article on the score board; the message telling a new mage what they can learn, printed once and shown twice. Such places are marked `FAITHFUL QUIRK` in the source, and listing them is one command:
+Where the 1989 code has quirks, the port keeps them and documents why — `(!noscore & 0x04)`, which is always false and has never once run; a help pager that follows a file filling its last page exactly with a blank one; "the Balrog" keeping its article on the score board; the message telling a new mage what they can learn, printed once and shown twice. Such places are marked `FAITHFUL QUIRK` in the source, and listing them is one command:
 
 ```
 grep -rn "FAITHFUL QUIRK" src tests
