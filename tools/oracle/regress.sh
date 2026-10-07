@@ -6,7 +6,7 @@
 # Where "dotnet publish src/Airom -c Release" puts the game. Defaulting to a
 # scratch copy somewhere else is how a stale binary gets compared for a week
 # without anyone noticing.
-AIROM=${AIROM:-/c/code/airom/src/Airom/bin/Release/net9.0/win-x64/publish/airom.exe}
+AIROM=${AIROM:-/c/code/airom/src/Airom/bin/Release/net10.0/win-x64/publish/airom.exe}
 COMPARE=/c/code/airom/tools/oracle/compare.sh
 
 total=0

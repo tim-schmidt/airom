@@ -20,7 +20,7 @@ That is the whole of it, and it builds for the machine it runs on, putting the
 game here:
 
 ```
-src\Airom\bin\Release\net9.0\<rid>\publish\airom[.exe]
+src\Airom\bin\Release\net10.0\<rid>\publish\airom[.exe]
 ```
 
 where `<rid>` is `win-x64`, `osx-arm64`, `linux-x64` and so on. Add `-r <rid>`
