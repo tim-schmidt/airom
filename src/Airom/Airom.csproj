@@ -41,6 +41,12 @@
       <Link>help\%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- Never opened by the game, but the news screen sends Moria 4.8x
+         players to doc/FEATURES.NEW, so it ships where that line says. -->
+    <Content Include="..\..\doc\FEATURES.NEW">
+      <Link>doc\FEATURES.NEW</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>
