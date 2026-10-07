@@ -1,0 +1,61 @@
+# Builds, tests and starts the game on every platform it ships for.
+#
+# The oracle does not run here: it needs the original Umoria sources, which are
+# not part of this repository, and it is built and run on Windows only (see
+# CLAUDE.md). Run tools/oracle/regress.sh locally for changes to how the game
+# behaves.
+
+name: Build
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Publish
+        run: dotnet publish src/Airom -c Release
+
+      - name: Test
+        run: dotnet test tests/Airom.Tests
+
+      # The published executable, started with no terminal, prints the score
+      # table and exits. MORIA_SAV and MORIA_TOP keep it away from any real
+      # player's files.
+      - name: Start the published game
+        shell: bash
+        run: |
+          dir=$(echo src/Airom/bin/Release/net10.0/*/publish)
+          exe="$dir/airom"
+          [ -f "$exe.exe" ] && exe="$exe.exe"
+          ls -l "$exe" "$dir/help"
+          MORIA_SAV="$RUNNER_TEMP/sav" MORIA_TOP="$RUNNER_TEMP/top" "$exe" -S < /dev/null
+
+      - name: Upload the published game
+        uses: actions/upload-artifact@v7
+        with:
+          name: airom-${{ runner.os }}
+          path: src/Airom/bin/Release/net10.0/*/publish/
+          retention-days: 7
