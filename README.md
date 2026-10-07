@@ -181,6 +181,7 @@ src/Airom/          the game
   Data/             game tables and the types they populate
   Terminal/         the screen surface that replaces curses
 help/               the original's help text, shipped beside the program
+doc/                the original's FEATURES.NEW, which the news screen names
 tests/Airom.Tests/  test suite
 tools/              code generators run against the reference sources
 ```
